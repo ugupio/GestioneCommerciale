@@ -1,0 +1,192 @@
+﻿@page "/nuovo-ordine"
+@rendermode InteractiveServer
+@using Microsoft.Data.SqlClient
+@using Dapper
+@using GestioneCommerciale.Models
+
+<style>
+    .win-form { background-color: #f0f0f0; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; border: 1px solid #999; padding: 5px; min-width: 900px; }
+    .win-header { background: #005a9e; color: white; padding: 3px 8px; font-weight: bold; margin: -5px -5px 5px -5px; font-size: 12px; }
+    .win-group { border: 1px solid #c0c0c0; background: #fff; padding: 8px; margin-bottom: 5px; }
+    .win-label { font-weight: 500; color: #333; display: flex; align-items: center; height: 22px; white-space: nowrap; font-size: 11px; }
+    .win-input { border: 1px solid #ccc; padding: 1px 4px; height: 22px; width: 100%; font-size: 11px; }
+    .win-input:focus { border-color: #0078d7; outline: none; background-color: #faffbd; }
+    .win-btn { background: #e1e1e1; border: 1px solid #adadad; padding: 2px 10px; color: black; font-size: 11px; height: 24px; cursor: pointer; }
+    .win-btn:hover { background: #e5f1fb; border-color: #0078d7; }
+    .win-btn-primary { background: #0078d7; color: white; border-color: #005a9e; }
+    .win-grid { width: 100%; border-collapse: collapse; background: white; font-size: 11px; }
+    .win-grid th { background: #f0f0f0; border: 1px solid #ccc; padding: 3px; text-align: left; }
+    .win-grid td { border: 1px solid #eee; padding: 3px; }
+    .section-title { font-weight: bold; color: #005a9e; border-bottom: 1px solid #ddd; margin-bottom: 5px; font-size: 10px; text-transform: uppercase; }
+</style>
+
+<div class="win-form">
+    <div class="win-header">Emissione Nuovo Ordine - Terminale Tablet</div>
+
+    <!-- TESTATA ORDINE -->
+    <div class="win-group">
+        <div class="section-title">Dati Testata Documento</div>
+        <table style="width:100%; border-spacing: 4px; border-collapse: separate; table-layout: fixed;">
+            <tr>
+                <td style="width:8%;" class="win-label">Cliente:</td>
+                <td style="width:42%;">
+                    <select class="win-input fw-bold" @bind="ordine.IDCliente">
+                        <option value="0">-- Seleziona Cliente --</option>
+                        @foreach (var c in listaClienti) {
+                            <option value="@c.IdCliente">@c.RagSociale</option>
+                        }
+                    </select>
+                </td>
+                <td style="width:8%;" class="win-label">Data:</td>
+                <td style="width:17%;"><input type="date" class="win-input" @bind="ordine.DataOrdine" /></td>
+                <td style="width:10%;" class="win-label">N. Ordine:</td>
+                <td style="width:15%;"><input type="text" class="win-input" @bind="ordine.NumeroDocumento" /></td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- INSERIMENTO RIGA RAPIDO -->
+    <div class="win-group" style="background: #eef5fb;">
+        <div class="section-title" style="color: #28a745;">Inserimento Nuova Riga Articolo</div>
+        <table style="width:100%; border-spacing: 2px; border-collapse: separate; table-layout: fixed;">
+            <thead class="text-muted" style="font-size: 9px; text-transform: uppercase;">
+                <tr>
+                    <th>Descrizione Prodotto / Articolo</th>
+                    <th style="width:70px;">Quantità</th>
+                    <th style="width:90px;">Prezzo Unit.</th>
+                    <th style="width:70px;">Sconto %</th>
+                    <th style="width:100px;">Azione</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><input type="text" class="win-input" @bind="nuovaRiga.Descrizione" placeholder="Inserisci descrizione..." /></td>
+                    <td><input type="number" class="win-input text-end" @bind="nuovaRiga.Quantita" /></td>
+                    <td><input type="number" class="win-input text-end" @bind="nuovaRiga.PrezzoUnitario" /></td>
+                    <td><input type="number" class="win-input text-end" @bind="nuovaRiga.ScontoRiga" /></td>
+                    <td>
+                        <button class="win-btn w-100 win-btn-primary fw-bold" @onclick="AggiungiRiga">INSERISCI</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- GRIGLIA RIEPILOGO RIGHE -->
+    <div class="win-group bg-white" style="height: 220px; overflow-y: auto;">
+        <table class="win-grid">
+            <thead style="position: sticky; top: 0; z-index: 5;">
+                <tr>
+                    <th>Descrizione Articolo</th>
+                    <th class="text-end" style="width:80px;">Qtà</th>
+                    <th class="text-end" style="width:100px;">Prezzo Unit.</th>
+                    <th class="text-end" style="width:80px;">Sc. %</th>
+                    <th class="text-end" style="width:110px;">Totale Riga</th>
+                    <th style="width:40px; text-align:center;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var riga in ordine.Righe) {
+                    <tr>
+                        <td>@riga.Descrizione</td>
+                        <td class="text-end">@riga.Quantita.ToString("N2")</td>
+                        <td class="text-end">@riga.PrezzoUnitario.ToString("N2") €</td>
+                        <td class="text-end">@riga.ScontoRiga.ToString("N1")%</td>
+                        <td class="text-end fw-bold text-primary">
+                            @(((riga.PrezzoUnitario * riga.Quantita) * (1 - riga.ScontoRiga / 100)).ToString("N2")) €
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm p-0 text-danger" @onclick="() => RimuoviRiga(riga)">✖</button>
+                        </td>
+                    </tr>
+                }
+                @if (!ordine.Righe.Any()) {
+                    <tr><td colspan="6" class="text-center p-4 text-muted italic">Nessun articolo in carrello</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- FOOTER AZIONI E TOTALI -->
+    <div class="d-flex justify-content-between p-2 border-top bg-light">
+        <div class="h5 fw-bold text-primary mb-0">
+            TOTALE IMPONIBILE: @CalcolaTotaleOrdine().ToString("N2") €
+        </div>
+        <div>
+            <span class="small fw-bold @(messaggio.Contains("✅") ? "text-success" : "text-danger") me-3">@messaggio</span>
+            <button class="win-btn me-1" @onclick="Annulla">Annulla</button>
+            <button class="win-btn win-btn-primary px-4 fw-bold" style="background:#28a745" @onclick="SalvaOrdineCompleto">CONFERMA E SALVA (F10)</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private OrdineTestata ordine = new OrdineTestata();
+    private DettaglioOrdine nuovaRiga = new DettaglioOrdine { Quantita = 1 };
+    private List<Cliente> listaClienti = new();
+    private string messaggio = "";
+    private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
+
+    protected override async Task OnInitializedAsync() {
+        try {
+            using var db = new SqlConnection(conn);
+            listaClienti = (await db.QueryAsync<Cliente>("SELECT IdCliente, RagSociale FROM Clienti ORDER BY RagSociale")).ToList();
+        } catch (Exception ex) { messaggio = "Errore: " + ex.Message; }
+    }
+
+    private decimal CalcolaTotaleOrdine() {
+        if (ordine.Righe == null) return 0;
+        return ordine.Righe.Sum(r => (r.PrezzoUnitario * r.Quantita) * (1 - r.ScontoRiga / 100));
+    }
+
+    private void AggiungiRiga() {
+        if (string.IsNullOrWhiteSpace(nuovaRiga.Descrizione)) { messaggio = "Inserire descrizione!"; return; }
+        ordine.Righe.Add(new DettaglioOrdine {
+            Descrizione = nuovaRiga.Descrizione,
+            Quantita = nuovaRiga.Quantita,
+            PrezzoUnitario = nuovaRiga.PrezzoUnitario,
+            ScontoRiga = nuovaRiga.ScontoRiga
+        });
+        nuovaRiga = new DettaglioOrdine { Quantita = 1 };
+        messaggio = "";
+    }
+
+    private void RimuoviRiga(DettaglioOrdine riga) => ordine.Righe.Remove(riga);
+
+    private void Annulla() {
+        ordine = new OrdineTestata();
+        messaggio = "Ordine resettato.";
+    }
+
+    private async Task SalvaOrdineCompleto() {
+        if (ordine.IDCliente == 0 || !ordine.Righe.Any()) { messaggio = "Dati mancanti!"; return; }
+
+        using var db = new SqlConnection(conn);
+        await db.OpenAsync();
+        using var tran = db.BeginTransaction();
+
+        try {
+            string sqlOrd = @"INSERT INTO Ordini (IDCliente, DataOrdine, NumeroDocumento, TotaleImponibile, TotaleIva, StatoOrdine) 
+                              OUTPUT INSERTED.IDOrdine
+                              VALUES (@IDCliente, @DataOrdine, @NumeroDocumento, @TotaleImponibile, @TotaleImponibile * 0.22, 'Nuovo')";
+            
+            ordine.TotaleImponibile = CalcolaTotaleOrdine();
+            int newId = await db.QuerySingleAsync<int>(sqlOrd, ordine, tran);
+
+            foreach (var r in ordine.Righe) {
+                r.IDOrdine = newId;
+                string sqlDet = @"INSERT INTO Dettaglio_Ordini (IDOrdine, Descrizione, Quantita, PrezzoUnitario, ScontoRiga) 
+                                  VALUES (@IDOrdine, @Descrizione, @Quantita, @PrezzoUnitario, @ScontoRiga)";
+                await db.ExecuteAsync(sqlDet, r, tran);
+            }
+
+            tran.Commit();
+            messaggio = "✅ Ordine salvato!";
+            ordine = new OrdineTestata();
+        } catch (Exception ex) {
+            tran.Rollback();
+            messaggio = "❌ Errore: " + ex.Message;
+        }
+    }
+}
+

@@ -1,0 +1,158 @@
+﻿@page "/nuova-visita"
+@rendermode InteractiveServer
+@using Microsoft.Data.SqlClient
+@using Dapper
+@using GestioneCommerciale.Models
+
+<style>
+    .win-form { background-color: #f0f0f0; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; border: 1px solid #999; padding: 5px; min-width: 900px; }
+    .win-header { background: #005a9e; color: white; padding: 3px 8px; font-weight: bold; margin: -5px -5px 5px -5px; font-size: 12px; }
+    .win-group { border: 1px solid #c0c0c0; background: #fff; padding: 8px; margin-bottom: 5px; }
+    .win-label { font-weight: 500; color: #333; padding-right: 5px; white-space: nowrap; text-align: right; }
+    .win-input { border: 1px solid #ccc; padding: 1px 4px; height: 21px; width: 100%; font-size: 11px; }
+    .win-input:focus { border-color: #0078d7; outline: none; background-color: #faffbd; }
+    .win-btn { background: #e1e1e1; border: 1px solid #adadad; padding: 2px 12px; color: black; font-size: 11px; height: 23px; cursor: pointer; }
+    .win-btn:hover { background: #e5f1fb; border-color: #0078d7; }
+    .win-btn-primary { background: #0078d7; color: white; border-color: #005a9e; }
+    .section-title { font-weight: bold; color: #005a9e; border-bottom: 1px solid #ddd; margin-bottom: 8px; font-size: 10px; text-transform: uppercase; }
+</style>
+
+<div class="win-form mt-1">
+    <div class="win-header">Gestione Rapporto Visita - Inserimento Dati Professionale</div>
+
+    <div class="win-group">
+        <div class="section-title">Dati Identificativi e Temporali</div>
+        @* RIGA 1: Cliente, Data e Stato *@
+        <table style="width:100%; border-spacing: 4px; border-collapse: separate; table-layout: fixed;">
+            <tr>
+                <td style="width:8%;" class="win-label">Cliente:</td>
+                <td style="width:42%;">
+                    <select class="win-input fw-bold" @bind="visita.IDCliente">
+                        <option value="0">-- Seleziona --</option>
+                        @foreach (var c in listaClienti) {
+                            <option value="@c.IdCliente">@c.RagSociale</option>
+                        }
+                    </select>
+                </td>
+                <td style="width:8%;" class="win-label">Data:</td>
+                <td style="width:17%;"><input type="date" class="win-input" @bind="dataSolo" /></td>
+                <td style="width:8%;" class="win-label">Stato:</td>
+                <td style="width:17%;">
+                    <select class="win-input" @bind="visita.StatoVisita">
+                        <option value="Effettuata">Effettuata</option>
+                        <option value="Programmata">Attesa</option>
+                    </select>
+                </td>
+            </tr>
+        </table>
+
+        @* RIGA 2: Referente, Motivazione e Interesse *@
+        <table style="width:100%; border-spacing: 4px; border-collapse: separate; table-layout: fixed; margin-top: 5px;">
+            <tr>
+                <td style="width:8%;" class="win-label">Referente:</td>
+                <td style="width:25%;"><input type="text" class="win-input" @bind="visita.ReferenteIncontrato" placeholder="Nome persona..." /></td>
+                <td style="width:10%;" class="win-label">Motivazione:</td>
+                <td style="width:32%;"><input type="text" class="win-input" @bind="visita.Motivazione" placeholder="Scopo dell'incontro..." /></td>
+                <td style="width:10%;" class="win-label">Int. (1-5):</td>
+                <td style="width:15%;"><input type="number" min="1" max="5" class="win-input" @bind="visita.TemperaturaCliente" /></td>
+            </tr>
+        </table>
+    </div>
+
+    @* SEZIONE NOTE E FOLLOW-UP *@
+    <div class="win-group">
+        <div class="section-title">Esito Incontro e Pianificazione Futura</div>
+        <table style="width:100%; border-spacing: 4px; border-collapse: separate; table-layout: fixed;">
+            <tr>
+                <td style="width:65%; vertical-align: top;">
+                    <label class="win-label" style="text-align:left;">Dettaglio Note:</label>
+                    <textarea class="win-input" style="height: 80px; resize: none;" @bind="visita.NoteEsito" placeholder="Inserisci qui il resoconto..."></textarea>
+                </td>
+                <td style="width:35%; vertical-align: top; padding-left: 10px; border-left: 1px solid #ddd;">
+                    <div class="mt-4">
+                        <input type="checkbox" id="chkFollow" @bind="visita.RichiedeSeguito" />
+                        <label for="chkFollow" class="ms-1 fw-bold">Richiede Follow-up</label>
+                    </div>
+                    @if(visita.RichiedeSeguito){
+                        <div class="mt-2">
+                            <label class="small d-block mb-1">Data Prossimo Contatto:</label>
+                            <input type="date" class="win-input" @bind="dataProssimo" />
+                        </div>
+                    }
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- BARRA PULSANTI -->
+    <div class="d-flex justify-content-end bg-light p-2 border-top mt-1">
+        <div class="me-auto text-danger fw-bold small">@statoMessaggio</div>
+        <button class="win-btn me-2" @onclick="Annulla">Annulla</button>
+        <button class="win-btn win-btn-primary px-4 fw-bold" @onclick="SalvaDati">REGISTRA VISITA (F10)</button>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public int? idCliente { get; set; }
+
+    public class VisitaDati {
+        public int IDCliente { get; set; }
+        public DateTime? DataVisita { get; set; }
+        public string StatoVisita { get; set; } = "Effettuata";
+        public string Motivazione { get; set; }
+        public string ReferenteIncontrato { get; set; }
+        public string NoteEsito { get; set; }
+        public int TemperaturaCliente { get; set; } = 3;
+        public bool RichiedeSeguito { get; set; }
+        public DateTime? DataProssimoContatto { get; set; }
+    }
+
+    private VisitaDati visita = new();
+    private List<Cliente> listaClienti = new();
+    private DateTime dataSolo = DateTime.Now;
+    private DateTime dataProssimo = DateTime.Now.AddDays(7);
+    private string statoMessaggio = "";
+    private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
+
+    protected override async Task OnInitializedAsync() {
+        try {
+            using var db = new SqlConnection(conn);
+            listaClienti = (await db.QueryAsync<Cliente>("SELECT IdCliente, RagSociale FROM Clienti ORDER BY RagSociale")).ToList();
+            
+            // Se arriviamo dall'anagrafica col parametro ?idCliente=X
+            if (idCliente.HasValue && idCliente.Value > 0) {
+                visita.IDCliente = idCliente.Value;
+            }
+        }
+        catch (Exception ex) { statoMessaggio = "Errore: " + ex.Message; }
+    }
+
+    private void Annulla() {
+        visita = new VisitaDati();
+        dataSolo = DateTime.Now;
+        statoMessaggio = "Inserimento annullato.";
+    }
+
+    private async Task SalvaDati() {
+        if (visita.IDCliente == 0) { statoMessaggio = "⚠️ Seleziona un cliente!"; return; }
+
+        visita.DataVisita = dataSolo;
+        if (visita.RichiedeSeguito) visita.DataProssimoContatto = dataProssimo;
+        else visita.DataProssimoContatto = null;
+
+        try {
+            using var db = new SqlConnection(conn);
+            string sql = @"INSERT INTO Visite 
+                           (IDCliente, DataVisita, StatoVisita, Motivazione, ReferenteIncontrato, NoteEsito, TemperaturaCliente, RichiedeSeguito, DataProssimoContatto) 
+                           VALUES 
+                           (@IDCliente, @DataVisita, @StatoVisita, @Motivazione, @ReferenteIncontrato, @NoteEsito, @TemperaturaCliente, @RichiedeSeguito, @DataProssimoContatto)";
+            
+            await db.ExecuteAsync(sql, visita);
+            statoMessaggio = "✅ Visita salvata correttamente.";
+            visita = new VisitaDati();
+        }
+        catch (Exception ex) { statoMessaggio = "❌ Errore: " + ex.Message; }
+    }
+}
