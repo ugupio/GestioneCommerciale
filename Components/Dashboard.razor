@@ -1,0 +1,280 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using Microsoft.Data.SqlClient
+@using Dapper
+@using GestioneCommerciale.Models
+@inject NavigationManager Nav
+
+<style>
+    .win-form { background-color: #f0f0f0; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; border: 1px solid #999; padding: 5px; min-width: 950px; min-height: 100vh; }
+    .win-header { background: #005a9e; color: white; padding: 3px 8px; font-weight: bold; margin: -5px -5px 5px -5px; font-size: 12px; border-bottom: 1px solid #004578; }
+    .win-group { border: 1px solid #c0c0c0; background: #fff; padding: 5px; margin-bottom: 5px; }
+    .section-title { font-weight: bold; color: #005a9e; border-bottom: 1px solid #ddd; margin-bottom: 5px; font-size: 10px; text-transform: uppercase; }
+    
+    .matrix-table { width: 100%; border-collapse: collapse; table-layout: fixed; background: white; }
+    .matrix-table th { background: #f0f0f0; border: 1px solid #ccc; padding: 5px; font-size: 10px; color: #444; text-align: center; }
+    .matrix-table td { border: 1px solid #ccc; padding: 8px; text-align: center; vertical-align: middle; }
+    .row-label { background: #f9f9f9; font-weight: bold; text-align: left !important; color: #333; width: 120px; }
+    
+    .val-main { font-size: 15px; font-weight: bold; display: block; }
+    .val-sub { font-size: 9px; color: #666; }
+    .text-money { color: #28a745; }
+    .text-visit { color: #005a9e; }
+    .text-order { color: #6f42c1; }
+    .text-return { color: #dc3545; }
+
+    /* PULSANTI RADDOPPIATI (Height 70px) */
+    .win-btn-cell { 
+        background: #e1e1e1; 
+        border: 1px solid #adadad; 
+        text-align: center; 
+        cursor: pointer; 
+        height: 70px; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        text-decoration: none; 
+        color: black; 
+        font-weight: bold; 
+        font-size: 11px;
+        box-shadow: inset 0 1px 0 #fff;
+    }
+    .win-btn-cell:hover { background: #e5f1fb; border-color: #0078d7; }
+    
+    .win-grid { width: 100%; border-collapse: collapse; background: white; font-size: 10.5px; }
+    .win-grid th { background: #f0f0f0; border: 1px solid #ccc; padding: 3px; text-align: left; }
+    .win-grid td { border: 1px solid #eee; padding: 3px; }
+    /* action menu */
+    .action-menu { position: relative; display:inline-block; }
+    .action-dropdown { position: absolute; right: 0; top: 30px; background: white; border: 1px solid #ccc; box-shadow: 0 3px 8px rgba(0,0,0,0.15); z-index: 50; min-width: 150px; }
+    .action-dropdown div { padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #eee; }
+    .action-dropdown div:hover { background: #f5f5f5; }
+</style>
+
+<div class="win-form">
+    <div class="win-header">GestAgenti Professional - Console di Comando Agente by Riccardo Gucci soft.</div>
+
+    <!-- MENU RAPIDO CON PULSANTI ALTI IL DOPPIO -->
+    <div class="win-group">
+        <table style="width:100%; table-layout: fixed; border-spacing: 6px; border-collapse: separate;">
+            <tr>
+                <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuovo-ordine")'>🛒 GESTIONE ORDINI</div></td>
+                <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/anagrafica-clienti")'>👥 GESTIONE CLIENTI</div></td>
+                <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuova-visita")'>📝 GESTIONE VISITE</div></td>
+                <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuovo-reso")'>📦 GESTIONE RESI</div></td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- ANALISI PERFORMANCE -->
+    <div class="win-group">
+        <div class="section-title">Monitoraggio Performance Periodiche</div>
+        <table class="matrix-table">
+            <thead>
+                <tr>
+                    <th class="row-label">INDICATORE</th>
+                    <th>OGGI</th>
+                    <th>SETTIMANA (7G)</th>
+                    <th>MESE CORRENTE</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="row-label">💰 FATTURATO</td>
+                    <td><span class="val-main text-money">@datiOggi.Fatturato.ToString("N2") €</span></td>
+                    <td><span class="val-main text-money">@datiSettimana.Fatturato.ToString("N2") €</span></td>
+                    <td><span class="val-main text-money">@datiMese.Fatturato.ToString("N2") €</span></td>
+                </tr>
+                <tr>
+                    <td class="row-label">🛒 ORDINI</td>
+                    <td><span class="val-main text-order">@datiOggi.Ordini.ToString()</span><span class="val-sub">doc.</span></td>
+                    <td><span class="val-main text-order">@datiSettimana.Ordini.ToString()</span><span class="val-sub">doc.</span></td>
+                    <td><span class="val-main text-order">@datiMese.Ordini.ToString()</span><span class="val-sub">doc.</span></td>
+                </tr>
+                <tr>
+                    <td class="row-label">📝 VISITE</td>
+                    <td><span class="val-main text-visit">@datiOggi.Visite.ToString()</span><span class="val-sub">incontri</span></td>
+                    <td><span class="val-main text-visit">@datiSettimana.Visite.ToString()</span><span class="val-sub">incontri</span></td>
+                    <td><span class="val-main text-visit">@datiMese.Visite.ToString()</span><span class="val-sub">incontri</span></td>
+                </tr>
+                <tr>
+                    <td class="row-label">📦 RESI</td>
+                    <td><span class="val-main text-return">@datiOggi.Resi.ToString()</span><span class="val-sub">pratiche</span></td>
+                    <td><span class="val-main text-return">@datiSettimana.Resi.ToString()</span><span class="val-sub">pratiche</span></td>
+                    <td><span class="val-main text-return">@datiMese.Resi.ToString()</span><span class="val-sub">pratiche</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- MONITORAGGIO CONSEGNE IN RITARDO -->
+    <div class="win-group">
+        <div class="section-title" style="color: #dc3545;">⚠️ Ordini in Ritardo di Consegna</div>
+        <div style="max-height: 150px; overflow-y: auto;">
+            <table class="win-grid">
+                <thead>
+                    <tr><th>Cliente</th><th>N. Documento</th><th style="color:#dc3545">Prevista</th><th style="width:80px">Azione</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var rit in listaRitardi) {
+                        <tr>
+                            <td>@(rit.RagSociale?.ToString() ?? "")</td>
+                            <td>@(rit.NumeroDocumento?.ToString() ?? "")</td>
+                            <td class="fw-bold text-danger">@((rit.DataConsegnaPrevista as DateTime?)?.ToShortDateString() ?? "")</td>
+                            <td class="text-center"><button class="win-btn-cell p-0" style="font-size:9px; height:20px">📞 SOLLECITA</button></td>
+                        </tr>
+                    }
+                    @if (!listaRitardi.Any()) {
+                        <tr><td colspan="4" class="text-center p-1 text-muted">✅ Nessun ritardo rilevato</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- CLIENTI DORMIENTI -->
+    <div class="win-group">
+        <div class="section-title" style="color: #856404;">💤 Clienti Dormienti (Nessun ordine da > 30 gg)</div>
+        <div style="max-height: 150px; overflow-y: auto;">
+            <table class="win-grid">
+                <thead>
+                    <tr style="background: #fff3cd;"><th>Ragione Sociale</th><th>Ultimo Ordine</th><th class="text-end">Giorni Fermo</th><th style="width:80px">Azione</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in listaDormienti) {
+                        <tr>
+                            <td>@(d.RagSociale ?? "")</td>
+                            <td>@(d.UltimoOrdine?.ToShortDateString() ?? "MAI")</td>
+                            <td class="text-end fw-bold text-warning">@(d.GiorniAssenza?.ToString() ?? "0") gg</td>
+                            <td class="text-center">
+                                <div class="action-menu">
+                                    <button class="win-btn-cell p-0 action-btn" @onclick="() => ToggleMenu(d.IdCliente)" style="font-size:11px; height:28px; padding:0 8px">⋯</button>
+                                    @if (openMenuFor == d.IdCliente)
+                                    {
+                                        <div class="action-dropdown">
+                                            <div @onclick="() => OpenNuovaVisita(d.IdCliente)">📅 Pianifica visita</div>
+                                            <div @onclick="() => OpenCliente(d.IdCliente)">👤 Apri cliente</div>
+                                            <div @onclick="() => CreaOrdine(d.IdCliente)">🛒 Crea ordine</div>
+                                        </div>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+@code {
+    private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
+    private PerformanceData datiOggi = new(), datiSettimana = new(), datiMese = new();
+    private List<dynamic> listaRitardi = new();
+    private List<ClienteDormiente> listaDormienti = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            using var db = new SqlConnection(conn);
+
+            // 1. CARICAMENTO PERFORMANCE (Oggi, Settimana, Mese)
+            datiOggi = await GetPerformance(db, DateTime.Today);
+            datiSettimana = await GetPerformance(db, DateTime.Today.AddDays(-7));
+            datiMese = await GetPerformance(db, new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1));
+
+            // 2. CARICAMENTO RITARDI (Consegna prevista superata e Consegna effettiva NULL)
+            string sqlRitardi = @"
+                SELECT TOP 10 c.RagSociale, o.NumeroDocumento, o.DataConsegnaPrevista 
+                FROM Ordini o 
+                JOIN Clienti c ON o.IDCliente = c.IdCliente
+                WHERE o.DataConsegnaPrevista < GETDATE() AND o.DataConsegnaEffettiva IS NULL
+                ORDER BY o.DataConsegnaPrevista ASC";
+            listaRitardi = (await db.QueryAsync(sqlRitardi)).ToList();
+
+            // 3. CARICAMENTO DORMIENTI (Nessun ordine negli ultimi 30 giorni)
+            string sqlDormienti = @"
+                SELECT TOP 10 c.IdCliente, c.RagSociale, 
+                       MAX(o.DataOrdine) as UltimoOrdine, 
+                       DATEDIFF(DAY, MAX(o.DataOrdine), GETDATE()) as GiorniAssenza
+                FROM Clienti c
+                LEFT JOIN Ordini o ON c.IdCliente = o.IDCliente
+                GROUP BY c.IdCliente, c.RagSociale
+                HAVING MAX(o.DataOrdine) < DATEADD(DAY, -30, GETDATE()) OR MAX(o.DataOrdine) IS NULL
+                ORDER BY GiorniAssenza DESC";
+            listaDormienti = (await db.QueryAsync<ClienteDormiente>(sqlDormienti)).ToList();
+        }
+        catch (Exception ex)
+        {
+            // Log errore se necessario
+            Console.WriteLine("Errore Dashboard: " + ex.Message);
+        }
+    }
+
+    private async Task<PerformanceData> GetPerformance(SqlConnection db, DateTime dataInizio)
+    {
+        var p = new PerformanceData();
+
+        // Conteggio Ordini e Fatturato
+        var statsOrdini = await db.QueryFirstOrDefaultAsync(@"
+            SELECT COUNT(IDOrdine) as Conteggio, SUM(TotaleImponibile) as Totale 
+            FROM Ordini 
+            WHERE DataOrdine >= @dataInizio", new { dataInizio });
+        
+        p.Ordini = statsOrdini?.Conteggio ?? 0;
+        p.Fatturato = statsOrdini?.Totale ?? 0;
+
+        // Conteggio Visite
+        p.Visite = await db.ExecuteScalarAsync<int>(@"
+            SELECT COUNT(IDVisita) FROM Visite WHERE DataVisita >= @dataInizio", new { dataInizio });
+
+        // Conteggio Resi
+        p.Resi = await db.ExecuteScalarAsync<int>(@"
+            SELECT COUNT(IDReso) FROM Resi WHERE DataReso >= @dataInizio", new { dataInizio });
+
+        return p;
+    }
+
+    public class PerformanceData
+    {
+        public decimal Fatturato { get; set; } = 0;
+        public int Ordini { get; set; } = 0;
+        public int Visite { get; set; } = 0;
+        public int Resi { get; set; } = 0;
+    }
+
+    public class ClienteDormiente
+    {
+        public int IdCliente { get; set; }
+        public string RagSociale { get; set; }
+        public DateTime? UltimoOrdine { get; set; }
+        public int? GiorniAssenza { get; set; }
+    }
+
+    private int openMenuFor = -1;
+
+    private void ToggleMenu(int id)
+    {
+        if (openMenuFor == id) openMenuFor = -1; else openMenuFor = id;
+    }
+
+    private void OpenNuovaVisita(int idCliente)
+    {
+        ToggleMenu(-1);
+        Nav.NavigateTo($"/nuova-visita?idCliente={idCliente}&stato=Programmata");
+    }
+
+    private void OpenCliente(int idCliente)
+    {
+        ToggleMenu(-1);
+        Nav.NavigateTo($"/anagrafica-clienti?idCliente={idCliente}");
+    }
+
+    private void CreaOrdine(int idCliente)
+    {
+        ToggleMenu(-1);
+        Nav.NavigateTo($"/nuovo-ordine?idCliente={idCliente}");
+    }
+}

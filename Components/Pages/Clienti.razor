@@ -3,256 +3,261 @@
 @using Microsoft.Data.SqlClient
 @using Dapper
 @using GestioneCommerciale.Models
+@using Microsoft.AspNetCore.Components
+@inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <style>
-    .win-form { background-color: #f0f0f0; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; border: 1px solid #999; padding: 5px; min-width: 950px; }
+    .win-form { background-color: #f0f0f0; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; border: 1px solid #999; padding: 5px; min-width: 1150px; color: #333; position: relative; min-height: 98vh; }
     .win-header { background: #005a9e; color: white; padding: 3px 8px; font-weight: bold; margin: -5px -5px 5px -5px; font-size: 12px; }
-    .win-group { border: 1px solid #c0c0c0; background: #fff; padding: 5px; margin-bottom: 5px; }
-    .win-label { font-weight: 500; color: #333; padding-right: 5px; white-space: nowrap; text-align: right; }
+    .win-group { border: 1px solid #c0c0c0; background: #fff; padding: 8px; margin-bottom: 5px; }
+    .win-label { font-weight: 500; color: #333; padding-right: 5px; white-space: nowrap; text-align: right; font-size: 10.5px; }
     .win-input { border: 1px solid #ccc; padding: 1px 4px; height: 21px; width: 100%; font-size: 11px; }
     .win-input:focus { border-color: #0078d7; outline: none; background-color: #faffbd; }
-    .win-btn { background: #e1e1e1; border: 1px solid #adadad; padding: 2px 10px; color: black; font-size: 11px; height: 23px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .toolbar-container { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px; background: #fdfdfd; border: 1px solid #c0c0c0; margin-bottom: 5px; }
+    .win-btn { background: #e1e1e1; border: 1px solid #adadad; padding: 0 15px; color: black; font-size: 11px; height: 72px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-width: 85px; text-decoration:none; }
     .win-btn:hover { background: #e5f1fb; border-color: #0078d7; }
-    .win-tab-header { display: flex; background: #f0f0f0; border-bottom: 1px solid #999; }
-    .win-tab { padding: 3px 15px; border: 1px solid #999; border-bottom: none; margin-right: 2px; cursor: pointer; background: #e1e1e1; font-size: 11px; }
-    .win-tab.active { background: white; font-weight: bold; position: relative; top: 1px; }
-    .win-grid { width: 100%; border-collapse: collapse; background: white; font-size: 10.5px; }
-    .win-grid th { background: #f0f0f0; border: 1px solid #ccc; padding: 3px; text-align: left; position: sticky; top: 0; }
-    .win-grid td { border: 1px solid #eee; padding: 3px; }
-    .win-grid tr:hover { background: #e5f1fb; cursor: pointer; }
-    .section-title { font-weight: bold; color: #005a9e; border-bottom: 1px solid #ddd; margin-bottom: 5px; font-size: 10px; text-transform: uppercase; }
+    .section-title { font-weight: bold; color: #005a9e; border-bottom: 1px solid #ddd; margin-bottom: 8px; font-size: 10px; text-transform: uppercase; }
+    .toast-msg { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 30px; border-radius: 3px; z-index: 9999; box-shadow: 0 5px 15px rgba(0,0,0,0.4); border-left: 5px solid #28a745; font-size: 13px; }
 </style>
 
 <div class="win-form">
-    <div class="win-header">Anagrafica Clienti - Gestione Tabellare Professionale</div>
+    <div class="win-header">Anagrafica Clienti Professional - GestAgenti CRM by Riccardo Gucci soft.</div>
 
     <!-- TOOLBAR -->
-    <div class="win-group d-flex align-items-center bg-light">
-        <button class="win-btn me-1" @onclick="Prev">◀ Prec.</button>
-        <input type="text" class="win-input me-1" style="width: 200px;" placeholder="Cerca RagSociale..." @bind="testoRicerca" />
-        <button class="win-btn me-3" @onclick="Cerca">Trova</button>
-        <span class="fw-bold">Cliente: <span class="text-primary">@c.RagSociale</span> (ID: @c.IdCliente)</span>
-        <div class="ms-auto">
-            <button class="win-btn" @onclick="Next">Succ. ▶</button>
+    <div class="toolbar-container">
+        <div style="display:flex; gap:5px;">
+            <button class="win-btn" @onclick='() => Nav.NavigateTo("/")'>🏠 Home</button>
+            <button class="win-btn" @onclick="Prev" disabled="@(indiceCorrente <= 0)">◀ Prec.</button>
+            <button class="win-btn" @onclick="Next" disabled="@(indiceCorrente >= listaIdClienti.Count - 1)">Succ. ▶</button>
+        </div>
+        
+        <div style="flex-grow: 1; max-width: 400px; display:flex; gap:5px;">
+            <input type="text" class="win-input" style="height:36px; font-size:13px;" placeholder="Cerca Ragione Sociale..." @bind="testoRicerca" @bind:event="oninput" @onkeyup="CercaEnter" />
+            <button class="win-btn" style="min-width:40px;" @onclick="EseguiRicerca">🔍</button>
+        </div>
+
+        <div style="display:flex; gap:5px;">
+            <button class="win-btn" @onclick="Nuovo" style="background:#fff;">➕ Nuovo</button>
+            <button class="win-btn" @onclick="Annulla" style="background:#f1f1f1;">✖ Annulla</button>
+            <button class="win-btn" @onclick="Salva" style="background:#d4edda; border-color:#28a745;">💾 Salva</button>
+            @if(c.IdCliente > 0) {
+                <button class="win-btn" @onclick="Elimina" style="background:#f8d7da; border-color:#dc3545; color:#721c24;">🗑️ Elimina</button>
+            }
         </div>
     </div>
 
-    <!-- QUADRO DATI ANAGRAFICI -->
+    <!-- SEZIONE 1: ANAGRAFICA E SCONTI -->
     <div class="win-group">
-        <div class="section-title">Anagrafica e Sedi</div>
-        <table style="width:100%; border-spacing: 4px; border-collapse: separate; table-layout: fixed;">
+        <div class="section-title">Dati Generali e Politiche Commerciali</div>
+        <table style="width:100%; border-spacing: 4px; table-layout: fixed;">
             <tr>
-                <td style="width:8%;" class="win-label">Rag. Soc:</td>
-                <td style="width:35%;"><input type="text" class="win-input fw-bold" @bind="c.RagSociale" /></td>
-                <td style="width:8%;" class="win-label">Referente:</td>
-                <td style="width:24%;"><input type="text" class="win-input" @bind="c.Referente" /></td>
-                <td style="width:8%;" class="win-label">P.IVA:</td>
-                <td style="width:17%;"><input type="text" class="win-input" @bind="c.PIva" /></td>
+                <td style="width:8%" class="win-label">Rag. Soc.:</td>
+                <td style="width:30%"><input type="text" class="win-input fw-bold" @bind="c.RagSociale" /></td>
+                <td style="width:8%" class="win-label">Referente:</td>
+                <td style="width:20%"><input type="text" class="win-input" @bind="c.Referente" /></td>
+                <td style="width:8%" class="win-label">P.IVA:</td>
+                <td style="width:12%"><input type="text" class="win-input" @bind="c.PIva" /></td>
+                <td style="width:8%" class="win-label text-primary">Sc. Prof %:</td>
+                <td><input type="number" step="0.01" class="win-input text-end fw-bold" @bind="c.ScontoProfili" /></td>
             </tr>
             <tr>
                 <td class="win-label">Indirizzo:</td>
                 <td><input type="text" class="win-input" @bind="c.Ind_legale" /></td>
                 <td class="win-label">Città:</td>
                 <td><input type="text" class="win-input" @bind="c.Citta_Legale" /></td>
-                <td class="win-label">CAP / Pr:</td>
+                <td class="win-label">CAP / Prov:</td>
                 <td>
-                    <div class="d-flex">
-                        <input type="text" class="win-input me-1" style="width:60%;" @bind="c.CAP_Legale" />
-                        <input type="text" class="win-input" style="width:40%;" @bind="c.Prov_Legale" />
+                    <div class="d-flex gap-1">
+                        <input type="text" class="win-input" style="width:60%" @bind="c.CAP_Legale" />
+                        <input type="text" class="win-input" style="width:40%" @bind="c.Prov_Legale" />
                     </div>
                 </td>
-            </tr>
-            <tr>
-                <td class="win-label">Telefono:</td>
-                <td><input type="text" class="win-input" @bind="c.Telefono" /></td>
-                <td class="win-label">Email:</td>
-                <td><input type="text" class="win-input" @bind="c.Email" /></td>
-                <td class="win-label">SDI / C.F.:</td>
-                <td>
-                    <div class="d-flex">
-                        <input type="text" class="win-input me-1" style="width:40%;" @bind="c.SDI" />
-                        <input type="text" class="win-input" style="width:60%;" @bind="c.CodFiscale" />
-                    </div>
-                </td>
+                <td class="win-label text-primary">Sc. Acc %:</td>
+                <td><input type="number" step="0.01" class="win-input text-end fw-bold" @bind="c.ScontoAccessori" /></td>
             </tr>
         </table>
     </div>
 
-    <!-- BANCA E SCONTI -->
+    <!-- SEZIONE 2: CONTATTI E LOGISTICA -->
     <div class="win-group">
-        <div class="section-title">Banca e Condizioni</div>
-        <table style="width:100%; border-spacing: 4px; border-collapse: separate; table-layout: fixed;">
+        <div class="section-title">Recapiti e Logistica</div>
+        <table style="width:100%; border-spacing: 4px; table-layout: fixed;">
             <tr>
-                <td style="width:8%;" class="win-label">IBAN:</td>
-                <td style="width:42%;"><input type="text" class="win-input" style="font-family:monospace" @bind="c.IBAN" /></td>
-                <td style="width:10%;" class="win-label">Sconto Prof:</td>
-                <td style="width:10%;"><input type="number" class="win-input text-end" @bind="c.ScontoProfili" /></td>
-                <td style="width:10%;" class="win-label">Sconto Acc:</td>
-                <td style="width:10%;"><input type="number" class="win-input text-end" @bind="c.ScontoAccessori" /></td>
-                <td style="width:10%; text-align:center;">
-                     <input type="checkbox" id="carr" @bind="c.Carrello" /> <label for="carr" class="small">Carr.</label>
+                <td style="width:8%" class="win-label">Email:</td>
+                <td style="width:30%"><input type="text" class="win-input" @bind="c.Email" /></td>
+                <td style="width:8%" class="win-label">Tel / Fax:</td>
+                <td style="width:20%">
+                    <div class="d-flex gap-1">
+                        <input type="text" class="win-input" placeholder="Tel" @bind="c.Telefono" />
+                        <input type="text" class="win-input" placeholder="Fax" @bind="c.Fax" />
+                    </div>
+                </td>
+                <td style="width:8%" class="win-label">Cellulari:</td>
+                <td style="width:26%">
+                    <div class="d-flex gap-1">
+                        <input type="text" class="win-input" placeholder="Cell 1" @bind="c.Cel1" />
+                        <input type="text" class="win-input" placeholder="Cell 2" @bind="c.Cel2" />
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td class="win-label">Annotazioni:</td>
+                <td colspan="3"><input type="text" class="win-input" @bind="c.Annotazioni" /></td>
+                <td class="win-label">Opzioni:</td>
+                <td>
+                    <label class="me-2"><input type="checkbox" @bind="c.Carrello" /> Carrello</label>
+                    <label><input type="checkbox" @bind="c.ScaricoAgevole" /> Scarico Agevole</label>
                 </td>
             </tr>
         </table>
     </div>
 
-    <!-- TABS STORICO (VISITE, ORDINI, RESI) -->
-    <div class="win-tab-header">
-        <div class="win-tab @(activeTab == "visite" ? "active" : "")" @onclick='() => activeTab = "visite"'>Visite</div>
-        <div class="win-tab @(activeTab == "ordini" ? "active" : "")" @onclick='() => activeTab = "ordini"'>Ordini</div>
-        <div class="win-tab @(activeTab == "resi" ? "active" : "")" @onclick='() => activeTab = "resi"'>Resi</div>
+    <!-- SEZIONE 3: DATI BANCARI -->
+    <div class="win-group">
+        <div class="section-title">Dati Bancari e Pagamenti</div>
+        <table style="width:100%; border-spacing: 4px; table-layout: fixed;">
+            <tr>
+                <td style="width:8%" class="win-label">Banca:</td>
+                <td style="width:25%"><input type="text" class="win-input" @bind="c.Banca" /></td>
+                <td style="width:8%" class="win-label">Agenzia:</td>
+                <td style="width:15%"><input type="text" class="win-input" @bind="c.Agenzia" /></td>
+                <td style="width:8%" class="win-label">IBAN:</td>
+                <td><input type="text" class="win-input" @bind="c.IBAN" /></td>
+            </tr>
+            <tr>
+                <td class="win-label">Pag. Prop:</td>
+                <td><input type="text" class="win-input" @bind="c.PagProposto" /></td>
+                <td class="win-label">Pag. Acc:</td>
+                <td><input type="text" class="win-input" @bind="c.PagAccettato" /></td>
+                <td class="win-label">SDI / CF:</td>
+                <td>
+                    <div class="d-flex gap-1">
+                        <input type="text" class="win-input" placeholder="Cod. SDI" @bind="c.SDI" />
+                        <input type="text" class="win-input" placeholder="Cod. Fiscale" @bind="c.CodFiscale" />
+                    </div>
+                </td>
+            </tr>
+        </table>
     </div>
 
-    <div class="win-group bg-white" style="height: 180px; overflow-y: auto;">
-        @if (activeTab == "visite") {
-            <table class="win-grid">
-                <thead><tr><th>Data</th><th>Stato</th><th>Referente</th><th>Note Esito</th></tr></thead>
-                <tbody>
-                    @foreach(var v in listaVisite) {
-                        <tr><td>@v.DataVisita?.ToShortDateString()</td><td>@v.StatoVisita</td><td>@v.ReferenteIncontrato</td><td>@v.NoteEsito</td></tr>
-                    }
-                </tbody>
-            </table>
-        }
-        else if (activeTab == "ordini") {
-            <div class="row g-0 h-100">
-                <div class="col-5 border-end overflow-auto h-100">
-                    <table class="win-grid">
-                        <thead><tr><th>Data</th><th>Doc.</th><th class="text-end">Totale</th></tr></thead>
-                        <tbody>
-                            @foreach(var o in listaOrdini) {
-                                <tr @onclick="() => SelezionaOrdine(o.IDOrdine)" style="background-color:@(idOrdSel == o.IDOrdine ? "#cce4f7":"")">
-                                    <td>@o.DataOrdine?.ToShortDateString()</td><td>@o.NumeroDocumento</td><td class="text-end">@o.TotaleImponibile?.ToString("N2")€</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-                <div class="col-7 bg-light overflow-auto h-100 px-1">
-                    @if(idOrdSel != null) {
-                        <table class="win-grid">
-                            <thead><tr class="bg-warning-subtle text-primary"><th colspan="3">Righe Ordine @idOrdSel</th></tr><tr><th>Descrizione</th><th>Qtà</th><th class="text-end">Totale</th></tr></thead>
-                            <tbody>
-                                @foreach(var d in listaDetOrd) {
-                                    <tr><td>@d.Descrizione</td><td>@d.Quantita</td><td class="text-end">@d.PrezzoTotaleRiga.ToString("N2")€</td></tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
-                </div>
-            </div>
-        }
-        else if (activeTab == "resi") {
-            <div class="row g-0 h-100">
-                <div class="col-5 border-end overflow-auto h-100">
-                    <table class="win-grid">
-                        <thead><tr><th>Data</th><th>Stato</th><th>Motivazione</th></tr></thead>
-                        <tbody>
-                            @foreach(var r in listaResi) {
-                                <tr @onclick="() => SelezionaReso(r.IDReso)" style="background-color:@(idResSel == r.IDReso ? "#fde9d9":"")">
-                                    <td>@r.DataReso?.ToShortDateString()</td><td>@r.StatoReso</td><td>@r.Motivazione</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-                <div class="col-7 bg-light overflow-auto h-100 px-1">
-                    @if(idResSel != null) {
-                        <table class="win-grid">
-                            <thead><tr class="bg-danger-subtle text-danger"><th colspan="3">Dettaglio Reso @idResSel</th></tr><tr><th>Cod.</th><th>Descrizione</th><th class="text-end">Qtà</th></tr></thead>
-                            <tbody>
-                                @foreach(var dr in listaDetRes) {
-                                    <tr><td>@dr.Codice</td><td>@dr.Descrizione</td><td class="text-end">@dr.Quantita</td></tr>
-                                }
-                            </tbody>
-                        </table>
-                    }
-                </div>
-            </div>
-        }
-    </div>
-
-    <!-- FOOTER AZIONI (COLLEGAMENTO NUOVA VISITA E NUOVO ORDINE) -->
-    <div class="d-flex justify-content-between p-1 border-top bg-light mt-1">
-        <div class="text-danger fw-bold small">@statoMessaggio</div>
-        <div>
-            <button class="win-btn me-1" style="background:#28a745; color:white" @onclick="SalvaCliente">💾 Salva</button>
-            
-            <NavLink href="@($"/nuova-visita?idCliente={c.IdCliente}")" class="win-btn text-decoration-none me-1" style="background:#ffc107">
-                📝 Nuova Visita
-            </NavLink>
-            
-            <NavLink href="@($"/nuovo-ordine?idCliente={c.IdCliente}")" class="win-btn text-decoration-none me-1" style="background:#17a2b8; color:white">
-                🛒 Nuovo Ordine
-            </NavLink>
-        </div>
-    </div>
+    @if (mostraMessaggio) { <div class="toast-msg">@testoNotifica</div> }
 </div>
 
 @code {
-    public class Ordine { public int IDOrdine { get; set; } public DateTime? DataOrdine { get; set; } public string NumeroDocumento { get; set; } public decimal? TotaleImponibile { get; set; } }
-    public class DettaglioOrdine { public string Descrizione { get; set; } public decimal Quantita { get; set; } public decimal PrezzoTotaleRiga { get; set; } }
-    public class Reso { public int IDReso { get; set; } public DateTime? DataReso { get; set; } public string StatoReso { get; set; } public string Motivazione { get; set; } }
-    public class DettaglioReso { public string Codice { get; set; } public string Descrizione { get; set; } public decimal Quantita { get; set; } }
+    private Cliente c = new Cliente();
+    private List<int> listaIdClienti = new();
+    private int indiceCorrente = -1;
+    private string testoRicerca = "";
+    private string testoNotifica = "";
+    private bool mostraMessaggio = false;
+    private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
 
-    private Cliente c = new(); 
-    private List<Cliente> tutti = new();
-    private List<NuovaVisita.VisitaDati> listaVisite = new();
-    private List<Ordine> listaOrdini = new();
-    private List<DettaglioOrdine> listaDetOrd = new();
-    private List<Reso> listaResi = new();
-    private List<DettaglioReso> listaDetRes = new();
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "idCliente")]
+    public int? IdClienteQuery { get; set; }
 
-    private int indice = 0;
-    private int? idOrdSel, idResSel;
-    private string activeTab = "visite", testoRicerca = "", statoMessaggio = "", 
-                   conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
+    protected override async Task OnInitializedAsync() {
+        await RinfrescaListaID();
+        if (listaIdClienti.Any()) {
+            indiceCorrente = 0;
+            await CaricaCliente(listaIdClienti[indiceCorrente]);
+        }
+    }
 
-    protected override async Task OnInitializedAsync() => await CaricaTutti();
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IdClienteQuery.HasValue)
+        {
+            await CercaESelezionaClientePerId(IdClienteQuery.Value);
+        }
+    }
 
-    private async Task CaricaTutti() {
+    private async Task RinfrescaListaID() {
         using var db = new SqlConnection(conn);
-        tutti = (await db.QueryAsync<Cliente>("SELECT * FROM Clienti ORDER BY RagSociale")).ToList();
-        if (tutti.Any()) await Seleziona(0);
+        listaIdClienti = (await db.QueryAsync<int>("SELECT IdCliente FROM Clienti ORDER BY RagSociale")).ToList();
     }
 
-    private async Task Seleziona(int i) {
-        indice = i; c = tutti[i]; idOrdSel = null; idResSel = null;
+    private async Task CaricaCliente(int id) {
         using var db = new SqlConnection(conn);
-        listaVisite = (await db.QueryAsync<NuovaVisita.VisitaDati>("SELECT * FROM Visite WHERE IDCliente=@id", new {id=c.IdCliente})).ToList();
-        listaOrdini = (await db.QueryAsync<Ordine>("SELECT * FROM Ordini WHERE IDCliente=@id", new {id=c.IdCliente})).ToList();
-        listaResi = (await db.QueryAsync<Reso>("SELECT * FROM Resi WHERE IDCliente=@id", new {id=c.IdCliente})).ToList();
+        c = await db.QueryFirstOrDefaultAsync<Cliente>("SELECT * FROM Clienti WHERE IdCliente = @id", new { id });
     }
 
-    private async Task SelezionaOrdine(int id) {
-        idOrdSel = id;
+    private async Task Notifica(string msg) {
+        testoNotifica = msg; mostraMessaggio = true; StateHasChanged();
+        await Task.Delay(3000); mostraMessaggio = false; StateHasChanged();
+    }
+
+    private async Task Salva() {
+        if (string.IsNullOrWhiteSpace(c.RagSociale)) { await Notifica("⚠️ Ragione Sociale obbligatoria!"); return; }
         using var db = new SqlConnection(conn);
-        listaDetOrd = (await db.QueryAsync<DettaglioOrdine>("SELECT * FROM Dettaglio_Ordini WHERE IDOrdine=@id", new {id})).ToList();
-    }
-
-    private async Task SelezionaReso(int id) {
-        idResSel = id;
-        using var db = new SqlConnection(conn);
-        listaDetRes = (await db.QueryAsync<DettaglioReso>("SELECT * FROM Dettaglio_Resi WHERE IDReso=@id", new {id})).ToList();
-    }
-
-    private async Task Next() { if (indice < tutti.Count-1) await Seleziona(++indice); }
-    private async Task Prev() { if (indice > 0) await Seleziona(--indice); }
-    private async Task Cerca() {
-        var i = tutti.FindIndex(x => x.RagSociale.Contains(testoRicerca, StringComparison.OrdinalIgnoreCase));
-        if (i >= 0) await Seleziona(i);
-    }
-
-    private async Task SalvaCliente() {
         try {
-            using var db = new SqlConnection(conn);
-            string sql = @"UPDATE Clienti SET RagSociale=@RagSociale, Referente=@Referente, Ind_legale=@Ind_legale, Citta_Legale=@Citta_Legale, 
-                           Prov_Legale=@Prov_Legale, Telefono=@Telefono, Email=@Email, PIva=@PIva, CodFiscale=@CodFiscale, Banca=@Banca, 
-                           IBAN=@IBAN, PagAccettato=@PagAccettato, ScontoProfili=@ScontoProfili, ScontoAccessori=@ScontoAccessori, 
-                           Carrello=@Carrello, ScaricoAgevole=@ScaricoAgevole WHERE IdCliente=@IdCliente";
-            await db.ExecuteAsync(sql, c);
-            statoMessaggio = "✅ Dati aggiornati.";
-        } catch (Exception ex) { statoMessaggio = "❌ Errore: " + ex.Message; }
+            if (c.IdCliente == 0) {
+                string sql = @"INSERT INTO Clienti (RagSociale, Referente, Ind_legale, Citta_Legale, CAP_Legale, Prov_Legale, Telefono, Fax, Email, Cel1, Cel2, PIva, CodFiscale, SDI, Banca, Agenzia, IBAN, PagProposto, PagAccettato, Annotazioni, ScontoProfili, ScontoAccessori, Carrello, ScaricoAgevole) 
+                               OUTPUT INSERTED.IdCliente 
+                               VALUES (@RagSociale, @Referente, @Ind_legale, @Citta_Legale, @CAP_Legale, @Prov_Legale, @Telefono, @Fax, @Email, @Cel1, @Cel2, @PIva, @CodFiscale, @SDI, @Banca, @Agenzia, @IBAN, @PagProposto, @PagAccettato, @Annotazioni, @ScontoProfili, @ScontoAccessori, @Carrello, @ScaricoAgevole)";
+                c.IdCliente = await db.QuerySingleAsync<int>(sql, c);
+                await RinfrescaListaID();
+                indiceCorrente = listaIdClienti.IndexOf(c.IdCliente);
+            } else {
+                string sql = @"UPDATE Clienti SET RagSociale=@RagSociale, Referente=@Referente, Ind_legale=@Ind_legale, Citta_Legale=@Citta_Legale, CAP_Legale=@CAP_Legale, Prov_Legale=@Prov_Legale, Telefono=@Telefono, Fax=@Fax, Email=@Email, Cel1=@Cel1, Cel2=@Cel2, PIva=@PIva, CodFiscale=@CodFiscale, SDI=@SDI, Banca=@Banca, Agenzia=@Agenzia, IBAN=@IBAN, PagProposto=@PagProposto, PagAccettato=@PagAccettato, Annotazioni=@Annotazioni, ScontoProfili=@ScontoProfili, ScontoAccessori=@ScontoAccessori, Carrello=@Carrello, ScaricoAgevole=@ScaricoAgevole WHERE IdCliente=@IdCliente";
+                await db.ExecuteAsync(sql, c);
+            }
+            await Notifica("✅ Cliente salvato correttamente!");
+        } catch (Exception ex) { await Notifica("❌ Errore: " + ex.Message); }
+    }
+
+    private async Task Elimina() {
+        if (!await JS.InvokeAsync<bool>("confirm", "Eliminare definitivamente questo cliente?")) return;
+        using var db = new SqlConnection(conn);
+        await db.ExecuteAsync("DELETE FROM Clienti WHERE IdCliente=@id", new { id = c.IdCliente });
+        await RinfrescaListaID();
+        if (listaIdClienti.Any()) { indiceCorrente = 0; await CaricaCliente(listaIdClienti[0]); } else Nuovo();
+        await Notifica("🗑️ Cliente rimosso.");
+    }
+
+    private async Task Nuovo() { 
+        if (!await JS.InvokeAsync<bool>("confirm", "Creare un nuovo cliente e perdere le modifiche non salvate?")) return;
+        c = new Cliente(); indiceCorrente = -1; }
+    private async Task Annulla() {
+        if (!await JS.InvokeAsync<bool>("confirm", "Annullare le modifiche non salvate?")) return;
+        if (c.IdCliente == 0) { Nuovo(); return; }
+        await CaricaCliente(c.IdCliente);
+    }
+    private async Task Prev() { if (indiceCorrente > 0) { indiceCorrente--; await CaricaCliente(listaIdClienti[indiceCorrente]); } }
+    private async Task Next() { if (indiceCorrente < listaIdClienti.Count - 1) { indiceCorrente++; await CaricaCliente(listaIdClienti[indiceCorrente]); } }
+
+    private async Task EseguiRicerca() {
+        if (string.IsNullOrWhiteSpace(testoRicerca)) return;
+        using var db = new SqlConnection(conn);
+        var trovato = await db.QueryFirstOrDefaultAsync<int?>("SELECT IdCliente FROM Clienti WHERE RagSociale LIKE @t", new { t = "%" + testoRicerca + "%" });
+        if (trovato.HasValue) {
+            indiceCorrente = listaIdClienti.IndexOf(trovato.Value);
+            await CaricaCliente(trovato.Value);
+        } else { await Notifica("🔍 Nessun cliente trovato."); }
+    }
+
+    private void CercaEnter(KeyboardEventArgs e) { if (e.Key == "Enter") EseguiRicerca(); }
+
+    private async Task CercaESelezionaClientePerId(int id)
+    {
+        try
+        {
+            // Se hai un servizio esistente per recuperare il cliente, usalo qui.
+            // Esempio generico: var cliente = await ClienteService.GetByIdAsync(id);
+            // Qui invece mostriamo solo un log e navigazione/zoom nella UI.
+            Console.WriteLine($"Richiesta apertura cliente con Id = {id}");
+
+            // Se la pagina mostra una lista, filtra/ricerca per id e seleziona il record.
+            // Esempio fittizio:
+            // searchText = id.ToString();
+            // await DoSearch();
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Errore selezione cliente: " + ex.Message);
+        }
     }
 }
-

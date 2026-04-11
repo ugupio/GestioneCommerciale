@@ -1,0 +1,237 @@
+﻿@page "/nuovo-reso"
+@rendermode InteractiveServer
+@using Microsoft.Data.SqlClient
+@using Dapper
+@using GestioneCommerciale.Models
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<style>
+    .win-form { background-color: #f0f0f0; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; border: 1px solid #999; padding: 5px; min-width: 1000px; color: #333; position: relative; min-height: 98vh; }
+    .win-header { background: #005a9e; color: white; padding: 3px 8px; font-weight: bold; margin: -5px -5px 5px -5px; font-size: 12px; }
+    .win-group { border: 1px solid #c0c0c0; background: #fff; padding: 8px; margin-bottom: 5px; }
+    .win-label { font-weight: 500; color: #333; font-size: 10px; display: block; margin-bottom: 2px; }
+    .win-input { border: 1px solid #ccc; padding: 1px 4px; height: 21px; width: 100%; font-size: 11px; }
+    .toolbar-container { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px; background: #fdfdfd; border: 1px solid #c0c0c0; margin-bottom: 5px; }
+    .win-btn { background: #e1e1e1; border: 1px solid #adadad; padding: 0 15px; color: black; font-size: 11px; height: 64px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-width: 85px; text-decoration:none; }
+    .win-btn:hover { background: #e5f1fb; border-color: #0078d7; }
+    .win-grid { width: 100%; border-collapse: collapse; background: white; font-size: 10.5px; }
+    .win-grid th { background: #f0f0f0; border: 1px solid #ccc; padding: 4px; text-align: left; }
+    .win-grid td { border: 1px solid #eee; padding: 2px 4px; }
+    .section-title { font-weight: bold; color: #005a9e; border-bottom: 1px solid #ddd; margin-bottom: 8px; font-size: 10px; text-transform: uppercase; }
+    .toast-msg { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 30px; border-radius: 3px; z-index: 9999; border-left: 5px solid #dc3545; }
+</style>
+
+<div class="win-form">
+    <div class="win-header">Gestione Resi Merce - Riccardo Gucci soft.</div>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar-container">
+        <div style="display:flex; gap:5px;">
+            <button class="win-btn" @onclick='() => Nav.NavigateTo("/")'>🏠 Home</button>
+            <button class="win-btn" @onclick="Prev" disabled="@(indiceCorrente >= listaIdResi.Count - 1)">◀ Prec.</button>
+            <button class="win-btn" @onclick="Next" disabled="@(indiceCorrente <= 0)">Succ. ▶</button>
+        </div>
+        <div style="display:flex; gap:5px;">
+            <button class="win-btn" @onclick="IniziaNuovo">➕ Nuovo</button>
+            <button class="win-btn" @onclick="Annulla" style="background:#f1f1f1;">✖ Annulla</button>
+            <button class="win-btn" @onclick="SalvaTutto" style="background:#d4edda; border-color:#28a745;">💾 Salva</button>
+            @if (reso.IDReso > 0) {
+                <button class="win-btn" @onclick="EliminaReso" style="background:#f8d7da; border-color:#dc3545;">🗑️ Elimina</button>
+            }
+        </div>
+    </div>
+
+    <!-- TESTATA -->
+    <div class="win-group">
+        <div class="section-title">Dati Identificativi Reso</div>
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 8px;">
+            <div>
+                <label class="win-label">Cliente</label>
+                <select class="win-input" value="@reso.IDCliente" @onchange="OnClienteChanged">
+                    <option value="0">-- Seleziona Cliente --</option>
+                    @foreach (var c in listaClienti) { <option value="@c.IdCliente">@c.RagSociale</option> }
+                </select>
+            </div>
+            <div><label class="win-label">Data Reso</label><input type="date" class="win-input" @bind="dataSolo" /></div>
+            <div>
+                <label class="win-label">Rif. Ordine</label>
+                <select class="win-input" @bind="reso.IDOrdine">
+                    <option value="0">-- Nessun ordine --</option>
+                    @foreach (var o in listaOrdiniCliente) { <option value="@o.IDOrdine">@o.NumeroDocumento - @o.DataOrdine?.ToString("yyyy-MM-dd")</option> }
+                </select>
+            </div>
+            <div>
+                <label class="win-label">Stato Reso</label>
+                <select class="win-input" @bind="reso.StatoReso">
+                    <option value="Aperto">Aperto</option>
+                    <option value="Inviato">Inviato</option>
+                    <option value="Ricevuto">Ricevuto</option>
+                </select>
+            </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+            <div><label class="win-label">Motivazione</label><input type="text" class="win-input" @bind="reso.Motivazione" /></div>
+            <div><label class="win-label">Aspetto Merce</label><input type="text" class="win-input" @bind="reso.Aspetto" /></div>
+        </div>
+    </div>
+
+    <!-- INSERIMENTO RIGA -->
+    <div class="win-group" style="background: #fff5f5; border-left: 5px solid #dc3545;">
+        <div class="section-title" style="color: #dc3545;">Aggiungi Articolo al Reso</div>
+        <div style="display: grid; grid-template-columns: 1fr 2fr 80px 100px; gap: 5px; align-items: end;">
+            <div><label class="win-label">Codice</label><input class="win-input" @bind="nuovaRiga.Codice" /></div>
+            <div><label class="win-label">Descrizione</label><input class="win-input" @bind="nuovaRiga.Descrizione" /></div>
+            <div><label class="win-label">Quantità</label><input type="number" class="win-input" @bind="nuovaRiga.Quantita" /></div>
+            <button class="win-btn" style="background:#dc3545; color:white; height:21px;" @onclick="AggiungiRiga">INSERISCI</button>
+        </div>
+    </div>
+
+    <!-- GRIGLIA RIGHE -->
+    <div class="win-group" style="height: 250px; overflow-y: auto; padding:0;">
+        <table class="win-grid">
+            <thead>
+                <tr>
+                    <th style="width:150px;">Codice</th>
+                    <th>Descrizione Merce</th>
+                    <th class="text-end" style="width:80px;">Q.tà</th>
+                    <th style="width:30px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in righeReso) {
+                    <tr>
+                        <td>@r.Codice</td>
+                        <td>@r.Descrizione</td>
+                        <td class="text-end fw-bold">@r.Quantita</td>
+                        <td class="text-center">
+                            <button class="border-0 bg-transparent text-danger" @onclick="() => righeReso.Remove(r)">✖</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (mostraMessaggio) { <div class="toast-msg">@testoNotifica</div> }
+</div>
+
+@code {
+    private Reso reso = new() { DataReso = DateTime.Now, StatoReso = "Aperto" };
+    private RigaReso nuovaRiga = new() { Quantita = 1 };
+    private List<RigaReso> righeReso = new();
+    private List<Cliente> listaClienti = new();
+    private List<int> listaIdResi = new();
+    private List<Ordine> listaOrdiniCliente = new();
+    private int indiceCorrente = -1;
+    private DateTime dataSolo = DateTime.Now;
+    private string testoNotifica = "";
+    private bool mostraMessaggio = false;
+    private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
+
+    protected override async Task OnInitializedAsync() {
+        using var db = new SqlConnection(conn);
+        listaClienti = (await db.QueryAsync<Cliente>("SELECT IdCliente, RagSociale FROM Clienti ORDER BY RagSociale")).ToList();
+        await CaricaListaID();
+        if (listaIdResi.Any()) { indiceCorrente = 0; await CaricaReso(listaIdResi[indiceCorrente]); }
+    }
+
+    private async Task CaricaListaID() {
+        using var db = new SqlConnection(conn);
+        listaIdResi = (await db.QueryAsync<int>("SELECT IDReso FROM Resi ORDER BY DataReso DESC")).ToList();
+    }
+
+    private async Task CaricaReso(int id) {
+        using var db = new SqlConnection(conn);
+        var loaded = await db.QueryFirstOrDefaultAsync<Reso>("SELECT * FROM Resi WHERE IDReso = @id", new { id });
+        if (loaded is null) {
+            // if not found, initialize an empty reso to avoid null refs
+            reso = new Reso { IDReso = 0, DataReso = DateTime.Now, StatoReso = "Aperto" };
+        } else {
+            reso = loaded;
+        }
+        dataSolo = reso.DataReso ?? DateTime.Now;
+        var rows = db.Query<RigaReso>("SELECT * FROM Dettaglio_Resi WHERE IDReso = @id", new { id });
+        righeReso = rows?.ToList() ?? new List<RigaReso>();
+        // carica ordini per il cliente associato al reso
+        await CaricaOrdiniCliente(reso.IDCliente);
+    }
+
+    private async Task CaricaOrdiniCliente(int idCliente) {
+        listaOrdiniCliente.Clear();
+        if (idCliente <= 0) return;
+        using var db = new SqlConnection(conn);
+        // show only documents that are actual orders (StatoOrdine = 'Ordine')
+        var rows = await db.QueryAsync<Ordine>("SELECT IDOrdine, IDCliente, DataOrdine, NumeroDocumento, StatoOrdine FROM Ordini WHERE IDCliente = @id AND StatoOrdine = 'Ordine' ORDER BY DataOrdine DESC", new { id = idCliente });
+        listaOrdiniCliente = rows.ToList();
+        // if current selected ordine not in list, reset to 0
+        if (reso.IDOrdine.HasValue && !listaOrdiniCliente.Any(o => o.IDOrdine == reso.IDOrdine.Value)) reso.IDOrdine = null;
+    }
+
+    private async Task OnClienteChanged(ChangeEventArgs e) {
+        if (e?.Value is null) return;
+        if (int.TryParse(e.Value.ToString(), out var id)) {
+            reso.IDCliente = id;
+            // clear selected order when client changes
+            reso.IDOrdine = null;
+            await CaricaOrdiniCliente(reso.IDCliente);
+            StateHasChanged();
+        }
+    }
+
+    private void AggiungiRiga() {
+        if (string.IsNullOrEmpty(nuovaRiga.Codice)) return;
+        righeReso.Add(new RigaReso { Codice = nuovaRiga.Codice, Descrizione = nuovaRiga.Descrizione, Quantita = nuovaRiga.Quantita });
+        nuovaRiga = new RigaReso { Quantita = 1 };
+    }
+
+    private async Task SalvaTutto() {
+        if (reso.IDCliente == 0) { await Notifica("⚠️ Seleziona un cliente!"); return; }
+        using var db = new SqlConnection(conn);
+        await db.OpenAsync();
+        using var tx = db.BeginTransaction();
+        try {
+            reso.DataReso = dataSolo;
+            // normalize empty order reference to null to avoid FK violations when no order selected
+            if (reso.IDOrdine == 0) reso.IDOrdine = null;
+            string sqlReso = (reso.IDReso == 0) 
+                ? "INSERT INTO Resi (IDCliente, IDOrdine, DataReso, StatoReso, Motivazione, Aspetto) OUTPUT INSERTED.IDReso VALUES (@IDCliente, @IDOrdine, @DataReso, @StatoReso, @Motivazione, @Aspetto)"
+                : "UPDATE Resi SET IDCliente=@IDCliente, IDOrdine=@IDOrdine, DataReso=@DataReso, StatoReso=@StatoReso, Motivazione=@Motivazione, Aspetto=@Aspetto WHERE IDReso=@IDReso";
+            
+            if (reso.IDReso == 0) reso.IDReso = await db.QuerySingleAsync<int>(sqlReso, reso, tx);
+            else await db.ExecuteAsync(sqlReso, reso, tx);
+
+            await db.ExecuteAsync("DELETE FROM Dettaglio_Resi WHERE IDReso = @id", new { id = reso.IDReso }, tx);
+            foreach (var r in righeReso) {
+                r.IDReso = reso.IDReso;
+                await db.ExecuteAsync("INSERT INTO Dettaglio_Resi (IDReso, Codice, Descrizione, Quantita) VALUES (@IDReso, @Codice, @Descrizione, @Quantita)", r, tx);
+            }
+            tx.Commit();
+            await Notifica("✅ Reso salvato con successo!");
+            await CaricaListaID();
+        } catch (Exception ex) { tx.Rollback(); await Notifica("❌ Errore: " + ex.Message); }
+    }
+
+    private async Task EliminaReso() {
+        if (!await JS.InvokeAsync<bool>("confirm", "Eliminare il reso?")) return;
+        using var db = new SqlConnection(conn);
+        // use the same detail table used elsewhere
+        await db.ExecuteAsync("DELETE FROM Dettaglio_Resi WHERE IDReso = @id", new { id = reso.IDReso });
+        await db.ExecuteAsync("DELETE FROM Resi WHERE IDReso = @id", new { id = reso.IDReso });
+        await CaricaListaID();
+        if (listaIdResi.Any()) { indiceCorrente = 0; await CaricaReso(listaIdResi[0]); } else IniziaNuovo();
+    }
+
+    private async Task Notifica(string msg) { testoNotifica = msg; mostraMessaggio = true; StateHasChanged(); await Task.Delay(3000); mostraMessaggio = false; StateHasChanged(); }
+    private async Task IniziaNuovo() { 
+        if (!await JS.InvokeAsync<bool>("confirm", "Creare un nuovo reso e perdere le modifiche non salvate?")) return;
+        reso = new Reso { DataReso = DateTime.Now, StatoReso = "Aperto" }; righeReso.Clear(); indiceCorrente = -1; }
+
+    private async Task Annulla() {
+        if (!await JS.InvokeAsync<bool>("confirm", "Annullare le modifiche non salvate?")) return;
+        if (reso.IDReso == 0) { IniziaNuovo(); return; }
+        await CaricaReso(reso.IDReso);
+    }
+    private async Task Prev() { if (indiceCorrente < listaIdResi.Count - 1) { indiceCorrente++; await CaricaReso(listaIdResi[indiceCorrente]); } }
+    private async Task Next() { if (indiceCorrente > 0) { indiceCorrente--; await CaricaReso(listaIdResi[indiceCorrente]); } }
+}
