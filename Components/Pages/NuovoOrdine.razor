@@ -6,6 +6,8 @@
 @using System.Globalization
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@using System.Text.Json
+
 
 <style>
     .win-form { background-color: #f0f0f0; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; border: 1px solid #999; padding: 5px; min-width: 1200px; color: #333; position: relative; min-height: 98vh; }
@@ -186,6 +188,10 @@
     private string testoNotifica = "";
     private bool mostraMessaggio = false;
     private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
+    private string snapshotOriginale = "";
+    // Metodo IsDirty che controlla l'intero oggetto ordine (incluse le righe)
+    private bool IsDirty() => snapshotOriginale != JsonSerializer.Serialize(ordine);
+
 
     protected override async Task OnInitializedAsync() {
         using var db = new SqlConnection(conn);

@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Aggiunge i servizi per i componenti Razor e la modalità Interactive Server
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddHttpClient();
 
 
 

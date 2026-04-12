@@ -32,8 +32,8 @@ public class Cliente
     public decimal ScontoProfili { get; set; }
     public decimal ScontoAccessori { get; set; }
     // coordinate columns added to DB as float
-    public float? Latitudine { get; set; }
-    public float? Longitudine { get; set; }
+    public float? Lat { get; set; } // Da Latitudine a Lat
+    public float? Lon { get; set; } // Da Longitudine a Lon
 }
 
 

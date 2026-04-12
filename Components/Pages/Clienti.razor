@@ -3,9 +3,14 @@
 @using Microsoft.Data.SqlClient
 @using Dapper
 @using GestioneCommerciale.Models
-@using Microsoft.AspNetCore.Components
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using System.Net.Http
+@using System.Globalization
+@using System.Data
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject IHttpClientFactory ClientFactory
 
 <style>
     .win-form { background-color: #f0f0f0; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; border: 1px solid #999; padding: 5px; min-width: 1150px; color: #333; position: relative; min-height: 98vh; }
@@ -13,7 +18,6 @@
     .win-group { border: 1px solid #c0c0c0; background: #fff; padding: 8px; margin-bottom: 5px; }
     .win-label { font-weight: 500; color: #333; padding-right: 5px; white-space: nowrap; text-align: right; font-size: 10.5px; }
     .win-input { border: 1px solid #ccc; padding: 1px 4px; height: 21px; width: 100%; font-size: 11px; }
-    .win-input:focus { border-color: #0078d7; outline: none; background-color: #faffbd; }
     .toolbar-container { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px; background: #fdfdfd; border: 1px solid #c0c0c0; margin-bottom: 5px; }
     .win-btn { background: #e1e1e1; border: 1px solid #adadad; padding: 0 15px; color: black; font-size: 11px; height: 72px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-width: 85px; text-decoration:none; }
     .win-btn:hover { background: #e5f1fb; border-color: #0078d7; }
@@ -22,34 +26,33 @@
 </style>
 
 <div class="win-form">
-    <div class="win-header">Anagrafica Clienti Professional - GestAgenti CRM by Riccardo Gucci soft.</div>
-
-    <!-- TOOLBAR -->
+    <div class="win-header">Anagrafica Clienti Professional - CRM GestAgenti</div>
+    
     <div class="toolbar-container">
         <div style="display:flex; gap:5px;">
-            <button class="win-btn" @onclick='() => Nav.NavigateTo("/")'>🏠 Home</button>
+            <button class="win-btn" @onclick="CheckAndGoHome">🏠 Home</button>
             <button class="win-btn" @onclick="Prev" disabled="@(indiceCorrente <= 0)">◀ Prec.</button>
-            <button class="win-btn" @onclick="Next" disabled="@(indiceCorrente >= listaIdClienti.Count - 1)">Succ. ▶</button>
+            <button class="win-btn" @onclick="Next" disabled="@(indiceCorrente >= listaIdClienti.Count - 1 || indiceCorrente == -1)">Succ. ▶</button>
         </div>
         
-        <div style="flex-grow: 1; max-width: 400px; display:flex; gap:5px;">
-            <input type="text" class="win-input" style="height:36px; font-size:13px;" placeholder="Cerca Ragione Sociale..." @bind="testoRicerca" @bind:event="oninput" @onkeyup="CercaEnter" />
-            <button class="win-btn" style="min-width:40px;" @onclick="EseguiRicerca">🔍</button>
+        <div style="flex-grow: 1; max-width: 400px; display:flex; gap:0;">
+            <input type="text" class="win-input" style="height:36px; font-size:13px; border-right:none; border-radius: 2px 0 0 2px;" placeholder="Cerca Ragione Sociale..." @bind="testoRicerca" @bind:event="oninput" @onkeyup="CercaEnter" />
+            <button style="height:36px; width:40px; background:#e1e1e1; border:1px solid #ccc; cursor:pointer; border-radius: 0 2px 2px 0;" @onclick="EseguiRicerca">🔍</button>
         </div>
 
         <div style="display:flex; gap:5px;">
-            <button class="win-btn" @onclick="Nuovo" style="background:#fff;">➕ Nuovo</button>
-            <button class="win-btn" @onclick="Annulla" style="background:#f1f1f1;">✖ Annulla</button>
+            <button class="win-btn" @onclick="Nuovo">➕ Nuovo</button>
+            <button class="win-btn" @onclick="Annulla">✖ Annulla</button>
             <button class="win-btn" @onclick="Salva" style="background:#d4edda; border-color:#28a745;">💾 Salva</button>
             @if(c.IdCliente > 0) {
-                <button class="win-btn" @onclick="Elimina" style="background:#f8d7da; border-color:#dc3545; color:#721c24;">🗑️ Elimina</button>
+                <button class="win-btn" @onclick="Elimina" style="background:#f8d7da; border-color:#dc3545; color:#721c24;">🗑 Elimina</button>
             }
         </div>
     </div>
 
     <!-- SEZIONE 1: ANAGRAFICA E SCONTI -->
     <div class="win-group">
-        <div class="section-title">Dati Generali e Politiche Commerciali</div>
+        <div class="section-title">Dati Anagrafici e Politiche Sconti</div>
         <table style="width:100%; border-spacing: 4px; table-layout: fixed;">
             <tr>
                 <td style="width:8%" class="win-label">Rag. Soc.:</td>
@@ -79,9 +82,9 @@
         </table>
     </div>
 
-    <!-- SEZIONE 2: CONTATTI E LOGISTICA -->
+    <!-- SEZIONE 2: CONTATTI E GPS -->
     <div class="win-group">
-        <div class="section-title">Recapiti e Logistica</div>
+        <div class="section-title">Contatti, Opzioni e Coordinate GPS</div>
         <table style="width:100%; border-spacing: 4px; table-layout: fixed;">
             <tr>
                 <td style="width:8%" class="win-label">Email:</td>
@@ -104,39 +107,51 @@
             <tr>
                 <td class="win-label">Annotazioni:</td>
                 <td colspan="3"><input type="text" class="win-input" @bind="c.Annotazioni" /></td>
-                <td class="win-label">Opzioni:</td>
+                <td class="win-label text-danger">GPS (Lat/Lon):</td>
                 <td>
-                    <label class="me-2"><input type="checkbox" @bind="c.Carrello" /> Carrello</label>
-                    <label><input type="checkbox" @bind="c.ScaricoAgevole" /> Scarico Agevole</label>
+                    <div class="d-flex gap-1">
+                        <input type="text" class="win-input fw-bold" placeholder="Lat" @bind="displayLat" />
+                        <input type="text" class="win-input fw-bold" placeholder="Lon" @bind="displayLon" />
+                    </div>
                 </td>
+            </tr>
+            <tr>
+                <td class="win-label">Opzioni:</td>
+                <td colspan="3">
+                    <label class="me-3"><input type="checkbox" @bind="c.Carrello" /> Carrello</label>
+                    <label class="me-3"><input type="checkbox" @bind="c.ScaricoAgevole" /> Scarico Agevole</label>
+                    <span class="win-label">Prev. Annuo:</span>
+                    <input type="number" class="win-input" style="width:100px; display:inline-block;" @bind="c.PrevisioneAnnuo" />
+                </td>
+                <td class="win-label">Cod. Fiscale:</td>
+                <td><input type="text" class="win-input" @bind="c.CodFiscale" /></td>
             </tr>
         </table>
     </div>
 
-    <!-- SEZIONE 3: DATI BANCARI -->
+    <!-- SEZIONE 3: BANCA -->
     <div class="win-group">
-        <div class="section-title">Dati Bancari e Pagamenti</div>
+        <div class="section-title">Dati Bancari, Fiscali e Commerciali</div>
         <table style="width:100%; border-spacing: 4px; table-layout: fixed;">
             <tr>
                 <td style="width:8%" class="win-label">Banca:</td>
                 <td style="width:25%"><input type="text" class="win-input" @bind="c.Banca" /></td>
                 <td style="width:8%" class="win-label">Agenzia:</td>
                 <td style="width:15%"><input type="text" class="win-input" @bind="c.Agenzia" /></td>
-                <td style="width:8%" class="win-label">IBAN:</td>
-                <td><input type="text" class="win-input" @bind="c.IBAN" /></td>
+                <td style="width:5%" class="win-label">ABI:</td>
+                <td style="width:8%"><input type="text" class="win-input" @bind="c.ABI" /></td>
+                <td style="width:5%" class="win-label">CAB:</td>
+                <td style="width:8%"><input type="text" class="win-input" @bind="c.CAB" /></td>
+                <td style="width:5%" class="win-label">SDI:</td>
+                <td><input type="text" class="win-input" @bind="c.SDI" /></td>
             </tr>
             <tr>
+                <td class="win-label">IBAN:</td>
+                <td colspan="3"><input type="text" class="win-input" @bind="c.IBAN" /></td>
                 <td class="win-label">Pag. Prop:</td>
-                <td><input type="text" class="win-input" @bind="c.PagProposto" /></td>
+                <td colspan="2"><input type="text" class="win-input" @bind="c.PagProposto" /></td>
                 <td class="win-label">Pag. Acc:</td>
-                <td><input type="text" class="win-input" @bind="c.PagAccettato" /></td>
-                <td class="win-label">SDI / CF:</td>
-                <td>
-                    <div class="d-flex gap-1">
-                        <input type="text" class="win-input" placeholder="Cod. SDI" @bind="c.SDI" />
-                        <input type="text" class="win-input" placeholder="Cod. Fiscale" @bind="c.CodFiscale" />
-                    </div>
-                </td>
+                <td colspan="2"><input type="text" class="win-input" @bind="c.PagAccettato" /></td>
             </tr>
         </table>
     </div>
@@ -146,118 +161,281 @@
 
 @code {
     private Cliente c = new Cliente();
+    private string displayLat = "", displayLon = "", snapshotOriginale = "", testoRicerca = "", testoNotifica = "";
     private List<int> listaIdClienti = new();
     private int indiceCorrente = -1;
-    private string testoRicerca = "";
-    private string testoNotifica = "";
     private bool mostraMessaggio = false;
     private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
+    private bool IsDirty() => snapshotOriginale != JsonSerializer.Serialize(c);
+    
 
-    [Parameter]
-    [SupplyParameterFromQuery(Name = "idCliente")]
-    public int? IdClienteQuery { get; set; }
+
 
     protected override async Task OnInitializedAsync() {
         await RinfrescaListaID();
-        if (listaIdClienti.Any()) {
-            indiceCorrente = 0;
-            await CaricaCliente(listaIdClienti[indiceCorrente]);
+        if (listaIdClienti.Any()) { 
+            indiceCorrente = 0; 
+            await CaricaCliente(listaIdClienti[indiceCorrente]); 
+        } else { 
+            ResetNuovo(); 
         }
-    }
-
-    protected override async Task OnParametersSetAsync()
-    {
-        if (IdClienteQuery.HasValue)
-        {
-            await CercaESelezionaClientePerId(IdClienteQuery.Value);
-        }
-    }
-
-    private async Task RinfrescaListaID() {
-        using var db = new SqlConnection(conn);
-        listaIdClienti = (await db.QueryAsync<int>("SELECT IdCliente FROM Clienti ORDER BY RagSociale")).ToList();
     }
 
     private async Task CaricaCliente(int id) {
         using var db = new SqlConnection(conn);
         c = await db.QueryFirstOrDefaultAsync<Cliente>("SELECT * FROM Clienti WHERE IdCliente = @id", new { id });
+
+        // Caricamento coordinate in stringa per la UI
+        displayLat = c.Lat?.ToString("F6", CultureInfo.InvariantCulture) ?? "";
+        displayLon = c.Lon?.ToString("F6", CultureInfo.InvariantCulture) ?? "";
+
+        snapshotOriginale = JsonSerializer.Serialize(c);
+        StateHasChanged();
     }
 
-    private async Task Notifica(string msg) {
-        testoNotifica = msg; mostraMessaggio = true; StateHasChanged();
-        await Task.Delay(3000); mostraMessaggio = false; StateHasChanged();
+    private void ResetNuovo() { 
+        c = new Cliente(); 
+        displayLat = ""; 
+        displayLon = ""; 
+        snapshotOriginale = JsonSerializer.Serialize(c); 
+        indiceCorrente = -1; 
+        StateHasChanged(); 
+    }
+
+    private void SincronizzaCoordinate() {
+        // Pulizia e parsing sicuro delle coordinate
+        string l1 = (displayLat ?? "").Replace(",", ".");
+        string l2 = (displayLon ?? "").Replace(",", ".");
+
+        if (float.TryParse(l1, CultureInfo.InvariantCulture, out float f1)) c.Lat = f1; else c.Lat = null;
+        if (float.TryParse(l2, CultureInfo.InvariantCulture, out float f2)) c.Lon = f2; else c.Lon = null;
     }
 
     private async Task Salva() {
-        if (string.IsNullOrWhiteSpace(c.RagSociale)) { await Notifica("⚠️ Ragione Sociale obbligatoria!"); return; }
-        using var db = new SqlConnection(conn);
-        try {
-            if (c.IdCliente == 0) {
-                string sql = @"INSERT INTO Clienti (RagSociale, Referente, Ind_legale, Citta_Legale, CAP_Legale, Prov_Legale, Telefono, Fax, Email, Cel1, Cel2, PIva, CodFiscale, SDI, Banca, Agenzia, IBAN, PagProposto, PagAccettato, Annotazioni, ScontoProfili, ScontoAccessori, Carrello, ScaricoAgevole) 
-                               OUTPUT INSERTED.IdCliente 
-                               VALUES (@RagSociale, @Referente, @Ind_legale, @Citta_Legale, @CAP_Legale, @Prov_Legale, @Telefono, @Fax, @Email, @Cel1, @Cel2, @PIva, @CodFiscale, @SDI, @Banca, @Agenzia, @IBAN, @PagProposto, @PagAccettato, @Annotazioni, @ScontoProfili, @ScontoAccessori, @Carrello, @ScaricoAgevole)";
-                c.IdCliente = await db.QuerySingleAsync<int>(sql, c);
-                await RinfrescaListaID();
-                indiceCorrente = listaIdClienti.IndexOf(c.IdCliente);
+    if (string.IsNullOrWhiteSpace(c.RagSociale)) { 
+        await Notifica(" Ragione Sociale obbligatoria!"); 
+        return; 
+    }
+
+    // Se le coordinate sono vuote ma c'è l'indirizzo, prova la geocodifica
+    if (string.IsNullOrWhiteSpace(displayLat) && !string.IsNullOrWhiteSpace(c.Ind_legale)) 
+        await GeocodificaIndirizzo();
+    else 
+        SincronizzaCoordinate();
+
+    using var db = new SqlConnection(conn);
+    try {
+        if (c.IdCliente == 0) {
+            // QUERY INSERT COMPLETA (Pagina 12)
+            string sql = @"INSERT INTO Clienti (RagSociale, Referente, Ind_legale, Citta_Legale, 
+                           CAP_Legale, Prov_Legale, Telefono, Fax, Email, Cel1, Cel2, PIva, CodFiscale, 
+                           SDI, Banca, Agenzia, ABI, CAB, IBAN, PagProposto, PagAccettato, 
+                           InfoCommerciali, PrevisioneAnnuo, Carrello, ScaricoAgevole, 
+                           Annotazioni, ScontoProfili, ScontoAccessori, Lat, Lon) 
+                           OUTPUT INSERTED.IdCliente 
+                           VALUES (@RagSociale, @Referente, @Ind_legale, @Citta_Legale, 
+                           @CAP_Legale, @Prov_Legale, @Telefono, @Fax, @Email, @Cel1, @Cel2, @PIva, @CodFiscale, 
+                           @SDI, @Banca, @Agenzia, @ABI, @CAB, @IBAN, @PagProposto, @PagAccettato, 
+                           @InfoCommerciali, @PrevisioneAnnuo, @Carrello, @ScaricoAgevole, 
+                           @Annotazioni, @ScontoProfili, @ScontoAccessori, @Lat, @Lon)";
+            
+            c.IdCliente = await db.QuerySingleAsync<int>(sql, c);
+            await RinfrescaListaID();
+            indiceCorrente = listaIdClienti.IndexOf(c.IdCliente);
+        } else {
+            // QUERY UPDATE COMPLETA (Pagina 13)
+            string sql = @"UPDATE Clienti SET RagSociale=@RagSociale, Referente=@Referente, 
+                           Ind_legale=@Ind_legale, Citta_Legale=@Citta_Legale, CAP_Legale=@CAP_Legale, 
+                           Prov_Legale=@Prov_Legale, Telefono=@Telefono, Fax=@Fax, Email=@Email, 
+                           Cel1=@Cel1, Cel2=@Cel2, PIva=@PIva, CodFiscale=@CodFiscale, SDI=@SDI, 
+                           Banca=@Banca, Agenzia=@Agenzia, ABI=@ABI, CAB=@CAB, IBAN=@IBAN, 
+                           PagProposto=@PagProposto, PagAccettato=@PagAccettato, 
+                           InfoCommerciali=@InfoCommerciali, PrevisioneAnnuo=@PrevisioneAnnuo, 
+                           Carrello=@Carrello, ScaricoAgevole=@ScaricoAgevole, 
+                           Annotazioni=@Annotazioni, ScontoProfili=@ScontoProfili, 
+                           ScontoAccessori=@ScontoAccessori, Lat=@Lat, Lon=@Lon 
+                           WHERE IdCliente=@IdCliente";
+            
+            await db.ExecuteAsync(sql, c);
+        }
+
+        // AGGIORNAMENTO SNAPSHOT (Per rendere IsDirty() = false ed evitare popup loop)
+        snapshotOriginale = JsonSerializer.Serialize(c);
+        
+        await Notifica(" Cliente salvato con successo!");
+        StateHasChanged();
+    } catch (Exception ex) { 
+        await Notifica(" Errore DB: " + ex.Message); 
+    }
+}
+
+
+    private async Task GeocodificaIndirizzo() {
+    try {
+        if (string.IsNullOrWhiteSpace(c.Ind_legale) || string.IsNullOrWhiteSpace(c.Citta_Legale)) {
+            await Notifica(" Indirizzo o Città mancanti!");
+            return;
+        }
+
+        await Notifica(" Ricerca coordinate...");
+        using var client = new HttpClient();
+        client.Timeout = TimeSpan.FromSeconds(10);
+
+        // Parametri puliti
+        string token = "pk.41a064476ff914f4e50c47e4f3cf9ebe";
+        string queryTesto = $"{c.Ind_legale.Trim()}, {c.Citta_Legale.Trim()}, Italy";
+
+        // COSTRUZIONE URL PROFESSIONALE (Risolve Hostname could not be parsed)
+        var builder = new UriBuilder("https://us1.locationiq.com/v1/search");
+        var query = System.Web.HttpUtility.ParseQueryString(builder.Query);
+        query["key"] = token;
+        query["q"] = queryTesto;
+        query["format"] = "json";
+        query["limit"] = "1";
+        builder.Query = query.ToString();
+
+        // builder.Uri contiene l'URL perfettamente formattato
+        var resp = await client.GetAsync(builder.Uri);
+        
+        if (resp.IsSuccessStatusCode) {
+            var json = await resp.Content.ReadAsStringAsync();
+            var results = JsonSerializer.Deserialize<List<NominatimResult>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (results != null && results.Any()) {
+                // Preleviamo i dati dal primo risultato
+                displayLat = results[0].Lat; 
+                displayLon = results[0].Lon;
+                
+                SincronizzaCoordinate();
+                await Notifica(" Coordinate ottenute!");
             } else {
-                string sql = @"UPDATE Clienti SET RagSociale=@RagSociale, Referente=@Referente, Ind_legale=@Ind_legale, Citta_Legale=@Citta_Legale, CAP_Legale=@CAP_Legale, Prov_Legale=@Prov_Legale, Telefono=@Telefono, Fax=@Fax, Email=@Email, Cel1=@Cel1, Cel2=@Cel2, PIva=@PIva, CodFiscale=@CodFiscale, SDI=@SDI, Banca=@Banca, Agenzia=@Agenzia, IBAN=@IBAN, PagProposto=@PagProposto, PagAccettato=@PagAccettato, Annotazioni=@Annotazioni, ScontoProfili=@ScontoProfili, ScontoAccessori=@ScontoAccessori, Carrello=@Carrello, ScaricoAgevole=@ScaricoAgevole WHERE IdCliente=@IdCliente";
-                await db.ExecuteAsync(sql, c);
+                await Notifica(" Nessun risultato trovato.");
             }
-            await Notifica("✅ Cliente salvato correttamente!");
-        } catch (Exception ex) { await Notifica("❌ Errore: " + ex.Message); }
+        } else {
+            await Notifica($" Errore API: {(int)resp.StatusCode}");
+        }
+    } catch (Exception ex) {
+        // Se c'è ancora un errore, lo vedrai qui con dettaglio
+        await Notifica(" Errore: " + ex.Message);
+    }
+    StateHasChanged();
+}
+
+
+
+
+
+    public class NominatimResult { 
+        [JsonPropertyName("lat")] public string Lat { get; set; } = ""; 
+        [JsonPropertyName("lon")] public string Lon { get; set; } = ""; 
     }
 
-    private async Task Elimina() {
-        if (!await JS.InvokeAsync<bool>("confirm", "Eliminare definitivamente questo cliente?")) return;
-        using var db = new SqlConnection(conn);
-        await db.ExecuteAsync("DELETE FROM Clienti WHERE IdCliente=@id", new { id = c.IdCliente });
-        await RinfrescaListaID();
-        if (listaIdClienti.Any()) { indiceCorrente = 0; await CaricaCliente(listaIdClienti[0]); } else Nuovo();
-        await Notifica("🗑️ Cliente rimosso.");
-    }
-
-    private async Task Nuovo() { 
-        if (!await JS.InvokeAsync<bool>("confirm", "Creare un nuovo cliente e perdere le modifiche non salvate?")) return;
-        c = new Cliente(); indiceCorrente = -1; }
+    private async Task Nuovo() {
+    // 1. Controllo standard "Visite": se ci sono modifiche, chiedi conferma
+    if (IsDirty() && !await JS.InvokeAsync<bool>("confirm", "Modifiche pendenti. Perderle?")) 
+        return;
+    
+    // 2. Resetta l'interfaccia
+    ResetNuovo();
+}
+    
     private async Task Annulla() {
-        if (!await JS.InvokeAsync<bool>("confirm", "Annullare le modifiche non salvate?")) return;
-        if (c.IdCliente == 0) { Nuovo(); return; }
-        await CaricaCliente(c.IdCliente);
+    // 4. Se ci sono modifiche, chiedi conferma
+    if (IsDirty()) {
+        if (await JS.InvokeAsync<bool>("confirm", "Annullare le modifiche non salvate?")) {
+            if (indiceCorrente == -1) ResetNuovo();
+            else await CaricaCliente(listaIdClienti[indiceCorrente]);
+        }
+    } else {
+        // 5. Se NON è sporco e siamo in modalità "Nuovo", torna semplicemente all'ultimo record
+        if (indiceCorrente == -1 && listaIdClienti.Any()) {
+            indiceCorrente = 0;
+            await CaricaCliente(listaIdClienti[indiceCorrente]);
+        }
     }
-    private async Task Prev() { if (indiceCorrente > 0) { indiceCorrente--; await CaricaCliente(listaIdClienti[indiceCorrente]); } }
-    private async Task Next() { if (indiceCorrente < listaIdClienti.Count - 1) { indiceCorrente++; await CaricaCliente(listaIdClienti[indiceCorrente]); } }
+    }
 
-    private async Task EseguiRicerca() {
-        if (string.IsNullOrWhiteSpace(testoRicerca)) return;
-        using var db = new SqlConnection(conn);
-        var trovato = await db.QueryFirstOrDefaultAsync<int?>("SELECT IdCliente FROM Clienti WHERE RagSociale LIKE @t", new { t = "%" + testoRicerca + "%" });
-        if (trovato.HasValue) {
-            indiceCorrente = listaIdClienti.IndexOf(trovato.Value);
-            await CaricaCliente(trovato.Value);
-        } else { await Notifica("🔍 Nessun cliente trovato."); }
+
+    private async Task Elimina() { 
+        if (!await JS.InvokeAsync<bool>("confirm", "Eliminare definitivamente?")) return; 
+        using var db = new SqlConnection(conn); 
+        await db.ExecuteAsync("DELETE FROM Clienti WHERE IdCliente=@id", new { id = c.IdCliente }); 
+        await RinfrescaListaID(); 
+        if (listaIdClienti.Any()) await CaricaCliente(listaIdClienti[0]); 
+        else ResetNuovo(); 
+    }
+
+    private async Task Prev() {
+    // 1. Prima di tutto, controlla se ci sono modifiche, a prescindere dall'indice
+    if (IsDirty()) {
+        if (!await JS.InvokeAsync<bool>("confirm", "Ci sono modifiche non salvate. Vuoi scartarle e continuare?")) {
+            return; // L'utente ha annullato, restiamo qui
+        }
+    }
+
+    // 2. Solo dopo il controllo modifiche, verifichiamo la posizione
+    if (indiceCorrente > 0) { 
+        indiceCorrente--; 
+        await CaricaCliente(listaIdClienti[indiceCorrente]); 
+    } 
+    else {
+        // Se siamo qui, l'utente ha accettato di scartare le modifiche (o non ce n'erano)
+        // ma non ci sono record precedenti.
+        await Notifica("Sei già sul primo record.");
+        
+        // OPZIONALE: Se era "sporco", ricarichiamo il record attuale 
+        // per resettare i campi ai valori originali del DB
+        if (indiceCorrente != -1) {
+            await CaricaCliente(listaIdClienti[indiceCorrente]);
+        }
+    }
+}
+
+
+
+    private async Task Next() {
+    if (IsDirty() && !await JS.InvokeAsync<bool>("confirm", "Modifiche non salvate. Continuare?")) return;
+    if (indiceCorrente < listaIdClienti.Count - 1) { 
+        indiceCorrente++; 
+        await CaricaCliente(listaIdClienti[indiceCorrente]); 
+    } 
+    }
+
+    // Tasto Ricerca (Eseguita con la lente o premendo Invio)
+    private async Task EseguiRicerca() { 
+        if (string.IsNullOrWhiteSpace(testoRicerca)) return; 
+        if (IsDirty() && !await JS.InvokeAsync<bool>("confirm", "Modifiche pendenti. Cercare un altro cliente e perderle?")) return;
+
+        using var db = new SqlConnection(conn); 
+        var trovato = await db.QueryFirstOrDefaultAsync<int?>("SELECT IdCliente FROM Clienti WHERE RagSociale LIKE @t", new { t = "%" + testoRicerca + "%" }); 
+        if (trovato.HasValue) { 
+        indiceCorrente = listaIdClienti.IndexOf(trovato.Value); 
+        await CaricaCliente(trovato.Value); 
+        } else {
+        await Notifica("Nessun cliente trovato.");
+        }
     }
 
     private void CercaEnter(KeyboardEventArgs e) { if (e.Key == "Enter") EseguiRicerca(); }
+    
+    // Tasto Home
+    private async Task CheckAndGoHome() { 
+        if (IsDirty() && !await JS.InvokeAsync<bool>("confirm", "Uscire senza salvare le modifiche?")) return; 
+        Nav.NavigateTo("/"); 
+    }
+    
 
-    private async Task CercaESelezionaClientePerId(int id)
-    {
-        try
-        {
-            // Se hai un servizio esistente per recuperare il cliente, usalo qui.
-            // Esempio generico: var cliente = await ClienteService.GetByIdAsync(id);
-            // Qui invece mostriamo solo un log e navigazione/zoom nella UI.
-            Console.WriteLine($"Richiesta apertura cliente con Id = {id}");
+    private async Task RinfrescaListaID() { 
+        using var db = new SqlConnection(conn); 
+        listaIdClienti = (await db.QueryAsync<int>("SELECT IdCliente FROM Clienti ORDER BY RagSociale")).ToList(); 
+    }
 
-            // Se la pagina mostra una lista, filtra/ricerca per id e seleziona il record.
-            // Esempio fittizio:
-            // searchText = id.ToString();
-            // await DoSearch();
-
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Errore selezione cliente: " + ex.Message);
-        }
+    private async Task Notifica(string m) { 
+        testoNotifica = m; 
+        mostraMessaggio = true; 
+        StateHasChanged(); 
+        await Task.Delay(2500); 
+        mostraMessaggio = false; 
+        StateHasChanged(); 
     }
 }

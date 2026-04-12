@@ -3,282 +3,259 @@
 @using Microsoft.Data.SqlClient
 @using Dapper
 @using GestioneCommerciale.Models
+@using System.Text.Json
+@using System.Globalization
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
 <style>
-    .win-form { background-color: #f0f0f0; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; border: 1px solid #999; padding: 5px; min-width: 1000px; color: #333; }
+    .win-form { background-color: #f0f0f0; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; border: 1px solid #999; padding: 5px; min-width: 1150px; color: #333; position: relative; min-height: 98vh; }
     .win-header { background: #005a9e; color: white; padding: 3px 8px; font-weight: bold; margin: -5px -5px 5px -5px; font-size: 12px; }
     .win-group { border: 1px solid #c0c0c0; background: #fff; padding: 8px; margin-bottom: 5px; }
     .win-label { font-weight: 500; color: #333; padding-right: 5px; white-space: nowrap; text-align: right; font-size: 10.5px; }
     .win-input { border: 1px solid #ccc; padding: 1px 4px; height: 21px; width: 100%; font-size: 11px; }
-    .win-input:focus { border-color: #0078d7; outline: none; background-color: #faffbd; }
     .toolbar-container { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px; background: #fdfdfd; border: 1px solid #c0c0c0; margin-bottom: 5px; }
-    .win-btn { background: #e1e1e1; border: 1px solid #adadad; padding: 0 15px; color: black; font-size: 11px; height: 64px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-width: 85px; text-decoration:none; }
+    .win-btn { background: #e1e1e1; border: 1px solid #adadad; padding: 0 15px; color: black; font-size: 11px; height: 72px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-width: 85px; text-decoration:none; }
     .win-btn:hover { background: #e5f1fb; border-color: #0078d7; }
-    .win-grid { width: 100%; border-collapse: collapse; background: white; font-size: 10.5px; }
-    .win-grid th { background: #f0f0f0; border: 1px solid #ccc; padding: 4px; text-align: left; }
-    .win-grid td { border: 1px solid #eee; padding: 3px 4px; }
     .section-title { font-weight: bold; color: #005a9e; border-bottom: 1px solid #ddd; margin-bottom: 8px; font-size: 10px; text-transform: uppercase; }
-    .btn-waze { background: #33ccff; color: white; border-color: #2db5e3; font-weight: bold; }
-    .btn-waze:hover { background: #28a3cc; }
+    .toast-msg { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 30px; border-radius: 3px; z-index: 9999; box-shadow: 0 5px 15px rgba(0,0,0,0.4); border-left: 5px solid #005a9e; font-size: 13px; }
+    .vicini-box { font-size: 10px; border-bottom: 1px solid #eee; padding: 4px 0; display: flex; justify-content: space-between; align-items: center; }
+    .btn-waze-sm { background: #333; color: white; border: none; padding: 2px 5px; cursor: pointer; border-radius: 3px; font-size: 12px; }
 </style>
 
 <div class="win-form">
-    <div class="win-header">GestAgenti CRM PRO - Gestione Visite & Waze CarPlay Integration by Riccardo Gucci soft.</div>
+    <div class="win-header">Gestione Visite Professional - CRM GestAgenti by Riccardo Gucci soft.</div>
 
+    <!-- TOOLBAR -->
     <div class="toolbar-container">
         <div style="display:flex; gap:5px;">
-            <button class="win-btn" @onclick='() => Nav.NavigateTo("/")'>🏠 Dashboard</button>
-            <button class="win-btn" @onclick="Prev" disabled="@(indiceCorrente >= listaIdVisite.Count - 1)">◀ Prec.</button>
-            <button class="win-btn" @onclick="Next" disabled="@(indiceCorrente <= 0)">Succ. ▶</button>
+            <button class="win-btn" @onclick="CheckAndGoHome">🏠 Home</button>
+            <button class="win-btn" @onclick="Prev" disabled="@(indiceCorrente <= 0)">◀ Prec.</button>
+            <button class="win-btn" @onclick="Next" disabled="@(indiceCorrente >= listaIdVisite.Count - 1 || indiceCorrente == -1)">Succ. ▶</button>
         </div>
+        
+        <div style="flex-grow: 1; max-width: 400px; display:flex; gap:0;">
+            <input type="text" class="win-input" style="height:36px; font-size:13px; border-right:none; border-radius: 2px 0 0 2px;" placeholder="Cerca Cliente..." @bind="testoRicerca" @bind:event="oninput" @onkeyup="CercaEnter" />
+            <button style="height:36px; width:40px; background:#e1e1e1; border:1px solid #ccc; cursor:pointer; border-radius: 0 2px 2px 0;" @onclick="EseguiRicerca">🔍</button>
+        </div>
+
         <div style="display:flex; gap:5px;">
-            <button class="win-btn" @onclick="IniziaNuovo">➕ Nuovo</button>
+            <button class="win-btn" @onclick="Nuovo" style="background:#fff;">📄 Nuova</button>
             <button class="win-btn" @onclick="Annulla" style="background:#f1f1f1;">✖ Annulla</button>
-            <button class="win-btn" @onclick="SalvaDati" style="background:#d4edda; border-color:#28a745;">💾 Salva</button>
-            @if (visita.IDVisita > 0) {
-                <button class="win-btn" @onclick="EliminaVisita" style="background:#f8d7da; border-color:#dc3545; color:#721c24;">🗑️ Elimina</button>
+            <button class="win-btn" @onclick="Salva" style="background:#d4edda; border-color:#28a745;">💾 Salva</button>
+            @if(v.IDVisita > 0) {
+                <button class="win-btn" @onclick="Elimina" style="background:#f8d7da; border-color:#dc3545; color:#721c24;">🗑 Elimina</button>
             }
         </div>
     </div>
 
-    <div class="win-group">
-        <div class="section-title">Dati Rapporto Visita @(visita.IDVisita > 0 ? $"#{visita.IDVisita}" : "[NUOVA]")</div>
-        <table style="width:100%; border-spacing: 4px; table-layout: fixed;">
-            <tr>
-                <td style="width:8%;" class="win-label">Cliente:</td>
-                <td style="width:42%;">
-                    <select class="win-input fw-bold" style="height:25px;" @onchange="OnClienteChanged">
-                        <option value="0">-- Seleziona Cliente --</option>
-                        @foreach (var c in listaClienti) {
-                            <option value="@c.IdCliente" selected="@(visita.IDCliente == c.IdCliente)">@c.RagSociale</option>
-                        }
-                    </select>
-                </td>
-                <td style="width:8%;" class="win-label">Data:</td>
-                <td style="width:17%;"><input type="date" class="win-input" @bind="visita.DataVisita" /></td>
-                <td style="width:8%;" class="win-label">Stato:</td>
-                <td style="width:17%;">
-                    <select class="win-input" @bind="visita.StatoVisita">
-                        <option value="Effettuata">Effettuata</option>
-                        <option value="Programmata">Attesa</option>
-                    </select>
-                </td>
-            </tr>
-        </table>
-        <table style="width:100%; border-spacing: 4px; table-layout: fixed; margin-top: 5px;">
-            <tr>
-                <td style="width:8%;" class="win-label">Referente:</td>
-                <td style="width:25%;"><input type="text" class="win-input" @bind="visita.ReferenteIncontrato" /></td>
-                <td style="width:10%;" class="win-label">Motivazione:</td>
-                <td style="width:32%;"><input type="text" class="win-input" @bind="visita.Motivazione" /></td>
-                <td style="width:10%;" class="win-label">Temp (1-5):</td>
-                <td style="width:15%;"><input type="number" min="1" max="5" class="win-input text-center" @bind="visita.TemperaturaCliente" /></td>
-            </tr>
-        </table>
-        <div style="margin-top:10px;">
-            <label class="win-label" style="text-align:left; display:block;">Note Incontro:</label>
-            <textarea class="win-input" style="height: 60px; resize: none;" @bind="visita.NoteEsito"></textarea>
-        </div>
-        <div style="margin-top:5px; display:flex; gap:15px;">
-             <label><input type="checkbox" @bind="visita.RichiedeSeguito" /> Richiede Follow-up</label>
-             @if(visita.RichiedeSeguito) {
-                 <div class="d-flex align-items-center gap-1">
-                     <span class="win-label">Data Prossimo:</span>
-                     <input type="date" class="win-input" style="width:110px;" @bind="visita.DataProssimoContatto" />
-                 </div>
-             }
-        </div>
-    </div>
-
-    <!-- BOX PROFILAZIONE PROSSIMITÀ & WAZE -->
-    @if (listaSuggerimenti.Any())
-    {
-        <div class="win-group" style="border-left: 5px solid #ffa500; background: #fffcf5;">
-            <div class="section-title" style="color: #856404;">📍 OTTIMIZZAZIONE GIRO (ZONA @clienteSelezionato?.Citta_Legale / @clienteSelezionato?.Prov_Legale)</div>
-            <table class="win-grid">
-                <thead>
+    <div style="display: flex; gap: 10px;">
+        <!-- DATI VISITA -->
+        <div style="flex: 2;">
+            <div class="win-group">
+                <div class="section-title">Dati Rapporto</div>
+                <table style="width:100%; border-spacing: 4px; table-layout: fixed;">
                     <tr>
-                        <th>Cliente</th>
-                        <th>Città</th>
-                        <th>Ultima Visita</th>
-                        <th>Stato</th>
-                        <th class="text-center">Azioni Rapide</th>
+                        <td style="width:15%" class="win-label">Cliente:</td>
+                        <td>
+                            <div style="display:flex; gap:2px;">
+                                <select class="win-input fw-bold" @bind="v.IDCliente" @bind:after="AlCambioCliente">
+                                    <option value="0">-- Seleziona --</option>
+                                    @foreach (var cl in clienti) {
+                                        <option value="@cl.IdCliente">@cl.RagSociale</option>
+                                    }
+                                </select>
+                                <button type="button" class="btn-waze-sm" title="Naviga" 
+                                        disabled="@(clienteSelezionato == null)" @onclick="() => NavigaWaze(clienteSelezionato)">🚙</button>
+                            </div>
+                        </td>
+                        <td style="width:15%" class="win-label">Data Visita:</td>
+                        <td><input type="date" class="win-input" @bind="v.DataVisita" /></td>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach (var s in listaSuggerimenti)
-                    {
-                        <tr>
-                            <td class="fw-bold">@s.RagSociale</td>
-                            <td>@s.Citta_Legale (@s.Prov_Legale)</td>
-                            <td>@(s.UltimaVisita != null ? ((DateTime)s.UltimaVisita).ToShortDateString() : "MAI")</td>
-                            <td>
-                                @if(s.GiorniAssenza == null || s.GiorniAssenza > 30) { <span style="color:red; font-weight:bold;">⚠️ RECUPERARE</span> }
-                                else { <span style="color:green;">RECENTE</span> }
-                            </td>
-                            <td class="text-center">
-                                <div class="d-flex gap-1 justify-content-center">
-                                    <button class="win-btn" style="height:40px; font-size:9px; min-width:55px;" 
-                                            @onclick='() => CaricaNuovoDaSuggerimento(s.IdCliente)'>
-                                        VISITA
-                                    </button>
-                                    <button class="win-btn btn-waze" style="height:40px; font-size:9px; min-width:65px;" 
-                                            @onclick='() => ApriWaze(s)'>
-                                        WAZE 🚗
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+                    <tr>
+                        <td class="win-label">Motivazione:</td>
+                        <td><input type="text" class="win-input" @bind="v.Motivazione" /></td>
+                        <td class="win-label">Referente:</td>
+                        <td><input type="text" class="win-input" @bind="v.ReferenteIncontrato" /></td>
+                    </tr>
+                    <tr>
+                        <td class="win-label">Esito:</td>
+                        <td colspan="3"><textarea class="win-input" style="height:60px; resize:none;" @bind="v.NoteEsito"></textarea></td>
+                    </tr>
+                </table>
+            </div>
         </div>
-    }
 
-    <div class="p-1 text-center fw-bold small @(statoMessaggio.Contains("✅") ? "text-success" : "text-danger")">
-        @statoMessaggio
+        <!-- GIRO INTELLIGENTE -->
+        <div style="flex: 1;">
+            <div class="win-group" style="height: 100%;">
+                <div class="section-title">📍 Giro Intelligente</div>
+                @if (clienteSelezionato != null)
+                {
+                    <div style="background:#f9f9f9; padding:5px; border:1px solid #ddd; margin-bottom:8px;">
+                        <span style="font-size:9px; font-weight:bold;">CRITERIO:</span>
+                        <select class="win-input" @onchange="OnFiltroGiroChanged">
+                            <option value="provincia">Stessa Provincia</option>
+                            <option value="comune">Stesso Comune</option>
+                            <option value="distanza">Raggio 50 KM</option>
+                        </select>
+                    </div>
+
+                    <div style="max-height: 250px; overflow-y: auto;">
+                        @if (!clientiVicini.Any()) { <div class="text-muted italic">Nessun cliente trovato con questo filtro.</div> }
+                        @foreach (var vic in clientiVicini) {
+                            <div class="vicini-box">
+                                <div style="cursor:pointer; flex-grow:1;" @onclick="() => SelezionaDaGiro(vic.IdCliente)">
+                                    <b>@vic.RagSociale</b><br /><span>@vic.Citta_Legale</span>
+                                </div>
+                                <button type="button" class="btn-waze-sm" @onclick="() => NavigaWaze(vic)">🚙</button>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
     </div>
 </div>
 
 @code {
-    [Parameter] [SupplyParameterFromQuery] public int? idCliente { get; set; }
-    [Parameter] [SupplyParameterFromQuery] public string? stato { get; set; }
-
-    private Visita visita = new Visita { DataVisita = DateTime.Now, StatoVisita = "Effettuata", TemperaturaCliente = 3 };
+    private Visita v = new Visita();
     private Cliente clienteSelezionato;
-    private List<Cliente> listaClienti = new();
+    private List<Cliente> clienti = new();
+    private List<Cliente> clientiVicini = new();
+    private string tipoFiltroGiro = "provincia";
+    private string snapshotOriginale = "";
     private List<int> listaIdVisite = new();
     private int indiceCorrente = -1;
-    private List<dynamic> listaSuggerimenti = new();
-    private string statoMessaggio = "";
+    private int ultimoIndiceValido = 0;
+    private string testoRicerca = "";
+    private string testoNotifica = "";
+    private bool mostraMessaggio = false;
     private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
 
     protected override async Task OnInitializedAsync() {
         using var db = new SqlConnection(conn);
-        listaClienti = (await db.QueryAsync<Cliente>("SELECT * FROM Clienti ORDER BY RagSociale")).ToList();
-        await CaricaListaID();
-        
-        if (idCliente.HasValue) {
-            visita.IDCliente = idCliente.Value;
-            if (!string.IsNullOrWhiteSpace(stato)) visita.StatoVisita = stato;
-            await AggiornaSuggerimenti();
-        } else if (listaIdVisite.Any()) {
-            indiceCorrente = 0;
-            await CaricaVisita(listaIdVisite[indiceCorrente]);
-        }
+        clienti = (await db.QueryAsync<Cliente>("SELECT * FROM Clienti ORDER BY RagSociale")).ToList();
+        await RinfrescaListaID();
+        if (listaIdVisite.Any()) { indiceCorrente = 0; await CaricaVisita(listaIdVisite[indiceCorrente]); } 
+        else { ResetNuovo(); }
     }
 
-    private async Task CaricaListaID() {
-        using var db = new SqlConnection(conn);
-        listaIdVisite = (await db.QueryAsync<int>("SELECT IDVisita FROM Visite ORDER BY DataVisita DESC, IDVisita DESC")).ToList();
-    }
+    private bool IsDirty() => snapshotOriginale != JsonSerializer.Serialize(v);
 
     private async Task CaricaVisita(int id) {
         using var db = new SqlConnection(conn);
-        visita = await db.QueryFirstOrDefaultAsync<Visita>("SELECT * FROM Visite WHERE IDVisita = @id", new { id });
-        await AggiornaSuggerimenti();
+        v = await db.QueryFirstOrDefaultAsync<Visita>("SELECT * FROM Visite WHERE IDVisita = @id", new { id });
+        snapshotOriginale = JsonSerializer.Serialize(v);
+        if (indiceCorrente != -1) ultimoIndiceValido = indiceCorrente;
+        await AlCambioCliente();
     }
 
-    private async Task OnClienteChanged(ChangeEventArgs e) {
-        if (int.TryParse(e.Value?.ToString(), out int id) && id > 0) {
-            visita.IDCliente = id;
-            await AggiornaSuggerimenti();
-        }
+    private async Task AlCambioCliente() {
+        clienteSelezionato = clienti.FirstOrDefault(c => c.IdCliente == v.IDCliente);
+        await ApplicaFiltroGiro();
     }
 
-    private async Task AggiornaSuggerimenti() {
-        clienteSelezionato = listaClienti.FirstOrDefault(x => x.IdCliente == visita.IDCliente);
-        if (clienteSelezionato == null) { listaSuggerimenti.Clear(); return; }
+    private async Task OnFiltroGiroChanged(ChangeEventArgs e) {
+        tipoFiltroGiro = e.Value?.ToString() ?? "provincia";
+        await ApplicaFiltroGiro();
+    }
 
+    private async Task ApplicaFiltroGiro() {
+        if (clienteSelezionato == null) { clientiVicini.Clear(); return; }
         using var db = new SqlConnection(conn);
-        // Query Pro: Priorità stessa città, estesa a tutta la provincia
-        string sql = @"
-            SELECT TOP 6 c.IdCliente, c.RagSociale, c.Citta_Legale, c.Prov_Legale, c.Ind_legale, c.Latitudine, c.Longitudine,
-            (SELECT MAX(DataVisita) FROM Visite v WHERE v.IDCliente = c.IdCliente) as UltimaVisita,
-            DATEDIFF(day, (SELECT MAX(DataVisita) FROM Visite v WHERE v.IDCliente = c.IdCliente), GETDATE()) as GiorniAssenza
-            FROM Clienti c
-            WHERE (LTRIM(RTRIM(c.Prov_Legale)) = LTRIM(RTRIM(@Prov)))
-              AND c.IdCliente <> @IdAttuale
-            ORDER BY 
-                CASE WHEN LTRIM(RTRIM(c.Citta_Legale)) = LTRIM(RTRIM(@Citta)) THEN 0 ELSE 1 END,
-                UltimaVisita ASC";
-
-        listaSuggerimenti = (await db.QueryAsync(sql, new { 
-            Citta = clienteSelezionato.Citta_Legale, 
-            Prov = clienteSelezionato.Prov_Legale, 
-            IdAttuale = visita.IDCliente 
-        })).ToList();
-    }
-
-    private async Task ApriWaze(dynamic s) {
-        // prepare address: prefer latitude/longitude if available
-        string addr;
-        try {
-            // try common column names first
-            if (s.Latitudine != null && s.Longitudine != null) {
-                addr = string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0},{1}", s.Latitudine, s.Longitudine);
-            } else if (s.Latitude != null && s.Longitude != null) {
-                addr = string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0},{1}", s.Latitude, s.Longitude);
-            } else {
-                addr = System.Net.WebUtility.UrlEncode($"{s.Ind_legale}, {s.Citta_Legale}");
+        
+        if (tipoFiltroGiro == "provincia") {
+            clientiVicini = (await db.QueryAsync<Cliente>("SELECT TOP 10 * FROM Clienti WHERE Prov_Legale=@p AND IdCliente<>@id", new { p=clienteSelezionato.Prov_Legale, id=clienteSelezionato.IdCliente })).ToList();
+        } 
+        else if (tipoFiltroGiro == "comune") {
+            clientiVicini = (await db.QueryAsync<Cliente>("SELECT TOP 10 * FROM Clienti WHERE Citta_Legale=@c AND IdCliente<>@id", new { c=clienteSelezionato.Citta_Legale, id=clienteSelezionato.IdCliente })).ToList();
+        }
+        else if (tipoFiltroGiro == "distanza") {
+            if (clienteSelezionato.Lat == null || clienteSelezionato.Lon == null) {
+                clientiVicini.Clear();
+                await Notifica("Coordinate cliente selezionato assenti!");
+                return;
             }
-        } catch {
-            addr = System.Net.WebUtility.UrlEncode($"{s.Ind_legale}, {s.Citta_Legale}");
+            // Query con CAST e tolleranza matematica migliorata
+            string sql = @"SELECT TOP 10 * FROM Clienti 
+                           WHERE IdCliente <> @id AND Lat IS NOT NULL AND Lon IS NOT NULL
+                           AND (6371 * acos(p1.val)) < 50
+                           FROM (SELECT (sin(radians(CAST(@lat AS FLOAT))) * sin(radians(Lat)) + cos(radians(CAST(@lat AS FLOAT))) * cos(radians(Lat)) * cos(radians(Lon) - radians(CAST(@lon AS FLOAT)))) as val) p1
+                           WHERE p1.val BETWEEN -1 AND 1";
+            
+            // Per semplicità usiamo una versione più diretta ma protetta
+            string sqlDirect = @"SELECT TOP 10 * FROM Clienti WHERE IdCliente <> @id AND Lat IS NOT NULL 
+                AND (6371 * acos(CASE WHEN (sin(radians(@lat))*sin(radians(Lat)) + cos(radians(@lat))*cos(radians(Lat))*cos(radians(Lon-@lon))) > 1 THEN 1 ELSE (sin(radians(@lat))*sin(radians(Lat)) + cos(radians(@lat))*cos(radians(Lat))*cos(radians(Lon-@lon))) END)) < 50";
+            
+            clientiVicini = (await db.QueryAsync<Cliente>(sqlDirect, new { lat = (double)clienteSelezionato.Lat, lon = (double)clienteSelezionato.Lon, id = clienteSelezionato.IdCliente })).ToList();
         }
-        await JS.InvokeVoidAsync("waze.open", addr);
+        StateHasChanged();
     }
 
-    private async Task CaricaNuovoDaSuggerimento(int id) {
-        visita = new Visita { IDCliente = id, DataVisita = DateTime.Now, StatoVisita = "Effettuata", TemperaturaCliente = 3 };
-        await AggiornaSuggerimenti();
+    private async Task SelezionaDaGiro(int id) {
+        if (IsDirty() && !await JS.InvokeAsync<bool>("confirm", "Modifiche pendenti. Cambiare?")) return;
+        v.IDCliente = id;
+        await AlCambioCliente();
+    }
+
+    private void ResetNuovo() {
+        v = new Visita { DataVisita = DateTime.Now, TemperaturaCliente = 3, IDCliente = 0, StatoVisita = "Eseguita", NoteEsito="", Motivazione="", ReferenteIncontrato="" };
+        snapshotOriginale = JsonSerializer.Serialize(v);
+        clienteSelezionato = null;
+        clientiVicini.Clear();
         indiceCorrente = -1;
+        StateHasChanged();
     }
 
-    private async Task IniziaNuovo()
-    {
-        if (!await JS.InvokeAsync<bool>("confirm", "Creare una nuova visita e perdere le modifiche non salvate?")) return;
-        visita = new Visita { DataVisita = DateTime.Now, StatoVisita = "Effettuata", TemperaturaCliente = 3 };
-        listaSuggerimenti.Clear(); indiceCorrente = -1; statoMessaggio = "";
+    private async Task Nuovo() { if (IsDirty() && !await JS.InvokeAsync<bool>("confirm", "Modifiche pendenti. Perderle?")) return; ResetNuovo(); }
+
+    private async Task Annulla() {
+        if (indiceCorrente == -1 && !IsDirty()) { await TornaAUltima(); return; }
+        if (IsDirty()) {
+            if (!await JS.InvokeAsync<bool>("confirm", "Annullare?")) return;
+            if (indiceCorrente == -1) await TornaAUltima();
+            else await CaricaVisita(v.IDVisita);
+        }
     }
 
-    private async Task Annulla()
-    {
-        if (!await JS.InvokeAsync<bool>("confirm", "Annullare le modifiche non salvate?")) return;
-        if (visita.IDVisita == 0) { IniziaNuovo(); return; }
-        await CaricaVisita(visita.IDVisita);
-    }
+    private async Task TornaAUltima() { if (listaIdVisite.Any()) { indiceCorrente = ultimoIndiceValido; await CaricaVisita(listaIdVisite[indiceCorrente]); } }
 
-    private async Task SalvaDati() {
-        if (visita.IDCliente == 0) { statoMessaggio = "⚠️ Seleziona un cliente!"; return; }
+    private async Task Salva() {
+        if (v.IDCliente == 0) { await Notifica("Seleziona cliente!"); return; }
         using var db = new SqlConnection(conn);
         try {
-            if (visita.IDVisita == 0) {
+            if (v.IDVisita == 0) {
                 string sql = @"INSERT INTO Visite (IDCliente, DataVisita, StatoVisita, Motivazione, ReferenteIncontrato, NoteEsito, TemperaturaCliente, RichiedeSeguito, DataProssimoContatto) 
-                               OUTPUT INSERTED.IDVisita
-                               VALUES (@IDCliente, @DataVisita, @StatoVisita, @Motivazione, @ReferenteIncontrato, @NoteEsito, @TemperaturaCliente, @RichiedeSeguito, @DataProssimoContatto)";
-                visita.IDVisita = await db.QuerySingleAsync<int>(sql, visita);
-                listaIdVisite.Insert(0, visita.IDVisita);
-                indiceCorrente = 0;
+                               OUTPUT INSERTED.IDVisita VALUES (@IDCliente, @DataVisita, @StatoVisita, @Motivazione, @ReferenteIncontrato, @NoteEsito, @TemperaturaCliente, @RichiedeSeguito, @DataProssimoContatto)";
+                v.IDVisita = await db.QuerySingleAsync<int>(sql, v);
+                await RinfrescaListaID();
+                indiceCorrente = listaIdVisite.IndexOf(v.IDVisita);
             } else {
                 string sql = @"UPDATE Visite SET IDCliente=@IDCliente, DataVisita=@DataVisita, StatoVisita=@StatoVisita, Motivazione=@Motivazione, 
                                ReferenteIncontrato=@ReferenteIncontrato, NoteEsito=@NoteEsito, TemperaturaCliente=@TemperaturaCliente, 
                                RichiedeSeguito=@RichiedeSeguito, DataProssimoContatto=@DataProssimoContatto WHERE IDVisita=@IDVisita";
-                await db.ExecuteAsync(sql, visita);
+                await db.ExecuteAsync(sql, v);
             }
-            statoMessaggio = "✅ Visita salvata con successo!";
-        } catch (Exception ex) { statoMessaggio = "❌ Errore: " + ex.Message; }
+            snapshotOriginale = JsonSerializer.Serialize(v);
+            await Notifica("Salvato!");
+        } catch (Exception ex) { await Notifica("Errore: " + ex.Message); }
     }
 
-    private async Task EliminaVisita() {
-        if (!await JS.InvokeAsync<bool>("confirm", "Eliminare il rapporto visita?")) return;
-        using var db = new SqlConnection(conn);
-        await db.ExecuteAsync("DELETE FROM Visite WHERE IDVisita=@id", new { id = visita.IDVisita });
-        await CaricaListaID();
-        if (listaIdVisite.Any()) await CaricaVisita(listaIdVisite[0]); else IniziaNuovo();
+    private async Task Prev() { if (indiceCorrente > 0) { indiceCorrente--; await CaricaVisita(listaIdVisite[indiceCorrente]); } }
+    private async Task Next() { if (indiceCorrente < listaIdVisite.Count - 1) { indiceCorrente++; await CaricaVisita(listaIdVisite[indiceCorrente]); } }
+    private async Task RinfrescaListaID() { using var db = new SqlConnection(conn); listaIdVisite = (await db.QueryAsync<int>("SELECT IDVisita FROM Visite ORDER BY DataVisita DESC")).ToList(); }
+    private async Task Elimina() { if (!await JS.InvokeAsync<bool>("confirm", "Eliminare?")) return; using var db = new SqlConnection(conn); await db.ExecuteAsync("DELETE FROM Visite WHERE IDVisita=@id", new { id = v.IDVisita }); await RinfrescaListaID(); if (listaIdVisite.Any()) { indiceCorrente = 0; await CaricaVisita(listaIdVisite[0]); } else ResetNuovo(); }
+    private async Task EseguiRicerca() { if (string.IsNullOrWhiteSpace(testoRicerca)) return; using var db = new SqlConnection(conn); var trovato = await db.QueryFirstOrDefaultAsync<int?>("SELECT TOP 1 V.IDVisita FROM Visite V JOIN Clienti C ON V.IDCliente = C.IdCliente WHERE C.RagSociale LIKE @t ORDER BY V.DataVisita DESC", new { t = "%" + testoRicerca + "%" }); if (trovato.HasValue) { indiceCorrente = listaIdVisite.IndexOf(trovato.Value); await CaricaVisita(trovato.Value); } }
+    private void CercaEnter(KeyboardEventArgs e) { if (e.Key == "Enter") EseguiRicerca(); }
+    private async Task CheckAndGoHome() { if (IsDirty() && !await JS.InvokeAsync<bool>("confirm", "Uscire?")) return; Nav.NavigateTo("/"); }
+    private async Task Notifica(string m) { testoNotifica = m; mostraMessaggio = true; StateHasChanged(); await Task.Delay(2000); mostraMessaggio = false; StateHasChanged(); }
+    
+    private async Task NavigaWaze(Cliente target) {
+        if (target?.Lat == null || target?.Lon == null) { await Notifica("Coordinate GPS assenti!"); return; }
+        // Forzo il punto come separatore decimale
+        string lat = target.Lat.Value.ToString("F6", CultureInfo.InvariantCulture);
+        string lon = target.Lon.Value.ToString("F6", CultureInfo.InvariantCulture);
+        await JS.InvokeVoidAsync("open", $"waze://?ll={lat},{lon}&navigate=yes", "_blank");
     }
-
-    private async Task Prev() { if (indiceCorrente < listaIdVisite.Count - 1) { indiceCorrente++; await CaricaVisita(listaIdVisite[indiceCorrente]); } }
-    private async Task Next() { if (indiceCorrente > 0) { indiceCorrente--; await CaricaVisita(listaIdVisite[indiceCorrente]); } }
 }

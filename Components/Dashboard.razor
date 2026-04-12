@@ -142,20 +142,31 @@
                 </thead>
                 <tbody>
                     @foreach (var d in listaDormienti) {
+                        var idCliente = d.IdCliente == null ? -1 : (int)d.IdCliente;
                         <tr>
+                            <td>@(d.RagSociale?.ToString() ?? "")</td>
+                            <td>@((d.UltimoOrdine != null ? ((DateTime)d.UltimoOrdine).ToShortDateString() : "MAI").ToString())</td>
                             <td>@(d.RagSociale ?? "")</td>
                             <td>@(d.UltimoOrdine?.ToShortDateString() ?? "MAI")</td>
                             <td class="text-end fw-bold text-warning">@(d.GiorniAssenza?.ToString() ?? "0") gg</td>
                             <td class="text-center">
                                 <div class="action-menu">
-                                    <button class="win-btn-cell p-0 action-btn" @onclick="() => ToggleMenu(d.IdCliente)" style="font-size:11px; height:28px; padding:0 8px">⋯</button>
-                                    @if (openMenuFor == d.IdCliente)
+                                    <button class="win-btn-cell p-0 action-btn" @onclick="() => ToggleMenu(idCliente)" style="font-size:11px; height:28px; padding:0 8px">⋯</button>
+                                    @if (openMenuFor == idCliente)
                                     {
-                                        <div class="action-dropdown">
-                                            <div @onclick="() => OpenNuovaVisita(d.IdCliente)">📅 Pianifica visita</div>
-                                            <div @onclick="() => OpenCliente(d.IdCliente)">👤 Apri cliente</div>
-                                            <div @onclick="() => CreaOrdine(d.IdCliente)">🛒 Crea ordine</div>
-                                        </div>
+                                        <button class="win-btn-cell p-0 action-btn" @onclick="() => ToggleMenu(d.IdCliente)" style="font-size:11px; height:28px; padding:0 8px">⋯</button>
+                                        @if (openMenuFor == d.IdCliente)
+                                        {
+                                            <div class="action-dropdown">
+                                                <div @onclick='() => { ToggleMenu(-1); Nav.NavigateTo($"/nuova-visita?idCliente={idCliente}&stato=Programmata"); }'>📅 Pianifica visita</div>
+                                                <div @onclick='() => { ToggleMenu(-1); Nav.NavigateTo($"/anagrafica-clienti?idCliente={idCliente}"); }'>👤 Apri cliente</div>
+                                                <div @onclick='() => { ToggleMenu(-1); Nav.NavigateTo($"/nuovo-ordine?idCliente={idCliente}"); }'>🛒 Crea ordine</div>
+                                                <div @onclick="() => OpenNuovaVisita(d.IdCliente)">📅 Pianifica visita</div>
+                                                <div @onclick="() => OpenCliente(d.IdCliente)">👤 Apri cliente</div>
+                                                <div @onclick="() => CreaOrdine(d.IdCliente)">🛒 Crea ordine</div>
+                                            </div>
+                                        }
+
                                     }
                                 </div>
                             </td>
