@@ -21,12 +21,14 @@
     .toast-msg { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 30px; border-radius: 3px; z-index: 9999; box-shadow: 0 5px 15px rgba(0,0,0,0.4); border-left: 5px solid #005a9e; font-size: 13px; }
     .vicini-box { font-size: 10px; border-bottom: 1px solid #eee; padding: 4px 0; display: flex; justify-content: space-between; align-items: center; }
     .btn-waze-sm { background: #333; color: white; border: none; padding: 2px 5px; cursor: pointer; border-radius: 3px; font-size: 12px; }
+    .win-table { width: 100%; border-collapse: collapse; background: white; font-size: 10px; }
+    .win-table th { background: #f0f0f0; border: 1px solid #ccc; padding: 4px; text-align: left; position: sticky; top:0; }
+    .win-table td { border: 1px solid #eee; padding: 4px; vertical-align: top; }
 </style>
 
 <div class="win-form">
     <div class="win-header">Gestione Visite Professional - CRM GestAgenti by Riccardo Gucci soft.</div>
 
-    <!-- TOOLBAR -->
     <div class="toolbar-container">
         <div style="display:flex; gap:5px;">
             <button class="win-btn" @onclick="CheckAndGoHome">🏠 Home</button>
@@ -50,7 +52,6 @@
     </div>
 
     <div style="display: flex; gap: 10px;">
-        <!-- DATI VISITA -->
         <div style="flex: 2;">
             <div class="win-group">
                 <div class="section-title">Dati Rapporto</div>
@@ -84,9 +85,33 @@
                     </tr>
                 </table>
             </div>
+
+            <!-- STORICO VISITE -->
+            <div class="win-group">
+                <div class="section-title">📜 Storico Visite Cliente</div>
+                <div style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd;">
+                    <table class="win-table">
+                        <thead>
+                            <tr>
+                                <th style="width:80px;">Data</th>
+                                <th style="width:150px;">Motivazione</th>
+                                <th>Esito / Note</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var s in storicoVisite) {
+                                <tr style="@(s.IDVisita == v.IDVisita ? "background-color: #fff9c4; font-weight:bold;" : "")">
+                                    <td>@s.DataVisita?.ToString("dd/MM/yyyy")</td>
+                                    <td>@s.Motivazione</td>
+                                    <td style="color:#555;">@s.NoteEsito</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
-        <!-- GIRO INTELLIGENTE -->
         <div style="flex: 1;">
             <div class="win-group" style="height: 100%;">
                 <div class="section-title">📍 Giro Intelligente</div>
@@ -101,12 +126,11 @@
                         </select>
                     </div>
 
-                    <div style="max-height: 250px; overflow-y: auto;">
-                        @if (!clientiVicini.Any()) { <div class="text-muted italic">Nessun cliente trovato con questo filtro.</div> }
+                    <div style="max-height: 450px; overflow-y: auto;">
                         @foreach (var vic in clientiVicini) {
                             <div class="vicini-box">
                                 <div style="cursor:pointer; flex-grow:1;" @onclick="() => SelezionaDaGiro(vic.IdCliente)">
-                                    <b>@vic.RagSociale</b><br /><span>@vic.Citta_Legale</span>
+                                    <b>@vic.RagSociale</b><br /><span>@vic.Citta_Legale (@vic.Prov_Legale)</span>
                                 </div>
                                 <button type="button" class="btn-waze-sm" @onclick="() => NavigaWaze(vic)">🚙</button>
                             </div>
@@ -118,144 +142,178 @@
     </div>
 </div>
 
+@if (mostraMessaggio) { <div class="toast-msg">@testoNotifica</div> }
+
 @code {
-    private Visita v = new Visita();
+    private Visita v = new Visita { DataVisita = DateTime.Now };
     private Cliente clienteSelezionato;
     private List<Cliente> clienti = new();
     private List<Cliente> clientiVicini = new();
+    private List<Visita> storicoVisite = new();
     private string tipoFiltroGiro = "provincia";
     private string snapshotOriginale = "";
     private List<int> listaIdVisite = new();
     private int indiceCorrente = -1;
-    private int ultimoIndiceValido = 0;
     private string testoRicerca = "";
     private string testoNotifica = "";
     private bool mostraMessaggio = false;
     private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
+    private int idPrecedente = 0;
+
 
     protected override async Task OnInitializedAsync() {
-        using var db = new SqlConnection(conn);
-        clienti = (await db.QueryAsync<Cliente>("SELECT * FROM Clienti ORDER BY RagSociale")).ToList();
-        await RinfrescaListaID();
-        if (listaIdVisite.Any()) { indiceCorrente = 0; await CaricaVisita(listaIdVisite[indiceCorrente]); } 
-        else { ResetNuovo(); }
+        await CaricaClienti();
+        await CaricaListaId();
+        if (listaIdVisite.Any()) {
+            indiceCorrente = listaIdVisite.Count - 1;
+            await CaricaVisita(listaIdVisite[indiceCorrente]);
+        } else {
+            snapshotOriginale = JsonSerializer.Serialize(v);
+        }
     }
 
-    private bool IsDirty() => snapshotOriginale != JsonSerializer.Serialize(v);
+    private async Task CaricaClienti() {
+        using var db = new SqlConnection(conn);
+        clienti = (await db.QueryAsync<Cliente>("SELECT * FROM Clienti ORDER BY RagSociale")).ToList();
+    }
+
+    private async Task CaricaListaId() {
+        using var db = new SqlConnection(conn);
+        listaIdVisite = (await db.QueryAsync<int>("SELECT IDVisita FROM Visite ORDER BY DataVisita ASC, IDVisita ASC")).ToList();
+    }
 
     private async Task CaricaVisita(int id) {
         using var db = new SqlConnection(conn);
         v = await db.QueryFirstOrDefaultAsync<Visita>("SELECT * FROM Visite WHERE IDVisita = @id", new { id });
-        snapshotOriginale = JsonSerializer.Serialize(v);
-        if (indiceCorrente != -1) ultimoIndiceValido = indiceCorrente;
-        await AlCambioCliente();
+        if (v != null) {
+            await AlCambioCliente();
+            snapshotOriginale = JsonSerializer.Serialize(v);
+        }
     }
 
     private async Task AlCambioCliente() {
-        clienteSelezionato = clienti.FirstOrDefault(c => c.IdCliente == v.IDCliente);
-        await ApplicaFiltroGiro();
-    }
-
-    private async Task OnFiltroGiroChanged(ChangeEventArgs e) {
-        tipoFiltroGiro = e.Value?.ToString() ?? "provincia";
-        await ApplicaFiltroGiro();
-    }
-
-    private async Task ApplicaFiltroGiro() {
-        if (clienteSelezionato == null) { clientiVicini.Clear(); return; }
-        using var db = new SqlConnection(conn);
-        
-        if (tipoFiltroGiro == "provincia") {
-            clientiVicini = (await db.QueryAsync<Cliente>("SELECT TOP 10 * FROM Clienti WHERE Prov_Legale=@p AND IdCliente<>@id", new { p=clienteSelezionato.Prov_Legale, id=clienteSelezionato.IdCliente })).ToList();
-        } 
-        else if (tipoFiltroGiro == "comune") {
-            clientiVicini = (await db.QueryAsync<Cliente>("SELECT TOP 10 * FROM Clienti WHERE Citta_Legale=@c AND IdCliente<>@id", new { c=clienteSelezionato.Citta_Legale, id=clienteSelezionato.IdCliente })).ToList();
-        }
-        else if (tipoFiltroGiro == "distanza") {
-            if (clienteSelezionato.Lat == null || clienteSelezionato.Lon == null) {
-                clientiVicini.Clear();
-                await Notifica("Coordinate cliente selezionato assenti!");
-                return;
-            }
-            // Query con CAST e tolleranza matematica migliorata
-            string sql = @"SELECT TOP 10 * FROM Clienti 
-                           WHERE IdCliente <> @id AND Lat IS NOT NULL AND Lon IS NOT NULL
-                           AND (6371 * acos(p1.val)) < 50
-                           FROM (SELECT (sin(radians(CAST(@lat AS FLOAT))) * sin(radians(Lat)) + cos(radians(CAST(@lat AS FLOAT))) * cos(radians(Lat)) * cos(radians(Lon) - radians(CAST(@lon AS FLOAT)))) as val) p1
-                           WHERE p1.val BETWEEN -1 AND 1";
-            
-            // Per semplicità usiamo una versione più diretta ma protetta
-            string sqlDirect = @"SELECT TOP 10 * FROM Clienti WHERE IdCliente <> @id AND Lat IS NOT NULL 
-                AND (6371 * acos(CASE WHEN (sin(radians(@lat))*sin(radians(Lat)) + cos(radians(@lat))*cos(radians(Lat))*cos(radians(Lon-@lon))) > 1 THEN 1 ELSE (sin(radians(@lat))*sin(radians(Lat)) + cos(radians(@lat))*cos(radians(Lat))*cos(radians(Lon-@lon))) END)) < 50";
-            
-            clientiVicini = (await db.QueryAsync<Cliente>(sqlDirect, new { lat = (double)clienteSelezionato.Lat, lon = (double)clienteSelezionato.Lon, id = clienteSelezionato.IdCliente })).ToList();
+        if (v.IDCliente > 0) {
+            clienteSelezionato = clienti.FirstOrDefault(c => c.IdCliente == v.IDCliente);
+            using var db = new SqlConnection(conn);
+            storicoVisite = (await db.QueryAsync<Visita>("SELECT * FROM Visite WHERE IDCliente = @id ORDER BY DataVisita DESC", new { id = v.IDCliente })).ToList();
+            await CaricaClientiVicini();
+        } else {
+            clienteSelezionato = null;
+            storicoVisite.Clear();
+            clientiVicini.Clear();
         }
         StateHasChanged();
     }
 
-    private async Task SelezionaDaGiro(int id) {
-        if (IsDirty() && !await JS.InvokeAsync<bool>("confirm", "Modifiche pendenti. Cambiare?")) return;
-        v.IDCliente = id;
-        await AlCambioCliente();
-    }
-
-    private void ResetNuovo() {
-        v = new Visita { DataVisita = DateTime.Now, TemperaturaCliente = 3, IDCliente = 0, StatoVisita = "Eseguita", NoteEsito="", Motivazione="", ReferenteIncontrato="" };
-        snapshotOriginale = JsonSerializer.Serialize(v);
-        clienteSelezionato = null;
-        clientiVicini.Clear();
-        indiceCorrente = -1;
-        StateHasChanged();
-    }
-
-    private async Task Nuovo() { if (IsDirty() && !await JS.InvokeAsync<bool>("confirm", "Modifiche pendenti. Perderle?")) return; ResetNuovo(); }
-
-    private async Task Annulla() {
-        if (indiceCorrente == -1 && !IsDirty()) { await TornaAUltima(); return; }
-        if (IsDirty()) {
-            if (!await JS.InvokeAsync<bool>("confirm", "Annullare?")) return;
-            if (indiceCorrente == -1) await TornaAUltima();
-            else await CaricaVisita(v.IDVisita);
+    private async Task<bool> CheckModificheRealmenteFatte() {
+        var attuale = JsonSerializer.Serialize(v);
+        if (attuale != snapshotOriginale) {
+            return await JS.InvokeAsync<bool>("confirm", "Sono state apportate modifiche. Vuoi uscire senza salvare?");
         }
+        return true;
     }
 
-    private async Task TornaAUltima() { if (listaIdVisite.Any()) { indiceCorrente = ultimoIndiceValido; await CaricaVisita(listaIdVisite[indiceCorrente]); } }
+    private async Task Nuovo() {
+    if (!await CheckModificheRealmenteFatte()) return;
+
+    // Memorizziamo l'ID attuale prima di resettare, così Annulla sa dove tornare
+    if (v.IDVisita > 0) idPrecedente = v.IDVisita;
+
+    v = new Visita { DataVisita = DateTime.Now, IDCliente = 0 };
+    clienteSelezionato = null;
+    storicoVisite.Clear();
+    indiceCorrente = -1;
+    snapshotOriginale = JsonSerializer.Serialize(v);
+}
 
     private async Task Salva() {
-        if (v.IDCliente == 0) { await Notifica("Seleziona cliente!"); return; }
+        if (v.IDCliente <= 0) { await ShowToast("Seleziona un cliente!"); return; }
         using var db = new SqlConnection(conn);
-        try {
-            if (v.IDVisita == 0) {
-                string sql = @"INSERT INTO Visite (IDCliente, DataVisita, StatoVisita, Motivazione, ReferenteIncontrato, NoteEsito, TemperaturaCliente, RichiedeSeguito, DataProssimoContatto) 
-                               OUTPUT INSERTED.IDVisita VALUES (@IDCliente, @DataVisita, @StatoVisita, @Motivazione, @ReferenteIncontrato, @NoteEsito, @TemperaturaCliente, @RichiedeSeguito, @DataProssimoContatto)";
-                v.IDVisita = await db.QuerySingleAsync<int>(sql, v);
-                await RinfrescaListaID();
-                indiceCorrente = listaIdVisite.IndexOf(v.IDVisita);
-            } else {
-                string sql = @"UPDATE Visite SET IDCliente=@IDCliente, DataVisita=@DataVisita, StatoVisita=@StatoVisita, Motivazione=@Motivazione, 
-                               ReferenteIncontrato=@ReferenteIncontrato, NoteEsito=@NoteEsito, TemperaturaCliente=@TemperaturaCliente, 
-                               RichiedeSeguito=@RichiedeSeguito, DataProssimoContatto=@DataProssimoContatto WHERE IDVisita=@IDVisita";
-                await db.ExecuteAsync(sql, v);
-            }
-            snapshotOriginale = JsonSerializer.Serialize(v);
-            await Notifica("Salvato!");
-        } catch (Exception ex) { await Notifica("Errore: " + ex.Message); }
+        if (v.IDVisita == 0) {
+            var sql = @"INSERT INTO Visite (IDCliente, DataVisita, Motivazione, ReferenteIncontrato, NoteEsito) 
+                        VALUES (@IDCliente, @DataVisita, @Motivazione, @ReferenteIncontrato, @NoteEsito); SELECT CAST(SCOPE_IDENTITY() as int);";
+            v.IDVisita = await db.ExecuteScalarAsync<int>(sql, v);
+            await CaricaListaId();
+            indiceCorrente = listaIdVisite.IndexOf(v.IDVisita);
+        } else {
+            await db.ExecuteAsync("UPDATE Visite SET IDCliente=@IDCliente, DataVisita=@DataVisita, Motivazione=@Motivazione, ReferenteIncontrato=@ReferenteIncontrato, NoteEsito=@NoteEsito WHERE IDVisita=@IDVisita", v);
+        }
+        snapshotOriginale = JsonSerializer.Serialize(v); // Aggiorna lo snapshot dopo il salvataggio
+        await AlCambioCliente();
+        await ShowToast("Salvataggio completato.");
     }
 
-    private async Task Prev() { if (indiceCorrente > 0) { indiceCorrente--; await CaricaVisita(listaIdVisite[indiceCorrente]); } }
-    private async Task Next() { if (indiceCorrente < listaIdVisite.Count - 1) { indiceCorrente++; await CaricaVisita(listaIdVisite[indiceCorrente]); } }
-    private async Task RinfrescaListaID() { using var db = new SqlConnection(conn); listaIdVisite = (await db.QueryAsync<int>("SELECT IDVisita FROM Visite ORDER BY DataVisita DESC")).ToList(); }
-    private async Task Elimina() { if (!await JS.InvokeAsync<bool>("confirm", "Eliminare?")) return; using var db = new SqlConnection(conn); await db.ExecuteAsync("DELETE FROM Visite WHERE IDVisita=@id", new { id = v.IDVisita }); await RinfrescaListaID(); if (listaIdVisite.Any()) { indiceCorrente = 0; await CaricaVisita(listaIdVisite[0]); } else ResetNuovo(); }
-    private async Task EseguiRicerca() { if (string.IsNullOrWhiteSpace(testoRicerca)) return; using var db = new SqlConnection(conn); var trovato = await db.QueryFirstOrDefaultAsync<int?>("SELECT TOP 1 V.IDVisita FROM Visite V JOIN Clienti C ON V.IDCliente = C.IdCliente WHERE C.RagSociale LIKE @t ORDER BY V.DataVisita DESC", new { t = "%" + testoRicerca + "%" }); if (trovato.HasValue) { indiceCorrente = listaIdVisite.IndexOf(trovato.Value); await CaricaVisita(trovato.Value); } }
-    private void CercaEnter(KeyboardEventArgs e) { if (e.Key == "Enter") EseguiRicerca(); }
-    private async Task CheckAndGoHome() { if (IsDirty() && !await JS.InvokeAsync<bool>("confirm", "Uscire?")) return; Nav.NavigateTo("/"); }
-    private async Task Notifica(string m) { testoNotifica = m; mostraMessaggio = true; StateHasChanged(); await Task.Delay(2000); mostraMessaggio = false; StateHasChanged(); }
+    private async Task Annulla() {
+    var attuale = JsonSerializer.Serialize(v);
     
-    private async Task NavigaWaze(Cliente target) {
-        if (target?.Lat == null || target?.Lon == null) { await Notifica("Coordinate GPS assenti!"); return; }
-        // Forzo il punto come separatore decimale
-        string lat = target.Lat.Value.ToString("F6", CultureInfo.InvariantCulture);
-        string lon = target.Lon.Value.ToString("F6", CultureInfo.InvariantCulture);
-        await JS.InvokeVoidAsync("open", $"waze://?ll={lat},{lon}&navigate=yes", "_blank");
+    // Se non è cambiato nulla rispetto allo snapshot, non chiediamo conferma
+    if (attuale == snapshotOriginale) {
+        // Se siamo in modalità "Nuovo" (ID=0) e abbiamo un ID precedente, torniamo lì
+        if (v.IDVisita == 0 && idPrecedente > 0) {
+            await CaricaVisita(idPrecedente);
+            indiceCorrente = listaIdVisite.IndexOf(idPrecedente);
+        }
+        return;
     }
+
+    // Se ci sono modifiche, chiediamo conferma
+    if (!await JS.InvokeAsync<bool>("confirm", "Annullare le modifiche correnti?")) return;
+    
+    if (v.IDVisita > 0) {
+        await CaricaVisita(v.IDVisita);
+    } else {
+        // Se stavamo facendo una nuova visita e annulliamo, torniamo all'ultimo record valido
+        if (idPrecedente > 0) {
+            await CaricaVisita(idPrecedente);
+            indiceCorrente = listaIdVisite.IndexOf(idPrecedente);
+        } else {
+            await Nuovo();
+        }
+    }
+}
+
+    private async Task Elimina() {
+        if (!await JS.InvokeAsync<bool>("confirm", "Eliminare definitivamente questa visita?")) return;
+        using var db = new SqlConnection(conn);
+        await db.ExecuteAsync("DELETE FROM Visite WHERE IDVisita = @id", new { id = v.IDVisita });
+        await CaricaListaId();
+        if (listaIdVisite.Any()) await CaricaVisita(listaIdVisite.Last());
+        else await Nuovo();
+        await ShowToast("Visita eliminata.");
+    }
+
+    private async Task Prev() { if (await CheckModificheRealmenteFatte() && indiceCorrente > 0) { indiceCorrente--; await CaricaVisita(listaIdVisite[indiceCorrente]); } }
+    private async Task Next() { if (await CheckModificheRealmenteFatte() && indiceCorrente < listaIdVisite.Count - 1) { indiceCorrente++; await CaricaVisita(listaIdVisite[indiceCorrente]); } }
+    
+    private async Task CheckAndGoHome() { if (await CheckModificheRealmenteFatte()) Nav.NavigateTo("/"); }
+
+    private async Task CaricaClientiVicini() {
+        if (clienteSelezionato == null) return;
+        using var db = new SqlConnection(conn);
+        if (tipoFiltroGiro == "provincia")
+            clientiVicini = (await db.QueryAsync<Cliente>("SELECT * FROM Clienti WHERE Prov_Legale = @p AND IdCliente <> @id", new { p = clienteSelezionato.Prov_Legale, id = clienteSelezionato.IdCliente })).ToList();
+        else if (tipoFiltroGiro == "comune")
+            clientiVicini = (await db.QueryAsync<Cliente>("SELECT * FROM Clienti WHERE Citta_Legale = @c AND IdCliente <> @id", new { c = clienteSelezionato.Citta_Legale, id = clienteSelezionato.IdCliente })).ToList();
+        else if (tipoFiltroGiro == "distanza" && clienteSelezionato.Lat.HasValue) {
+            var tutti = (await db.QueryAsync<Cliente>("SELECT * FROM Clienti WHERE Lat IS NOT NULL AND IdCliente <> @id", new { id = clienteSelezionato.IdCliente })).ToList();
+            clientiVicini = tutti.Where(c => CalcolaKM(clienteSelezionato.Lat.Value, clienteSelezionato.Lon.Value, c.Lat.Value, c.Lon.Value) <= 50).ToList();
+        }
+    }
+
+    private double CalcolaKM(double lat1, double lon1, double lat2, double lon2) {
+        var dLat = (lat2 - lat1) * Math.PI / 180;
+        var dLon = (lon2 - lon1) * Math.PI / 180;
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) + Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180) * Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        return 6371 * (2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a)));
+    }
+
+    private async Task OnFiltroGiroChanged(ChangeEventArgs e) { tipoFiltroGiro = e.Value.ToString(); await CaricaClientiVicini(); }
+    private async Task SelezionaDaGiro(int id) { if (await CheckModificheRealmenteFatte()) { v.IDCliente = id; await AlCambioCliente(); } }
+    private async Task NavigaWaze(Cliente c) => await JS.InvokeVoidAsync("open", $"https://waze.com{Uri.EscapeDataString(c.Ind_legale + ", " + c.Citta_Legale)}&navigate=yes", "_blank");
+    private async Task EseguiRicerca() { 
+        var cl = clienti.FirstOrDefault(c => c.RagSociale.Contains(testoRicerca, StringComparison.OrdinalIgnoreCase)); 
+        if (cl != null && await CheckModificheRealmenteFatte()) { v.IDCliente = cl.IdCliente; await AlCambioCliente(); } 
+    }
+    private async Task CercaEnter(KeyboardEventArgs e) { if (e.Key == "Enter") await EseguiRicerca(); }
+    private async Task ShowToast(string msg) { testoNotifica = msg; mostraMessaggio = true; StateHasChanged(); await Task.Delay(3000); mostraMessaggio = false; StateHasChanged(); }
 }
