@@ -95,6 +95,7 @@ public class Ordine
     public decimal TotaleImponibile { get; set; }
     public DateTime DataConsegnaPrevista { get; set; }
     public DateTime? DataConsegnaEffettiva { get; set; }
+    public string? ConcordatoCon { get; set; }
 
 
     public List<DettaglioOrdine> Righe { get; set; } = new List<DettaglioOrdine>();

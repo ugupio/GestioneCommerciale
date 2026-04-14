@@ -1,7 +1,7 @@
 ﻿using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using GestioneCommerciale.Models; // Assicurati che il namespace sia corretto
+using GestioneCommerciale.Models;
 
 public class DocumentoOrdine : IDocument
 {
@@ -29,91 +29,121 @@ public class DocumentoOrdine : IDocument
         });
     }
 
-    // Qui costruiremo il logo e i dati Ragione Sociale
     void ComposeHeader(IContainer container)
     {
-        container.Row(row =>
+        container.Column(col =>
         {
-            // Parte sinistra: Logo/Nome Azienda
-            row.RelativeItem().Column(col =>
+            col.Item().Row(row =>
             {
-                col.Item().Text("ALQ GENOVA").FontSize(20).ExtraBold().FontColor(Colors.Blue.Medium);
-                col.Item().Text("SISTEMI PER SERRAMENTI IN ALLUMINIO").FontSize(8);
+                row.RelativeItem().Column(c => {
+                    c.Item().Text("ALQ GENOVA").FontSize(20).ExtraBold().FontColor(Colors.Blue.Medium);
+                });
+
+                row.RelativeItem().Border(0.25f).Padding(5).Column(c => {
+                    c.Item().Text($"RAGIONE SOCIALE: {Cliente?.RagSociale}").FontSize(9).SemiBold();
+                    c.Item().Text($"COD. CLIENTE: {Ordine.IDCliente}").FontSize(8);
+                });
             });
 
-            // Parte destra: Riquadro Ragione Sociale (Uguale al tuo modulo)
-            row.RelativeItem().Border(0.5f).Padding(5).Column(col =>
+            col.Item().PaddingTop(5).Table(table =>
             {
-                // QUESTA È LA RIGA CHE CERCAVI:
-                col.Item().Text(txt => {
-                    txt.Span("Ragione Sociale: ").FontSize(8);
-                    txt.Span(Cliente?.RagSociale ?? "________________").SemiBold().FontSize(10);
+                table.ColumnsDefinition(columns => {
+                    columns.RelativeColumn(); columns.RelativeColumn(); columns.RelativeColumn();
                 });
 
-                col.Item().PaddingTop(5).Text(txt => {
-                    txt.Span("Codice Cliente: ").FontSize(8);
-                    txt.Span(Ordine.IDCliente.ToString()).SemiBold().FontSize(10);
-                });
+                table.Cell().Element(CellStyle).Text($"DATA: {Ordine.DataOrdine?.ToShortDateString()}").FontSize(8);
+                table.Cell().Element(CellStyle).Text($"RIF: {Ordine.NumeroDocumento}").FontSize(8);
+                table.Cell().Element(CellStyle).Text($"Data di CONSEGNA: {Ordine.DataConsegnaPrevista.ToShortDateString()}").FontSize(8);
             });
         });
     }
 
-    // Qui costruiremo la griglia delle 14 righe
     void ComposeContent(IContainer container)
     {
-        container.PaddingTop(10).Table(table =>
+        // Usiamo una colonna che occupa tutto lo spazio verticale
+        container.Column(col =>
         {
-            table.ColumnsDefinition(columns =>
+            // La tabella occupa il suo spazio naturale
+            col.Item().Table(table =>
             {
-                columns.ConstantColumn(25); // Pos
-                columns.RelativeColumn(3);  // Profili
-                columns.ConstantColumn(40); // Col. Int
-                columns.ConstantColumn(40); // Col. Est
-                columns.ConstantColumn(35); // Verghe
-                columns.RelativeColumn(2);  // Accessori
-                columns.ConstantColumn(35); // Q.ta
-                columns.RelativeColumn(2);  // Note
+                table.ColumnsDefinition(columns =>
+                {
+                    columns.ConstantColumn(25);
+                    columns.RelativeColumn(3);
+                    columns.ConstantColumn(50);
+                    columns.ConstantColumn(50);
+                    columns.ConstantColumn(35);
+                    columns.RelativeColumn(1);
+                });
+
+                table.Header(header =>
+                {
+                    header.Cell().Element(CellStyle).AlignCenter().Text("Pos.").FontSize(7).SemiBold();
+                    header.Cell().Element(CellStyle).Text("DESCRIZIONE").FontSize(7).SemiBold();
+                    header.Cell().Element(CellStyle).AlignCenter().Text("INT.").FontSize(7).SemiBold();
+                    header.Cell().Element(CellStyle).AlignCenter().Text("EST.").FontSize(7).SemiBold();
+                    header.Cell().Element(CellStyle).AlignCenter().Text("Q.TÀ").FontSize(7).SemiBold();
+                    header.Cell().Element(CellStyle).Text("NOTE").FontSize(7).SemiBold();
+                });
+
+                // Generiamo sempre 14 righe per mantenere la struttura del modulo
+                for (int i = 1; i <= 14; i++)
+                {
+                    var r = Ordine.Righe.ElementAtOrDefault(i - 1);
+
+                    // Applichiamo .MinHeight(38) a ogni cella per "stirare" la tabella verso il basso
+                    table.Cell().Element(CellStyle).MinHeight(38).AlignCenter().Text(i.ToString()).FontSize(8);
+                    table.Cell().Element(CellStyle).MinHeight(38).Text(r?.Descrizione ?? "").FontSize(8);
+                    table.Cell().Element(CellStyle).MinHeight(38).AlignCenter().Text(r?.ColoreInt ?? "").FontSize(8);
+                    table.Cell().Element(CellStyle).MinHeight(38).AlignCenter().Text(r?.ColoreEst ?? "").FontSize(8);
+                    table.Cell().Element(CellStyle).MinHeight(38).AlignCenter().Text(r != null ? r.Quantita.ToString() : "").FontSize(8);
+                    table.Cell().Element(CellStyle).MinHeight(38).Text(r?.IsAccessorio == true ? r.FinituraAccessorio : "").FontSize(7);
+                }
+
             });
 
-            // Intestazione tabella (Semplificata per ora)
-            table.Header(header =>
+            // Spingiamo il blocco Note e Condizioni in fondo alla pagina
+            col.Item().PaddingTop(10).Row(row =>
             {
-                header.Cell().Element(CellStyle).Text("Pos.");
-                header.Cell().Element(CellStyle).Text("Profili");
-                header.Cell().Element(CellStyle).Text("Int.");
-                header.Cell().Element(CellStyle).Text("Est.");
-                header.Cell().Element(CellStyle).Text("Vrg.");
-                header.Cell().Element(CellStyle).Text("Accessori");
-                header.Cell().Element(CellStyle).Text("Q.ta");
-                header.Cell().Element(CellStyle).Text("Note");
-            });
+                row.RelativeItem(2).Border(0.25f).Padding(5).Column(c => {
+                    row.RelativeItem(2).Border(0.25f).Padding(5).Column(c => {
+                        c.Item().Text("CONDIZIONI DI VENDITA").FontSize(8).SemiBold();
+                        c.Item().PaddingTop(2).Text($"Totale Imponibile: {Ordine.TotaleImponibile:N2} €").FontSize(9).SemiBold();
 
-            // Ciclo per creare le 14 righe del tuo modulo
-            for (int i = 1; i <= 14; i++)
-            {
-                var r = Ordine.Righe.ElementAtOrDefault(i - 1);
-                table.Cell().Element(CellStyle).Text(i.ToString());
-                table.Cell().Element(CellStyle).Text(!r?.IsAccessorio ?? false ? r.Descrizione : "");
-                table.Cell().Element(CellStyle).Text(r?.ColoreInt ?? "");
-                table.Cell().Element(CellStyle).Text(r?.ColoreEst ?? "");
-                table.Cell().Element(CellStyle).Text(!r?.IsAccessorio ?? false ? r.Quantita.ToString() : "");
-                table.Cell().Element(CellStyle).Text(r?.IsAccessorio ?? false ? r.Descrizione : "");
-                table.Cell().Element(CellStyle).Text(r?.IsAccessorio ?? false ? r.Quantita.ToString() : "");
-                table.Cell().Element(CellStyle).Text("");
-            }
+                        // Mostra il nome se presente, altrimenti lascia i puntini
+                        c.Item().PaddingTop(10).Text(txt => {
+                            txt.Span("Concordate con: ").FontSize(8);
+                            txt.Span(string.IsNullOrEmpty(Ordine.ConcordatoCon) ? "____________________" : Ordine.ConcordatoCon).FontSize(8).SemiBold();
+                        });
+                    });
+                });
+
+                row.RelativeItem(3).PaddingLeft(10).Border(0.25f).Padding(5).Column(c => {
+                    c.Item().Text("NOTE").FontSize(8).SemiBold();
+                    c.Item().PaddingTop(2).Text(" ").FontSize(7);
+                });
+            });
         });
     }
 
     void ComposeFooter(IContainer container)
     {
-        container.AlignCenter().Text("ALQ GENOVA S.r.l. - Sede Operativa: Genova Bolzaneto").FontSize(7);
+        container.PaddingTop(10).Column(col =>
+        {
+            col.Item().LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten1);
+            col.Item().AlignCenter().Text(t => {
+                t.Span("ALQ GENOVA S.r.l. - Sede Legale: Via E. De Amicis, Milano | ").FontSize(7);
+                t.Span("Sede Operativa: Genova | ").FontSize(7);
+                t.Span("Sede Amm.: Firenze").FontSize(7);
+            });
+            col.Item().AlignCenter().Text("P.IVA 01234567890 - Tel: 010.XXXXXX").FontSize(7);
+            col.Item().AlignRight().Text(x => {
+                x.Span("Pagina ");
+                x.CurrentPageNumber();
+            });
+        });
     }
 
-    // Helper per lo stile delle celle (bordi neri come il tuo PDF)
     static IContainer CellStyle(IContainer container) =>
-        container.Border(0.25f) // Linea molto sottile
-             .BorderColor(Colors.Grey.Medium) // Grigio scuro invece di nero puro per un effetto meno "pesante"
-             .PaddingVertical(2)
-             .PaddingHorizontal(4)
-             .AlignMiddle();
+        container.Border(0.25f).BorderColor(Colors.Grey.Medium).PaddingVertical(2).PaddingHorizontal(4).AlignMiddle();
 }

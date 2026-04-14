@@ -105,8 +105,15 @@
                     <option value="Completato">Completato</option>
                 </select>
             </div>
+            <div class="win-group">
+            <label>Concordate con:</label>
+            <input class="win-input" @bind="ordine.ConcordatoCon" placeholder="Concordato con...." />
+        </div>
             <div><label class="win-label">Consegna Prevista</label><input type="date" class="win-input" @bind="ordine.DataConsegnaPrevista" /></div>
         </div>
+        
+        
+        
         <div style="display: grid; grid-template-columns: 1fr 5fr; gap: 8px; margin-top: 8px;">
             <div>
                 <label class="win-label">Cons. Effettiva</label>
