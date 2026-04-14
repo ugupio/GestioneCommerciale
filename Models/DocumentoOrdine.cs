@@ -41,13 +41,23 @@ public class DocumentoOrdine : IDocument
 
                 row.RelativeItem().Border(0.25f).Padding(5).Column(c => {
                     c.Item().Text($"RAGIONE SOCIALE: {Cliente?.RagSociale}").FontSize(9).SemiBold();
+
+                    // Riferimento Cliente rimane qui nel box (molto visibile)
+                    if (!string.IsNullOrWhiteSpace(Ordine.RiferimentoCliente))
+                    {
+                        c.Item().Text(text => {
+                            text.Span("RIFERIMENTO CLIENTE: ").FontSize(8).SemiBold();
+                            text.Span(Ordine.RiferimentoCliente).FontSize(8);
+                        });
+                    }
+
                     c.Item().Text($"COD. CLIENTE: {Ordine.IDCliente}").FontSize(8);
                 });
             });
 
             col.Item().PaddingTop(5).Table(table =>
             {
-                // Portiamo le colonne a 4 per far stare tutto su una riga
+                // Ripristinate a 4 colonne come in origine
                 table.ColumnsDefinition(columns => {
                     columns.RelativeColumn();
                     columns.RelativeColumn();
@@ -58,12 +68,12 @@ public class DocumentoOrdine : IDocument
                 table.Cell().Element(CellStyle).Text($"DATA: {Ordine.DataOrdine?.ToShortDateString()}").FontSize(8);
                 table.Cell().Element(CellStyle).Text($"RIF: {Ordine.NumeroDocumento}").FontSize(8);
                 table.Cell().Element(CellStyle).Text($"CONSEGNA: {Ordine.DataConsegnaPrevista.ToShortDateString()}").FontSize(8);
-
-                // AGGIUNTA DELLO STATO (CAUSALE)
                 table.Cell().Element(CellStyle).Text($"STATO: {Ordine.StatoOrdine?.ToUpper()}").FontSize(8).SemiBold();
             });
         });
     }
+
+
 
     void ComposeContent(IContainer container)
     {

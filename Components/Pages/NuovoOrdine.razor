@@ -100,6 +100,12 @@
             </div>
             <div><label class="win-label">Data Ordine</label><input type="date" class="win-input" @bind="ordine.DataOrdine" /></div>
             <div><label class="win-label">Rif. Documento</label><input type="text" class="win-input" @bind="ordine.NumeroDocumento" /></div>
+            <div class="row">
+            <div class="col-md-4">
+                <label class="win-label">Riferimento Cliente:</label>
+                <input type="text" class="win-input" @bind="ordine.RiferimentoCliente" placeholder="Es. PO-2024-001" />
+            </div>
+    </div>
             <div>
                 <label class="win-label">Stato</label>
                 <select class="win-input" @bind="ordine.StatoOrdine">
@@ -374,8 +380,8 @@
         using var tx = db.BeginTransaction();
         try {
             string sqlO = (ordine.IDOrdine == 0) 
-                ? "INSERT INTO Ordini (IDCliente, DataOrdine, NumeroDocumento, StatoOrdine, TotaleImponibile, DataConsegnaPrevista, DataConsegnaEffettiva) OUTPUT INSERTED.IDOrdine VALUES (@IDCliente, @DataOrdine, @NumeroDocumento, @StatoOrdine, @TotaleImponibile, @DataConsegnaPrevista, @DataConsegnaEffettiva)"
-                : "UPDATE Ordini SET IDCliente=@IDCliente, DataOrdine=@DataOrdine, NumeroDocumento=@NumeroDocumento, StatoOrdine=@StatoOrdine, TotaleImponibile=@TotaleImponibile, DataConsegnaPrevista=@DataConsegnaPrevista, DataConsegnaEffettiva=@DataConsegnaEffettiva WHERE IDOrdine=@IDOrdine";
+                ? "INSERT INTO Ordini (IDCliente, DataOrdine, NumeroDocumento, RiferimentoCliente, StatoOrdine, TotaleImponibile, DataConsegnaPrevista, DataConsegnaEffettiva) OUTPUT INSERTED.IDOrdine VALUES (@IDCliente, @DataOrdine, @NumeroDocumento, @RiferimentoCliente, @StatoOrdine, @TotaleImponibile, @DataConsegnaPrevista, @DataConsegnaEffettiva)"
+                : "UPDATE Ordini SET IDCliente=@IDCliente, DataOrdine=@DataOrdine, NumeroDocumento=@NumeroDocumento, RiferimentoCliente=@RiferimentoCliente, StatoOrdine=@StatoOrdine, TotaleImponibile=@TotaleImponibile, DataConsegnaPrevista=@DataConsegnaPrevista, DataConsegnaEffettiva=@DataConsegnaEffettiva WHERE IDOrdine=@IDOrdine";
             if (ordine.IDOrdine == 0) {
                 ordine.IDOrdine = await db.QuerySingleAsync<int>(sqlO, ordine, tx);
                 listaIdOrdini.Insert(0, ordine.IDOrdine);

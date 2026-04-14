@@ -23,6 +23,32 @@
     .win-btn:hover { background: #e5f1fb; border-color: #0078d7; }
     .section-title { font-weight: bold; color: #005a9e; border-bottom: 1px solid #ddd; margin-bottom: 8px; font-size: 10px; text-transform: uppercase; }
     .toast-msg { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 30px; border-radius: 3px; z-index: 9999; box-shadow: 0 5px 15px rgba(0,0,0,0.4); border-left: 5px solid #28a745; font-size: 13px; }
+    /* Tab larghi e alti per il touch */
+    .win-tabs { display: flex; background: #e1e1e1; border: 1px solid #999; margin-top: 10px; }
+    .win-tab { 
+        padding: 12px 20px; 
+        cursor: pointer; 
+        background: #d1d1d1; 
+        border-right: 1px solid #999;
+        font-weight: bold;
+        flex-grow: 1; /* I tab si spartiscono lo spazio */
+        text-align: center;
+    }
+    .win-tab.active { background: #fff; border-bottom: 3px solid #005a9e; color: #005a9e; }
+    
+    .win-tab-content { 
+        border: 1px solid #999; 
+        border-top: none; 
+        background: #fff; 
+        min-height: 200px;
+        padding: 5px;
+    }
+
+    /* Ottimizzazione tabelle interne per mobile */
+    .tab-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .tab-table th { background: #f0f0f0; padding: 8px; border: 1px solid #ccc; text-align: left; }
+    .tab-
+
 </style>
 
 <div class="win-form">
@@ -154,6 +180,78 @@
                 <td colspan="2"><input type="text" class="win-input" @bind="c.PagAccettato" /></td>
             </tr>
         </table>
+        <!-- AREA DETTAGLI CORRELATI -->
+<div class="win-tabs">
+    <div class="win-tab @(activeTab == "ordini" ? "active" : "")" @onclick='() => activeTab = "ordini"'>🛒 ORDINI</div>
+    <div class="win-tab @(activeTab == "resi" ? "active" : "")" @onclick='() => activeTab = "resi"'>📦 RESI</div>
+    <div class="win-tab @(activeTab == "visite" ? "active" : "")" @onclick='() => activeTab = "visite"'>📅 VISITE</div>
+</div>
+
+<div class="win-tab-content">
+    @if (activeTab == "ordini") 
+    {
+        <!-- RIEPILOGO ORDINI -->
+        <div style="background: #e1e1e1; padding: 5px 10px; border: 1px solid #999; border-bottom: none; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: bold; color: #005a9e;">📦 STORICO ORDINI</span>
+            <div style="font-size: 12px;">
+                <span class="me-3">Documenti: <strong>@listaOrdiniCliente.Count</strong></span>
+                <span>Volume Affari: <strong style="color: #28a745; font-size: 14px;">@totaleOrdiniCliente.ToString("C2")</strong></span>
+            </div>
+        </div>
+        <table class="tab-table">
+            <thead>
+                <tr style="background:#f0f0f0"><th>Data</th><th>Numero</th><th>Rif. Cliente</th><th class="text-end">Totale</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var o in listaOrdiniCliente) {
+                    <tr>
+                        <td>@(((object)o.DataOrdine)?.ToString() ?? "")</td>
+                        <td>@(((object)o.NumeroDocumento)?.ToString() ?? "")</td>
+                        <td>@(((object)o.RiferimentoCliente)?.ToString() ?? "-")</td>
+                        <td class="text-end">@(((object)o.TotaleImponibile)?.ToString() ?? "0") €</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    } 
+    else if (activeTab == "resi") 
+    {
+        <!-- RIEPILOGO RESI -->
+        <table class="tab-table">
+            <thead>
+                <tr style="background:#f0f0f0"><th>Data</th><th>Causale/Nota</th><th class="text-end">Q.tà</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var r in listaResiCliente) {
+                    <tr>
+                        <td>@(((object)r.DataReso)?.ToString() ?? "")</td>
+                        <td>@(((object)r.Motivazione)?.ToString() ?? "")</td>
+                        <td class="text-end">@(((object)r.Quantita)?.ToString() ?? "0")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    } 
+    else if (activeTab == "visite") 
+    {
+        <!-- RIEPILOGO VISITE -->
+        <table class="tab-table">
+            <thead>
+                <tr style="background:#f0f0f0"><th>Data</th><th>Stato</th><th>Note</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var v in listaVisiteCliente) {
+                    <tr>
+                        <td>@(((object)v.DataVisita)?.ToString() ?? "")</td>
+                        <td>@(((object)v.StatoVisita)?.ToString() ?? "")</td>
+                        <td>@(((object)v.Note)?.ToString() ?? "")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
     </div>
 
     @if (mostraMessaggio) { <div class="toast-msg">@testoNotifica</div> }
@@ -167,20 +265,34 @@
     private bool mostraMessaggio = false;
     private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
     private bool IsDirty() => snapshotOriginale != JsonSerializer.Serialize(c);
-    
+    private string activeTab = "ordini";
+    private List<dynamic> listaOrdiniCliente = new();
+    private List<dynamic> listaResiCliente = new();
+    private List<dynamic> listaVisiteCliente = new();
+    private decimal totaleOrdiniCliente;
 
 
 
-    protected override async Task OnInitializedAsync() {
+
+    protected override async Task OnInitializedAsync()
+    {
         await RinfrescaListaID();
-        if (listaIdClienti.Any()) { 
-            indiceCorrente = 0; 
-            await CaricaCliente(listaIdClienti[indiceCorrente]); 
-        } else { 
-            ResetNuovo(); 
+
+        if (listaIdClienti.Any())
+        {
+            indiceCorrente = 0;
+            // Questo metodo internamente caricherà anche i tab!
+            await CaricaCliente(listaIdClienti[indiceCorrente]);
+        }
+        else
+        {
+            ResetNuovo();
         }
     }
 
+    
+    
+    
     private async Task CaricaCliente(int id) {
         using var db = new SqlConnection(conn);
         c = await db.QueryFirstOrDefaultAsync<Cliente>("SELECT * FROM Clienti WHERE IdCliente = @id", new { id });
@@ -190,6 +302,7 @@
         displayLon = c.Lon?.ToString("F6", CultureInfo.InvariantCulture) ?? "";
 
         snapshotOriginale = JsonSerializer.Serialize(c);
+        await CaricaDettagliCorrelati(id);
         StateHasChanged();
     }
 
@@ -321,6 +434,29 @@
     StateHasChanged();
 }
 
+    private async Task CaricaDettagliCorrelati(int idCliente)
+{
+    using var db = new SqlConnection(conn);
+    
+    // Carichiamo la lista
+    var ordini = (await db.QueryAsync("SELECT * FROM Ordini WHERE IdCliente = @idCliente", new { idCliente })).ToList();
+    listaOrdiniCliente = ordini;
+
+    // CALCOLO ROBUSTO:
+    // Cicliamo la lista e sommiamo convertendo esplicitamente ogni valore
+    totaleOrdiniCliente = 0;
+    foreach (var o in ordini)
+    {
+        // Usiamo Convert.ToDecimal perché il campo nel DB potrebbe essere float o money
+        totaleOrdiniCliente += Convert.ToDecimal(o.TotaleImponibile ?? 0);
+    }
+
+    // Caricamento altri tab...
+    listaResiCliente = (await db.QueryAsync("SELECT * FROM Resi WHERE IdCliente = @idCliente", new { idCliente })).ToList();
+    listaVisiteCliente = (await db.QueryAsync("SELECT * FROM Visite WHERE IdCliente = @idCliente", new { idCliente })).ToList();
+    
+    StateHasChanged(); // Forza l'aggiornamento grafico
+}
 
 
 
@@ -438,4 +574,34 @@
         mostraMessaggio = false; 
         StateHasChanged(); 
     }
+
+    // Chiama questo metodo quando selezioni il cliente dall'elenco
+private async Task CaricaDatiTab(int idCliente)
+{
+    using var db = new SqlConnection(conn);
+    listaOrdiniCliente = (await db.QueryAsync("SELECT * FROM Ordini WHERE IdCliente = @idCliente ORDER BY DataOrdine DESC", new { idCliente })).ToList();
+    listaResiCliente = (await db.QueryAsync("SELECT * FROM Resi WHERE IdCliente = @idCliente ORDER BY DataReso DESC", new { idCliente })).ToList();
+    listaVisiteCliente = (await db.QueryAsync("SELECT * FROM Visite WHERE IdCliente = @idCliente ORDER BY DataVisita DESC", new { idCliente })).ToList();
+}
+
+private async Task CaricaDettagliCorrelati(int? idCliente)
+{
+    if (idCliente == null || idCliente <= 0) return;
+
+    try 
+    {
+        using var db = new SqlConnection(conn);
+        // Recuperiamo i dati filtrati per il cliente selezionato
+        listaOrdiniCliente = (await db.QueryAsync("SELECT * FROM Ordini WHERE IdCliente = @idCliente ORDER BY DataOrdine DESC", new { idCliente })).ToList();
+        listaResiCliente = (await db.QueryAsync("SELECT * FROM Resi WHERE IdCliente = @idCliente ORDER BY DataReso DESC", new { idCliente })).ToList();
+        listaVisiteCliente = (await db.QueryAsync("SELECT * FROM Visite WHERE IdCliente = @idCliente ORDER BY DataVisita DESC", new { idCliente })).ToList();
+    }
+    catch (Exception ex) 
+    {
+        Console.WriteLine($"Errore caricamento tab: {ex.Message}");
+    }
+}
+
+
+
 }

@@ -96,6 +96,8 @@ public class Ordine
     public DateTime DataConsegnaPrevista { get; set; }
     public DateTime? DataConsegnaEffettiva { get; set; }
     public string? ConcordatoCon { get; set; }
+    public string? RiferimentoCliente { get; set; }
+
 
 
     public List<DettaglioOrdine> Righe { get; set; } = new List<DettaglioOrdine>();

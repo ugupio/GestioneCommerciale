@@ -213,7 +213,7 @@
         {
             using var db = new SqlConnection(conn);
 
-            // 1. CARICAMENTO PERFORMANCE (Oggi, Settimana, Mese)
+            // 1. CARICAMENTO PERFORMANCE (Oggi, Settimana, Mese, Anno)
             datiOggi = await GetPerformance(db, DateTime.Today);
             datiSettimana = await GetPerformance(db, DateTime.Today.AddDays(-7));
             datiMese = await GetPerformance(db, new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1));
