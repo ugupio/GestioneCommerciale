@@ -7,6 +7,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @using System.Text.Json
+@using QuestPDF.Fluent
 
 
 <style>
@@ -78,7 +79,7 @@
             {
                 <button class="win-btn" @onclick="EliminaOrdine" style="background:#f8d7da; border-color:#dc3545; color:#721c24;">🗑️ Elimina</button>
             }
-            <button class="win-btn" style="background:#fff;">🖨️ PDF</button>
+            <button class="win-btn" style="background:#fff;" @onclick="GeneraIlMioPdf">🖨️ PDF</button>
         </div>
     </div>
 
@@ -240,6 +241,40 @@
     private bool IsDirty() => snapshotOriginale != JsonSerializer.Serialize(ordine);
 
 
+    @code {
+    private async Task GeneraIlMioPdf()
+    {
+    try 
+    {
+        // Cerchiamo il cliente corrispondente nell'anagrafica caricata
+        var clienteSelezionato = listaClienti.FirstOrDefault(c => c.IdCliente == ordine.IDCliente);
+        
+        // Se non lo trova (ordine nuovo), creiamo un oggetto temporaneo per non far crashare il PDF
+        if (clienteSelezionato == null) 
+        {
+            clienteSelezionato = new Cliente { RagSociale = "Cliente da definire" };
+        }
+
+        // Creiamo il documento
+        var documento = new DocumentoOrdine(ordine, clienteSelezionato); 
+        byte[] pdfBytes = documento.GeneratePdf();
+
+        // Download
+        using var stream = new MemoryStream(pdfBytes);
+        using var streamRef = new DotNetStreamReference(stream);
+        await JS.InvokeVoidAsync("downloadFileFromStream", $"Ordine_{ordine.IDOrdine}.pdf", streamRef);
+    }
+    catch (Exception ex)
+    {
+        await JS.InvokeVoidAsync("alert", "ERRORE GENERAZIONE: " + ex.Message);
+    }
+}
+}
+
+    
+    
+    
+    
     protected override async Task OnInitializedAsync() {
         using var db = new SqlConnection(conn);
         listaClienti = (await db.QueryAsync<Cliente>("SELECT IdCliente, RagSociale FROM Clienti ORDER BY RagSociale")).ToList();
