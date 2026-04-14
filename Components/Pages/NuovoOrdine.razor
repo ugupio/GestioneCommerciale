@@ -8,6 +8,8 @@
 @inject IJSRuntime JS
 @using System.Text.Json
 @using QuestPDF.Fluent
+@using MailKit.Net.Smtp
+@using MimeKit
 
 
 <style>
@@ -81,6 +83,9 @@
             }
             <button class="win-btn" style="background:#fff;" @onclick="GeneraIlMioPdf">🖨️ PDF</button>
         </div>
+        <button class="win-btn" style="background:#e3f2fd;" @onclick="InviaOrdineViaEmail">📧 Invia Email</button>
+
+
     </div>
 
     <!-- TESTATA -->
@@ -278,7 +283,51 @@
 }
 }
 
-    
+   private async Task InviaOrdineViaEmail()
+{
+    try
+    {
+        // 1. Generazione del PDF in memoria
+        var clienteSelezionato = listaClienti.FirstOrDefault(c => c.IdCliente == ordine.IDCliente) 
+                                 ?? new Cliente { RagSociale = "Cliente" };
+        var documento = new DocumentoOrdine(ordine, clienteSelezionato);
+        byte[] pdfBytes = documento.GeneratePdf();
+
+        // 2. Creazione del messaggio email
+        var message = new MimeMessage();
+        message.From.Add(new MailboxAddress("ALQ Genova", "ugupio@gmail.com"));
+        message.To.Add(new MailboxAddress("Ufficio Ordini" , "ugupio@gmail.com"));
+        message.Subject = $"Ordine n. {ordine.IDOrdine}";
+
+        var bodyBuilder = new BodyBuilder { HtmlBody = $"<p>Buongiorno invio in allegato l'ordine n.{ordine.IDOrdine} per il cliente {clienteSelezionato.RagSociale}.'</p>" };
+        
+        // Aggiunta dell'allegato PDF
+        bodyBuilder.Attachments.Add($"Ordine_{ordine.IDOrdine}.pdf", pdfBytes);
+        message.Body = bodyBuilder.ToMessageBody();
+
+        // 3. Invio tramite SMTP
+        using (var client = new SmtpClient())
+        {
+            // Questo dice al programma di accettare il certificato anche se l'antivirus prova a intercettarlo
+    client.ServerCertificateValidationCallback = (s, c, h, e) => true;
+
+    // Usiamo la porta 587 con StartTls (è la più compatibile con i firewall aziendali)
+    await client.ConnectAsync("smtp.robinson.it", 587, MailKit.Security.SecureSocketOptions.StartTls);
+
+    // Ricordati: la password dell'app Google da 16 caratteri DEVE essere senza spazi
+    await client.AuthenticateAsync("ugupio@gmail.com", "abcdefghijklmnop");
+
+    await client.SendAsync(message);
+    await client.DisconnectAsync(true);
+        }
+
+        await Notifica("📧 Email inviata con successo!");
+    }
+    catch (Exception ex)
+    {
+        await JS.InvokeVoidAsync("alert", "Errore invio email: " + ex.Message);
+    }
+}
     
     
     
