@@ -309,7 +309,25 @@
 
     private async Task OnFiltroGiroChanged(ChangeEventArgs e) { tipoFiltroGiro = e.Value.ToString(); await CaricaClientiVicini(); }
     private async Task SelezionaDaGiro(int id) { if (await CheckModificheRealmenteFatte()) { v.IDCliente = id; await AlCambioCliente(); } }
-    private async Task NavigaWaze(Cliente c) => await JS.InvokeVoidAsync("open", $"https://waze.com{Uri.EscapeDataString(c.Ind_legale + ", " + c.Citta_Legale)}&navigate=yes", "_blank");
+    private async Task NavigaWaze(Cliente c) 
+{
+    string ricerca = $"{c.Ind_legale}, {c.Citta_Legale}";
+    
+    // Usando "waze://" si tenta di aprire direttamente l'app installata
+    string url = $"waze://?q={Uri.EscapeDataString(ricerca)}&navigate=yes";
+
+    try 
+    {
+        await JS.InvokeVoidAsync("open", url, "_self");
+    }
+    catch 
+    {
+        // Se l'app non è installata o il protocollo fallisce, 
+        // puoi usare il fallback standard che apre il web o l'app se disponibile
+        string fallbackUrl = $"https://waze.com/ul?q={Uri.EscapeDataString(ricerca)}&navigate=yes";
+        await JS.InvokeVoidAsync("open", fallbackUrl, "_blank");
+    }
+}
     private async Task EseguiRicerca() { 
         var cl = clienti.FirstOrDefault(c => c.RagSociale.Contains(testoRicerca, StringComparison.OrdinalIgnoreCase)); 
         if (cl != null && await CheckModificheRealmenteFatte()) { v.IDCliente = cl.IdCliente; await AlCambioCliente(); } 
