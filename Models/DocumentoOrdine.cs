@@ -47,13 +47,20 @@ public class DocumentoOrdine : IDocument
 
             col.Item().PaddingTop(5).Table(table =>
             {
+                // Portiamo le colonne a 4 per far stare tutto su una riga
                 table.ColumnsDefinition(columns => {
-                    columns.RelativeColumn(); columns.RelativeColumn(); columns.RelativeColumn();
+                    columns.RelativeColumn();
+                    columns.RelativeColumn();
+                    columns.RelativeColumn();
+                    columns.RelativeColumn();
                 });
 
                 table.Cell().Element(CellStyle).Text($"DATA: {Ordine.DataOrdine?.ToShortDateString()}").FontSize(8);
                 table.Cell().Element(CellStyle).Text($"RIF: {Ordine.NumeroDocumento}").FontSize(8);
-                table.Cell().Element(CellStyle).Text($"Data di CONSEGNA: {Ordine.DataConsegnaPrevista.ToShortDateString()}").FontSize(8);
+                table.Cell().Element(CellStyle).Text($"CONSEGNA: {Ordine.DataConsegnaPrevista.ToShortDateString()}").FontSize(8);
+
+                // AGGIUNTA DELLO STATO (CAUSALE)
+                table.Cell().Element(CellStyle).Text($"STATO: {Ordine.StatoOrdine?.ToUpper()}").FontSize(8).SemiBold();
             });
         });
     }
