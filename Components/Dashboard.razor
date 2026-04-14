@@ -1,5 +1,6 @@
 ﻿@page "/"
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.Data.SqlClient
 @using Dapper
 @using GestioneCommerciale.Models
@@ -76,6 +77,7 @@
                     <th>OGGI</th>
                     <th>SETTIMANA (7G)</th>
                     <th>MESE CORRENTE</th>
+                    <th>ANNO CORRENTE (@DateTime.Today.Year)</th>
                 </tr>
             </thead>
             <tbody>
@@ -84,24 +86,28 @@
                     <td><span class="val-main text-money">@datiOggi.Fatturato.ToString("N2") €</span></td>
                     <td><span class="val-main text-money">@datiSettimana.Fatturato.ToString("N2") €</span></td>
                     <td><span class="val-main text-money">@datiMese.Fatturato.ToString("N2") €</span></td>
+                    <td><span class="val-main text-money">@datiAnno.Fatturato.ToString("N2") €</span></td>
                 </tr>
                 <tr>
                     <td class="row-label">🛒 ORDINI</td>
                     <td><span class="val-main text-order">@datiOggi.Ordini.ToString()</span><span class="val-sub">doc.</span></td>
                     <td><span class="val-main text-order">@datiSettimana.Ordini.ToString()</span><span class="val-sub">doc.</span></td>
                     <td><span class="val-main text-order">@datiMese.Ordini.ToString()</span><span class="val-sub">doc.</span></td>
+                    <td><span class="val-main text-order">@datiAnno.Ordini.ToString()</span><span class="val-sub">doc.</span></td>
                 </tr>
                 <tr>
                     <td class="row-label">📝 VISITE</td>
                     <td><span class="val-main text-visit">@datiOggi.Visite.ToString()</span><span class="val-sub">incontri</span></td>
                     <td><span class="val-main text-visit">@datiSettimana.Visite.ToString()</span><span class="val-sub">incontri</span></td>
                     <td><span class="val-main text-visit">@datiMese.Visite.ToString()</span><span class="val-sub">incontri</span></td>
+                    <td><span class="val-main text-visit">@datiAnno.Visite.ToString()</span><span class="val-sub">incontri</span></td>
                 </tr>
                 <tr>
                     <td class="row-label">📦 RESI</td>
                     <td><span class="val-main text-return">@datiOggi.Resi.ToString()</span><span class="val-sub">pratiche</span></td>
                     <td><span class="val-main text-return">@datiSettimana.Resi.ToString()</span><span class="val-sub">pratiche</span></td>
                     <td><span class="val-main text-return">@datiMese.Resi.ToString()</span><span class="val-sub">pratiche</span></td>
+                    <td><span class="val-main text-return">@datiAnno.Resi.ToString()</span><span class="val-sub">pratiche</span></td>
                 </tr>
             </tbody>
         </table>
@@ -134,56 +140,72 @@
 
     <!-- CLIENTI DORMIENTI -->
     <div class="win-group">
-        <div class="section-title" style="color: #856404;">💤 Clienti Dormienti (Nessun ordine da > 30 gg)</div>
-        <div style="max-height: 150px; overflow-y: auto;">
-            <table class="win-grid">
-                <thead>
-                    <tr style="background: #fff3cd;"><th>Ragione Sociale</th><th>Ultimo Ordine</th><th class="text-end">Giorni Fermo</th><th style="width:80px">Azione</th></tr>
-                </thead>
-                <tbody>
-                    @foreach (var d in listaDormienti) {
-                        var idCliente = d.IdCliente == null ? -1 : (int)d.IdCliente;
-                        <tr>
-                            <td>@(d.RagSociale?.ToString() ?? "")</td>
-                            <td>@((d.UltimoOrdine != null ? ((DateTime)d.UltimoOrdine).ToShortDateString() : "MAI").ToString())</td>
-                            <td>@(d.RagSociale ?? "")</td>
-                            <td>@(d.UltimoOrdine?.ToShortDateString() ?? "MAI")</td>
-                            <td class="text-end fw-bold text-warning">@(d.GiorniAssenza?.ToString() ?? "0") gg</td>
-                            <td class="text-center">
-                                <div class="action-menu">
-                                    <button class="win-btn-cell p-0 action-btn" @onclick="() => ToggleMenu(idCliente)" style="font-size:11px; height:28px; padding:0 8px">⋯</button>
-                                    @if (openMenuFor == idCliente)
-                                    {
-                                        <button class="win-btn-cell p-0 action-btn" @onclick="() => ToggleMenu(d.IdCliente)" style="font-size:11px; height:28px; padding:0 8px">⋯</button>
-                                        @if (openMenuFor == d.IdCliente)
-                                        {
-                                            <div class="action-dropdown">
-                                                <div @onclick='() => { ToggleMenu(-1); Nav.NavigateTo($"/nuova-visita?idCliente={idCliente}&stato=Programmata"); }'>📅 Pianifica visita</div>
-                                                <div @onclick='() => { ToggleMenu(-1); Nav.NavigateTo($"/anagrafica-clienti?idCliente={idCliente}"); }'>👤 Apri cliente</div>
-                                                <div @onclick='() => { ToggleMenu(-1); Nav.NavigateTo($"/nuovo-ordine?idCliente={idCliente}"); }'>🛒 Crea ordine</div>
-                                                <div @onclick="() => OpenNuovaVisita(d.IdCliente)">📅 Pianifica visita</div>
-                                                <div @onclick="() => OpenCliente(d.IdCliente)">👤 Apri cliente</div>
-                                                <div @onclick="() => CreaOrdine(d.IdCliente)">🛒 Crea ordine</div>
-                                            </div>
-                                        }
+        <div style="max-height: 250px; overflow-y: auto;">
+        <table class="win-grid">
+            <thead>
+                <tr style="background: #fff3cd;">
+                    <th>Ragione Sociale</th>
+                    <th>Ultimo Ordine</th>
+                    <th class="text-end">Giorni Fermo</th>
+                    <th class="text-center">Ultima Visita</th>
+                    <th style="width:80px">Azione</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var d in listaDormienti) {
+                    var idCliente = d.IdCliente;
+                    <tr>
+                        <td>@(d.RagSociale ?? "N/D")</td>
+                        <td>@(d.UltimoOrdine?.ToShortDateString() ?? "MAI")</td>
+                        <td class="text-end fw-bold text-warning">@(d.GiorniAssenza?.ToString() ?? "0") gg</td>
+                        
+                        <!-- Nuova Colonna Ultima Visita -->
+                        <td class="text-center">
+                            @if (d.UltimaVisita.HasValue) {
+                                <span>@d.UltimaVisita.Value.ToShortDateString()</span>
+                                <small class="d-block text-muted" style="font-size: 10px;">
+                                    (@((DateTime.Today - d.UltimaVisita.Value).Days) gg fa)
+                                </small>
+                            } else {
+                                <span class="text-danger fw-bold">MAI</span>
+                            }
+                        </td>
 
-                                    }
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+                        <td class="text-center">
+                            <div class="action-menu" style="position: relative;">
+                                <button class="win-btn-cell p-0 action-btn" @onclick="() => ToggleMenu(idCliente)" style="font-size:11px; height:28px; width:30px">⋯</button>
+                                
+                                @if (openMenuFor == idCliente) {
+                                    <div class="action-dropdown" style="display: block; position: absolute; right: 0; z-index: 999;">
+                                        <div @onclick="() => OpenNuovaVisita(idCliente)">📅 Pianifica visita</div>
+                                        <div @onclick="() => OpenCliente(idCliente)">👤 Apri cliente</div>
+                                        <div @onclick="() => CreaOrdine(idCliente)">🛒 Crea ordine</div>
+                                    </div>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     </div>
-
 </div>
 
+    </div>
+
+
+
 @code {
+    
+
+
     private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
-    private PerformanceData datiOggi = new(), datiSettimana = new(), datiMese = new();
+    private PerformanceData datiOggi = new(), datiSettimana = new(), datiMese = new(), datiAnno = new();
     private List<dynamic> listaRitardi = new();
     private List<ClienteDormiente> listaDormienti = new();
+    private int ordiniAnno;
+    private int resiAnno;
+    private int visiteAnno;
 
     protected override async Task OnInitializedAsync()
     {
@@ -195,6 +217,7 @@
             datiOggi = await GetPerformance(db, DateTime.Today);
             datiSettimana = await GetPerformance(db, DateTime.Today.AddDays(-7));
             datiMese = await GetPerformance(db, new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1));
+            datiAnno = await GetPerformance(db, new DateTime(DateTime.Today.Year, 1, 1));
 
             // 2. CARICAMENTO RITARDI (Consegna prevista superata e Consegna effettiva NULL)
             string sqlRitardi = @"
@@ -208,8 +231,9 @@
             // 3. CARICAMENTO DORMIENTI (Nessun ordine negli ultimi 30 giorni)
             string sqlDormienti = @"
                 SELECT TOP 10 c.IdCliente, c.RagSociale, 
-                       MAX(o.DataOrdine) as UltimoOrdine, 
-                       DATEDIFF(DAY, MAX(o.DataOrdine), GETDATE()) as GiorniAssenza
+                MAX(o.DataOrdine) as UltimoOrdine, 
+                DATEDIFF(DAY, MAX(o.DataOrdine), GETDATE()) as GiorniAssenza,
+                (SELECT MAX(DataVisita) FROM Visite v WHERE v.IdCliente = c.IdCliente) as UltimaVisita
                 FROM Clienti c
                 LEFT JOIN Ordini o ON c.IdCliente = o.IDCliente
                 GROUP BY c.IdCliente, c.RagSociale
@@ -262,6 +286,7 @@
         public string RagSociale { get; set; }
         public DateTime? UltimoOrdine { get; set; }
         public int? GiorniAssenza { get; set; }
+        public DateTime? UltimaVisita { get; set; }
     }
 
     private int openMenuFor = -1;
