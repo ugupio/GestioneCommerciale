@@ -20,6 +20,31 @@
     .win-grid th { background: #f0f0f0; border: 1px solid #ccc; padding: 4px; font-weight: bold; text-align: left; }
     .win-grid td { border: 1px solid #ccc; padding: 4px; }
     .win-btn-cell { background: #f0f0f0; border: 1px solid #ccc; cursor: pointer; padding: 0 5px; height: 20px; font-size: 10px; }
+     /* Sfondo oscurato fisso */
+    .win-modal-backdrop {
+        position: fixed; /* Fondamentale: resta fisso rispetto alla finestra */
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        display: flex;
+        align-items: center; /* Centra verticalmente */
+        justify-content: center; /* Centra orizzontalmente */
+    }
+
+    /* Finestra centrata */
+    .win-popup {
+        width: 500px;
+        background: #f0f0f0;
+        border: 1px solid #666;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        animation: fadeIn 0.2s ease-out;
+    }
+
+    @@keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
 </style>
 
 
@@ -33,6 +58,10 @@
     </div>
 
     <div class="toolbar-container">
+        <button class="win-btn" @onclick="ApriNuovoDaAnagrafica">
+            <span class="oi oi-plus"></span><br />
+            Nuovo
+        </button>
         <button class="win-btn" @onclick="RicaricaLista">🔄 Aggiorna</button>
         <button class="win-btn" @onclick='() => Nav.NavigateTo("/")'>🏠 Home</button>
     </div>
@@ -101,11 +130,26 @@
 
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="win-label d-block text-start">Tipo Articolo:</label>
-                            <div class="win-input" style="background:#e9ecef; font-weight:bold; display:flex; align-items:center;">
-                                @(prodottoInModifica.IsAccessorio ? "🛠️ ACCESSORIO" : "📦 PROFILO")
-                            </div>
-                        </div>
+    <label class="win-label d-block text-start">Tipo Articolo:</label>
+    @if (prodottoInModifica.IDProdotto == 0) {
+        <!-- Se è NUOVO, posso scegliere -->
+        <select class="win-input" 
+        value="@prodottoInModifica.IsAccessorio.ToString().ToLower()" 
+        @onchange="@((ChangeEventArgs e) => { 
+            prodottoInModifica.IsAccessorio = bool.Parse(e.Value.ToString()); 
+            StateHasChanged(); 
+        })">
+    <option value="false">📦 PROFILO</option>
+    <option value="true">🛠️ ACCESSORIO</option>
+</select>
+    } else {
+        <!-- Se è MODIFICA, è bloccato -->
+        <div class="win-input" style="background:#e9ecef; font-weight:bold; display:flex; align-items:center;">
+            @(prodottoInModifica.IsAccessorio ? "🛠️ ACCESSORIO" : "📦 PROFILO")
+        </div>
+    }
+</div>
+
                         <div class="col-6">
                             <label class="win-label d-block text-start">Unità di Misura:</label>
                             <input class="win-input" @bind="prodottoInModifica.UM" placeholder="ML o PZ" />
@@ -127,7 +171,7 @@
                     }
                 </div>
 
-                <div class="mt-4 d-flex justify-content-end gap-2">
+                <div class="mt-4 d-flex align-items-center justify-content-end gap-2">
                     <button class="win-btn" style="height:40px; background:#005a9e; color:white; min-width: 120px;" @onclick="SalvaModifiche">
                         <span class="oi oi-check"></span> AGGIORNA
                     </button>
@@ -160,6 +204,16 @@
         listaProdotti = (await db.QueryAsync<Prodotti>("SELECT * FROM Prodotti ORDER BY CodiceProdotto")).ToList();
     }
 
+    private void ApriNuovoDaAnagrafica()
+    {
+        // Prepariamo l'oggetto vuoto per un nuovo inserimento
+        prodottoInModifica = new Prodotti { UM = "ML", IsAccessorio = false, CodiceProdotto = "", Descrizione = "" };
+
+    // Cambiamo il titolo o usiamo un flag per capire se è un INSERT o un UPDATE
+    // Per semplicità, possiamo usare lo stesso popup di modifica adattando il tasto Salva
+    mostraPopupModifica = true; 
+}
+    
     private async Task EliminaProdotto(int id)
     {
         if (!await JS.InvokeAsync<bool>("confirm", "Sei sicuro di voler eliminare questo prodotto dal listino?")) return;
@@ -186,27 +240,24 @@
 
 private async Task SalvaModifiche()
 {
-    try 
+    using var db = new SqlConnection(conn);
+    string sql;
+
+    if (prodottoInModifica.IDProdotto == 0) // È UN NUOVO RECORD
     {
-        using var db = new SqlConnection(conn);
-        string sql = @"UPDATE Prodotti SET 
-                       Descrizione = @Descrizione, 
-                       IsAccessorio = @IsAccessorio, 
-                       PesoAlMetro = @PesoAlMetro, 
-                       LunghezzaVerga = @LunghezzaVerga,
-                       UM = @UM 
-                       WHERE IDProdotto = @IDProdotto";
-        
-        await db.ExecuteAsync(sql, prodottoInModifica);
-        
-        mostraPopupModifica = false;
-        await RicaricaLista(); // Ricarica la griglia per vedere le modifiche
-        await JS.InvokeVoidAsync("alert", "Prodotto aggiornato correttamente!");
+        sql = @"INSERT INTO Prodotti (CodiceProdotto, Descrizione, IsAccessorio, PesoAlMetro, LunghezzaVerga, UM, NoteTecniche, FinituraAccessorio) 
+                VALUES (@CodiceProdotto, @Descrizione, @IsAccessorio, @PesoAlMetro, @LunghezzaVerga, @UM, '', '')";
     }
-    catch (Exception ex)
+    else // È UNA MODIFICA
     {
-        await JS.InvokeVoidAsync("alert", "Errore durante il salvataggio: " + ex.Message);
+        sql = @"UPDATE Prodotti SET CodiceProdotto = @CodiceProdotto, Descrizione = @Descrizione, 
+                PesoAlMetro = @PesoAlMetro, LunghezzaVerga = @LunghezzaVerga, UM = @UM 
+                WHERE IDProdotto = @IDProdotto";
     }
+    
+    await db.ExecuteAsync(sql, prodottoInModifica);
+    mostraPopupModifica = false;
+    await RicaricaLista();
 }
 
 

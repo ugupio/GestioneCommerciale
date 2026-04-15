@@ -480,10 +480,13 @@ private void ApriPopupAccessorio()
 {
     nuovoProdottoListino = new Prodotti 
     { 
-        CodiceProdotto = rigaA.CodiceProdotto,
-        Descrizione = rigaA.Descrizione,
-        IsAccessorio = true, // Qui forziamo Accessorio
-        UM = "PZ" 
+        CodiceProdotto = rigaA.CodiceProdotto, // Mantiene solo il codice che stavi scrivendo
+        Descrizione = "",
+        FinituraAccessorio = "",
+        IsAccessorio = true,
+        UM = "PZ",
+        PesoAlMetro = 0,
+        LunghezzaVerga = 0
     };
     
     snapshotInizialeRiga = JsonSerializer.Serialize(nuovoProdottoListino);
