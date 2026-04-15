@@ -49,6 +49,35 @@
     .input-grid.fw-bold {
         margin-bottom: 0px;
     }
+
+    /* Sfondo oscurato */
+.win-modal-backdrop {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Finestra Popup */
+.win-popup {
+    width: 450px;
+    background: #f0f0f0;
+    border: 1px solid #666;
+    box-shadow: 5px 5px 15px rgba(0,0,0,0.3);
+}
+
+.popup-body {
+    padding: 15px;
+    background: #fff;
+    margin: 5px;
+    border: 1px solid #ccc;
+}
+
+
 </style>
 
 <div class="win-form">
@@ -58,8 +87,8 @@
     <div class="toolbar-container">
         <div style="display:flex; gap:5px;">
             <button class="win-btn" @onclick='() => Nav.NavigateTo("/")'>🏠 Home</button>
-            <button class="win-btn" @onclick="Prev">◀ Prec.</button>
-            <button class="win-btn" @onclick="Next">Succ. ▶</button>
+            <button class="win-btn" @onclick="() => VaiA(Prev)">◀ Prec.</button>
+            <button class="win-btn" @onclick="() => VaiA(Next)">Succ. ▶</button>
         </div>
 
         <div style="display:flex; gap:20px; align-items:center;">
@@ -74,7 +103,7 @@
         </div>
 
         <div style="display:flex; gap:5px;">
-            <button class="win-btn" @onclick="IniziaNuovo">➕ Nuovo</button>
+            <button class="win-btn" @onclick="() => VaiA(IniziaNuovo)">➕ Nuovo</button>
             <button class="win-btn" @onclick="Annulla" style="background:#f1f1f1;">✖ Annulla</button>
             <button class="win-btn" @onclick="SalvaTutto" style="background:#d4edda; border-color:#28a745;">💾 Salva</button>
             @if (ordine.IDOrdine > 0)
@@ -140,11 +169,18 @@
         <!-- SX: PROFILI -->
         <div class="win-group" style="flex: 1.6; border-left: 5px solid #005a9e; background: #f9fcff;">
             <div class="section-title">📦 INSERIMENTO PROFILI</div>
-            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 4px; margin-bottom:4px;">
-                <input class="win-input" placeholder="Descrizione Profilo" @bind="rigaP.Descrizione" />
-                <input class="win-input" placeholder="Col. Int" @bind="rigaP.ColoreInt" />
-                <input class="win-input" placeholder="Col. Est" @bind="rigaP.ColoreEst" />
-            </div>
+            <div style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr; gap: 4px; margin-bottom:4px;">
+        <div style="display:flex; gap:2px;">
+            <input class="win-input" placeholder="Codice" @bind="rigaP.CodiceProdotto" @oninput="OnCodiceProfiloInput" style="font-weight:bold; background:#fffde7;" />
+            @if (mostraTastoNuovoProfilo)
+            {
+                <button class="win-btn-cell" @onclick="ApriPopupProdotto" style="background:#28a745; color:white; width:22px; height:21px; padding:0;">+</button>
+            }
+        </div>
+        <input class="win-input" placeholder="Descrizione Profilo" @bind="rigaP.Descrizione" />
+        <input class="win-input" placeholder="Col. Int" @bind="rigaP.ColoreInt" />
+        <input class="win-input" placeholder="Col. Est" @bind="rigaP.ColoreEst" />
+    </div>
             <div style="display: flex; gap: 6px; align-items: end;">
                 <div style="width: 50px;"><label class="win-label">Q.tà</label><input type="number" class="win-input" @bind="rigaP.Quantita" /></div>
                 <div style="width: 135px;">
@@ -169,6 +205,18 @@
         <div class="win-group" style="flex: 1; border-left: 5px solid #28a745; background: #fafffb;">
             <div class="section-title">🛠️ INSERIMENTO ACCESSORI</div>
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 4px; margin-bottom:4px;">
+                <div style="display:flex; gap:2px;">
+            <input class="win-input" placeholder="Cod." 
+                   value="@rigaA.CodiceProdotto" 
+                   @oninput="OnCodiceAccessorioInput" 
+                   style="font-weight:bold; background:#f0fff0;" />
+            
+            @if (mostraTastoNuovoAccessorio)
+            {
+                <button class="win-btn-cell" @onclick="ApriPopupAccessorio" 
+                        style="background:#28a745; color:white; width:20px; height:20px; line-height:10px;">+</button>
+            }
+        </div>
                 <input class="win-input" placeholder="Descrizione" @bind="rigaA.Descrizione" />
                 <input class="win-input" placeholder="Finitura" @bind="rigaA.FinituraAccessorio" />
             </div>
@@ -242,6 +290,68 @@
         </table>
     </div>
     @if (mostraMessaggio) { <div class="toast-msg">@testoNotifica</div> }
+
+@if (visualizzaPopupProdotto)
+{
+    <div class="win-modal-backdrop">
+        <div class="win-popup">
+            <div class="win-header d-flex justify-content-between">
+                <span>REGISTRAZIONE NUOVO PRODOTTO NEL LISTINO</span>
+                <span style="cursor:pointer" @onclick="() => visualizzaPopupProdotto = false">×</span>
+            </div>
+            
+            <div class="popup-body">
+                <div class="mb-3">
+                    <label class="win-label d-block text-start">Codice Prodotto:</label>
+                    <input class="win-input" @bind="nuovoProdottoListino.CodiceProdotto" disabled style="background:#e9ecef;" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="win-label d-block text-start">Descrizione Estesa:</label>
+                    <input class="win-input" @bind="nuovoProdottoListino.Descrizione" placeholder="Es: Profilo Telaio Z..." />
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <label class="win-label d-block text-start">Tipo Articolo:</label>
+                        <!-- Visualizziamo solo il testo senza permettere la modifica -->
+                        <div class="win-input" style="background:#e9ecef; font-weight:bold; display:flex; align-items:center;">
+                        @(nuovoProdottoListino.IsAccessorio ? "🛠️ ACCESSORIO" : "📦 PROFILO")
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <label class="win-label d-block text-start">U.M.:</label>
+                        <input class="win-input" @bind="nuovoProdottoListino.UM" placeholder="ML o PZ" />
+                    </div>
+                </div>
+
+                @if (!nuovoProdottoListino.IsAccessorio)
+                {
+                    <div class="mb-3" style="background: #f0f8ff; padding: 10px; border: 1px solid #b4c7e7;">
+                        <label class="win-label d-block text-start">Dati Tecnici Profilo:</label>
+                        <div class="d-flex gap-2">
+                            <div>
+                                <small>Peso Kg/ml</small>
+                                <input type="number" step="0.001" class="win-input" @bind="nuovoProdottoListino.PesoAlMetro" />
+                            </div>
+                            <div>
+                                <small>Lg. Verga (m)</small>
+                                <input type="number" step="0.01" class="win-input" @bind="nuovoProdottoListino.LunghezzaVerga" />
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <div class="mt-4 d-flex justify-content-end gap-2">
+                    <button class="win-btn" style="height:40px; background:#005a9e; color:white;" @onclick="SalvaNuovoProdotto">💾 REGISTRA</button>
+                    <button class="win-btn" style="height:40px;" @onclick="() => visualizzaPopupProdotto = false">❌ ANNULLA</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
 </div>
 
 @code {
@@ -257,7 +367,14 @@
     private string snapshotOriginale = "";
     // Metodo IsDirty che controlla l'intero oggetto ordine (incluse le righe)
     private bool IsDirty() => snapshotOriginale != JsonSerializer.Serialize(ordine);
-
+    private bool mostraTastoNuovoOrdine = false;
+    private bool mostraTastoNuovoProfilo = false;
+    private bool visualizzaPopupProdotto = false;
+    private Prodotti nuovoProdottoListino = new();
+    private string snapshotInizialeRiga = "";
+    private string snapshotOrdineOriginale = "";
+    private bool mostraTastoNuovoAccessorio = false;
+    
 
     @code {
     private async Task GeneraIlMioPdf()
@@ -289,7 +406,92 @@
 }
 }
 
-   private async Task InviaOrdineViaEmail()
+private void ApriPopupProdotto()
+{
+    // Prepariamo l'oggetto per il listino usando quello che hai già scritto nella riga
+    nuovoProdottoListino = new Prodotti 
+    { 
+        CodiceProdotto = rigaP.CodiceProdotto, //Prende solo il codice che stavi scrivendo
+        Descrizione = "",
+        PesoAlMetro = 0m,
+        LunghezzaVerga = 6.5m, // Default, l'utente può cambiarlo
+        IsAccessorio = false, // Siamo nel blocco profili
+        UM = "ML" // Unità di misura predefinita per i profili"
+    };
+    snapshotInizialeRiga = JsonSerializer.Serialize(nuovoProdottoListino);
+    visualizzaPopupProdotto = true;
+}
+
+private async Task OnCodiceProfiloInput(ChangeEventArgs e)
+{ // <--- APRE IL METODO
+    string codice = e.Value?.ToString() ?? "";
+    rigaP.CodiceProdotto = codice;
+
+    if (string.IsNullOrWhiteSpace(codice) || codice.Length < 2) 
+    { // <--- APRE IF
+        mostraTastoNuovoProfilo = false;
+        return;
+    } // <--- CHIUDE IF
+
+    using (var db = new SqlConnection(conn))
+    { // <--- APRE USING
+        var p = await db.QueryFirstOrDefaultAsync<Prodotti>(
+            "SELECT * FROM Prodotti WHERE CodiceProdotto = @codice", new { codice });
+
+        if (p != null) 
+        { // <--- APRE IF
+            rigaP.Descrizione = p.Descrizione;
+            rigaP.PesoAlMetro = p.PesoAlMetro;
+            mostraTastoNuovoProfilo = false;
+        } 
+        else 
+        { // <--- APRE ELSE
+            mostraTastoNuovoProfilo = true;
+        } // <--- CHIUDE ELSE
+    } // <--- CHIUDE USING
+} // <--- CHIUDE IL METODO (Questa è quella che probabilmente manca!)
+
+
+private async Task OnCodiceAccessorioInput(ChangeEventArgs e)
+{
+    string codice = e.Value?.ToString() ?? "";
+    rigaA.CodiceProdotto = codice;
+
+    if (string.IsNullOrWhiteSpace(codice) || codice.Length < 2) {
+        mostraTastoNuovoAccessorio = false;
+        return;
+    }
+
+    using var db = new SqlConnection(conn);
+    var p = await db.QueryFirstOrDefaultAsync<Prodotti>(
+        "SELECT * FROM Prodotti WHERE CodiceProdotto = @codice", new { codice });
+
+    if (p != null) {
+        rigaA.Descrizione = p.Descrizione;
+        rigaA.FinituraAccessorio = p.FinituraAccessorio;
+        mostraTastoNuovoAccessorio = false;
+    } else {
+        mostraTastoNuovoAccessorio = true;
+    }
+}
+
+
+private void ApriPopupAccessorio()
+{
+    nuovoProdottoListino = new Prodotti 
+    { 
+        CodiceProdotto = rigaA.CodiceProdotto,
+        Descrizione = rigaA.Descrizione,
+        IsAccessorio = true, // Qui forziamo Accessorio
+        UM = "PZ" 
+    };
+    
+    snapshotInizialeRiga = JsonSerializer.Serialize(nuovoProdottoListino);
+    visualizzaPopupProdotto = true;
+}
+
+
+private async Task InviaOrdineViaEmail()
 {
     try
     {
@@ -420,6 +622,8 @@
         ordine = await db.QueryFirstOrDefaultAsync<Ordine>("SELECT * FROM Ordini WHERE IDOrdine = @id", new { id });
         ordine.Righe = (await db.QueryAsync<DettaglioOrdine>("SELECT * FROM Dettaglio_Ordini WHERE IDOrdine = @id", new { id })).ToList();
         Ricalcola();
+        // SCATTA LA FOTO QUI:
+        snapshotOrdineOriginale = JsonSerializer.Serialize(ordine);
     }
 
     private bool IsPreventivo => string.Equals(ordine.StatoOrdine, "Preventivo", StringComparison.OrdinalIgnoreCase);
@@ -427,15 +631,90 @@
     private async Task Notifica(string msg) { testoNotifica = msg; mostraMessaggio = true; StateHasChanged(); await Task.Delay(3000); mostraMessaggio = false; StateHasChanged(); }
     private async Task IniziaNuovo()
     {
-        if (!await JS.InvokeAsync<bool>("confirm", "Creare un nuovo ordine e perdere le modifiche non salvate?")) return;
         ordine = new Ordine { DataOrdine = DateTime.Now, DataConsegnaPrevista = DateTime.Now.AddDays(7) }; indiceCorrente = -1; Ricalcola();
+        snapshotOrdineOriginale = JsonSerializer.Serialize(ordine);
     }
-    private async Task Annulla()
+    
+    
+    private async Task VaiA(Func<Task> azioneSpostamento)
+{
+    var snapshotAttuale = JsonSerializer.Serialize(ordine);
+    if (snapshotAttuale != snapshotOrdineOriginale)
     {
-        if (!await JS.InvokeAsync<bool>("confirm", "Annullare le modifiche non salvate?")) return;
-        if (ordine.IDOrdine == 0) { IniziaNuovo(); return; }
-        await CaricaOrdine(ordine.IDOrdine);
+        bool conferma = await JS.InvokeAsync<bool>("confirm", "Ci sono modifiche non salvate. Vuoi uscire?");
+        if (!conferma) return;
     }
+    await azioneSpostamento();
+}
+
+    private async Task SalvaNuovoProdotto()
+{
+    if (string.IsNullOrWhiteSpace(nuovoProdottoListino.Descrizione))
+    {
+        await JS.InvokeVoidAsync("alert", "Inserire una descrizione!");
+        return;
+    }
+
+    using var db = new SqlConnection(conn);
+    string sql = @"INSERT INTO Prodotti (CodiceProdotto, Descrizione, IsAccessorio, PesoAlMetro, LunghezzaVerga, UM, NoteTecniche, FinituraAccessorio) 
+                   VALUES (@CodiceProdotto, @Descrizione, @IsAccessorio, @PesoAlMetro, @LunghezzaVerga, @UM, '', @FinituraAccessorio)";
+    
+    await db.ExecuteAsync(sql, nuovoProdottoListino);
+
+    // AGGIORNAMENTO DINAMICO DEI CAMPI NEL FORM
+    if (nuovoProdottoListino.IsAccessorio)
+    {
+        // Se è un accessorio, riempiamo la riga degli accessori
+        rigaA.Descrizione = nuovoProdottoListino.Descrizione;
+        rigaA.FinituraAccessorio = nuovoProdottoListino.FinituraAccessorio;
+        mostraTastoNuovoAccessorio = false;
+    }
+    else
+    {
+        // Se è un profilo, riempiamo la riga dei profili
+        rigaP.Descrizione = nuovoProdottoListino.Descrizione;
+        rigaP.PesoAlMetro = nuovoProdottoListino.PesoAlMetro;
+        mostraTastoNuovoProfilo = false;
+    }
+    
+    visualizzaPopupProdotto = false;
+    StateHasChanged(); // Forza l'aggiornamento grafico della pagina
+}
+
+
+    
+    
+    private async Task Annulla()
+{
+    // 1. Controlla se l'ordine è stato effettivamente modificato
+    var snapshotAttuale = JsonSerializer.Serialize(ordine);
+
+    if (snapshotAttuale != snapshotOrdineOriginale)
+    {
+        // 2. Chiede conferma SOLO se ci sono differenze
+        if (!await JS.InvokeAsync<bool>("confirm", "Ci sono modifiche non salvate. Annullare?")) 
+            return;
+    }
+
+    // 3. Se non ci sono modifiche o l'utente conferma, procedi
+    if (ordine.IDOrdine == 0) 
+    { 
+        if (listaIdOrdini != null && listaIdOrdini.Any()) 
+        {
+            indiceCorrente = listaIdOrdini.Count - 1;
+            await CaricaOrdine(listaIdOrdini[indiceCorrente]);
+        }
+        else 
+        {
+            await IniziaNuovo(); 
+        }
+        return; 
+    }
+    
+    await CaricaOrdine(ordine.IDOrdine);
+}
     private async Task Prev() { if (indiceCorrente < listaIdOrdini.Count - 1) { indiceCorrente++; await CaricaOrdine(listaIdOrdini[indiceCorrente]); } }
     private async Task Next() { if (indiceCorrente > 0) { indiceCorrente--; await CaricaOrdine(listaIdOrdini[indiceCorrente]); } }
+
+
 }

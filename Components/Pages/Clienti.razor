@@ -205,7 +205,7 @@
             <tbody>
                 @foreach (var o in listaOrdiniCliente) {
                     <tr>
-                        <td>@(((object)o.DataOrdine)?.ToString() ?? "")</td>
+                        <td>@string.Format("{0:dd/MM/yyyy}", (object)o.DataOrdine)</td>
                         <td>@(((object)o.NumeroDocumento)?.ToString() ?? "")</td>
                         <td>@(((object)o.RiferimentoCliente)?.ToString() ?? "-")</td>
                         <td class="text-end">@(((object)o.TotaleImponibile)?.ToString() ?? "0") €</td>

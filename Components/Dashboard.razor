@@ -57,15 +57,17 @@
 
     <!-- MENU RAPIDO CON PULSANTI ALTI IL DOPPIO -->
     <div class="win-group">
-        <table style="width:100%; table-layout: fixed; border-spacing: 6px; border-collapse: separate;">
-            <tr>
-                <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuovo-ordine")'>🛒 GESTIONE ORDINI</div></td>
-                <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/anagrafica-clienti")'>👥 GESTIONE CLIENTI</div></td>
-                <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuova-visita")'>📝 GESTIONE VISITE</div></td>
-                <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuovo-reso")'>📦 GESTIONE RESI</div></td>
-            </tr>
-        </table>
-    </div>
+    <table style="width:100%; table-layout: fixed; border-spacing: 6px; border-collapse: separate;">
+        <tr>
+            <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuovo-ordine")'>🛒 GESTIONE ORDINI</div></td>
+            <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/anagrafica-clienti")'>👥 GESTIONE CLIENTI</div></td>
+            <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuova-visita")'>📝 GESTIONE VISITE</div></td>
+            <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuovo-reso")'>📦 GESTIONE RESI</div></td>
+            <!-- CORREZIONE: Inserito nel TD e con la classe win-btn-cell come gli altri -->
+            <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/anagrafica-prodotti")'>📦 GESTIONE PRODOTTI</div></td>
+        </tr>
+    </table>
+</div>
 
     <!-- ANALISI PERFORMANCE -->
     <div class="win-group">

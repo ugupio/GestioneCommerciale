@@ -36,7 +36,18 @@ public class Cliente
     public float? Lon { get; set; } // Da Longitudine a Lon
 }
 
-
+public class Prodotti
+{
+    public int IDProdotto { get; set; }
+    public string CodiceProdotto { get; set; } = "";
+    public string Descrizione { get; set; } = "";
+    public bool IsAccessorio { get; set; } // True = Accessorio, False = Profilo
+    public string FinituraAccessorio { get; set; } = "";
+    public decimal LunghezzaVerga { get; set; } = 0;
+    public decimal PesoAlMetro { get; set; } = 0;
+    public string NoteTecniche { get; set; } = "";
+    public string UM { get; set; } = ""; // Default Metri Lineari o PZ
+}
 
 
 public class Reso
@@ -67,6 +78,7 @@ public class DettaglioOrdine
     public decimal LunghezzaVerga { get; set; }
     public decimal PesoAlMetro { get; set; }
     public List<DettaglioOrdine> Righe { get; set; } = new List<DettaglioOrdine>();
+    public string CodiceProdotto { get; set; } = "";
 
 }
 
