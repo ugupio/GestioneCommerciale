@@ -78,29 +78,36 @@
             <table class="win-grid" style="width:100%">
                 <thead>
                     <tr style="background:#f0f0f0; position: sticky; top: 0;">
-                        <th>Codice</th>
-                        <th>Tipo</th>
-                        <th>Descrizione</th>
-                        <th class="text-end">Peso (kg/ml)</th>
-                        <th>U.M.</th>
-                        <th class="text-center">Azione</th>
+                        <th style="width:100px">Codice</th>
+                        <th style="width:80px">Tipo</th>
+                        <th style="width:250px">Descrizione</th> <!-- Larghezza fissa per non ballare -->
+                        <th>Note Tecniche</th> <!-- Questa colonna prenderà tutto lo spazio rimasto -->
+                        <th style="width:90px" class="text-end">Kg/ml</th>
+                        <th style="width:50px">U.M.</th>
+                        <th style="width:110px" class="text-center">Azione</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var p in listaFiltrata)
                     {
-                        <tr>
-                            <td class="fw-bold">@p.CodiceProdotto</td>
-                            <td>@(p.IsAccessorio ? "🛠️ ACC" : "📦 PROF")</td>
-                            <td>@p.Descrizione</td>
-                            <td class="text-end">@(p.IsAccessorio ? "-" : p.PesoAlMetro.ToString("N3"))</td>
-                            <td>@p.UM</td>
-                            <td class="text-center">
-                                <button class="win-btn-cell me-1" @onclick="() => ApriModifica(p)">✏️</button>
-                                <button class="win-btn-cell text-danger" @onclick="() => EliminaProdotto(p.IDProdotto)">🗑️</button>
-                            </td>
-                        </tr>
-                    }
+                    <tr>
+                    <td class="fw-bold">@p.CodiceProdotto</td>
+                    <td>@(p.IsAccessorio ? "🛠️ ACC" : "📦 PROF")</td>
+                    <td>@p.Descrizione</td>
+        
+                    <!-- CELLA NOTE CON ICONA -->
+                        <td style="color: #005a9e; font-style: italic; font-size: 10px;">
+                            @(string.IsNullOrWhiteSpace(p.NoteTecniche) ? "-" : p.NoteTecniche)
+                        </td>
+
+                        <td class="text-end">@(p.IsAccessorio ? "-" : p.PesoAlMetro.ToString("N3"))</td>
+                        <td>@p.UM</td>
+                        <td class="text-center">
+            <button class="win-btn-cell me-1" @onclick="() => ApriModifica(p)">✏️</button>
+            <button class="win-btn-cell text-danger" @onclick="() => EliminaProdotto(p.IDProdotto)">🗑️</button>
+        </td>
+    </tr>
+}
                 </tbody>
             </table>
         </div>
@@ -119,7 +126,17 @@
                     <div class="row mb-2">
                         <div class="col-4">
                             <label class="win-label d-block text-start">Codice:</label>
-                            <input class="win-input fw-bold" @bind="prodottoInModifica.CodiceProdotto" style="background: #eee;" readonly />
+    @if (prodottoInModifica.IDProdotto == 0)
+    {
+        <!-- SE NUOVO: Campo bianco e modificabile -->
+        <input class="win-input fw-bold" @bind="prodottoInModifica.CodiceProdotto" style="background: #fffde7;" placeholder="Inserisci cod..." />
+    }
+    else
+    {
+        <!-- SE ESISTENTE: Campo grigio e bloccato -->
+        <input class="win-input fw-bold" @bind="prodottoInModifica.CodiceProdotto" style="background: #eee;" readonly />
+        <small class="text-muted" style="font-size: 8px;">Codice non modificabile</small>   }
+                            
                             <small class="text-muted" style="font-size: 9px;">Il codice non è modificabile</small>
                         </div>
                         <div class="col-8">
@@ -170,10 +187,16 @@
                         </div>
                     }
                 </div>
+                <div class="mb-2 mt-2">
+                    <label class="win-label d-block text-start">Note Tecniche / Appunti:</label>
+                    <textarea class="win-input" @bind="prodottoInModifica.NoteTecniche" 
+                    style="height: 50px; resize: none;" 
+                    placeholder="Inserisci dettagli tecnici, compatibilità..."></textarea>
+                </div>
 
                 <div class="mt-4 d-flex align-items-center justify-content-end gap-2">
                     <button class="win-btn" style="height:40px; background:#005a9e; color:white; min-width: 120px;" @onclick="SalvaModifiche">
-                        <span class="oi oi-check"></span> AGGIORNA
+                        <span class="oi oi-check"></span> REGISTRA
                     </button>
                     <button class="win-btn" style="height:40px; min-width: 100px;" @onclick="() => mostraPopupModifica = false">
                         ANNULLA
@@ -233,7 +256,8 @@
         IsAccessorio = p.IsAccessorio,
         PesoAlMetro = p.PesoAlMetro,
         LunghezzaVerga = p.LunghezzaVerga,
-        UM = p.UM
+        UM = p.UM,
+        NoteTecniche = p.NoteTecniche
     };
     mostraPopupModifica = true;
 }
@@ -246,12 +270,12 @@ private async Task SalvaModifiche()
     if (prodottoInModifica.IDProdotto == 0) // È UN NUOVO RECORD
     {
         sql = @"INSERT INTO Prodotti (CodiceProdotto, Descrizione, IsAccessorio, PesoAlMetro, LunghezzaVerga, UM, NoteTecniche, FinituraAccessorio) 
-                VALUES (@CodiceProdotto, @Descrizione, @IsAccessorio, @PesoAlMetro, @LunghezzaVerga, @UM, '', '')";
+                VALUES (@CodiceProdotto, @Descrizione, @IsAccessorio, @PesoAlMetro, @LunghezzaVerga, @UM, @NoteTecniche, '')";
     }
     else // È UNA MODIFICA
     {
         sql = @"UPDATE Prodotti SET CodiceProdotto = @CodiceProdotto, Descrizione = @Descrizione, 
-                PesoAlMetro = @PesoAlMetro, LunghezzaVerga = @LunghezzaVerga, UM = @UM 
+                PesoAlMetro = @PesoAlMetro, LunghezzaVerga = @LunghezzaVerga, UM = @UM , NoteTecniche = @NoteTecniche
                 WHERE IDProdotto = @IDProdotto";
     }
     
