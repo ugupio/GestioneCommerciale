@@ -126,19 +126,27 @@
                     <div class="row mb-2">
                         <div class="col-4">
                             <label class="win-label d-block text-start">Codice:</label>
-    @if (prodottoInModifica.IDProdotto == 0)
+                                @if (prodottoInModifica.IDProdotto == 0)
     {
-        <!-- SE NUOVO: Campo bianco e modificabile -->
-        <input class="win-input fw-bold" @bind="prodottoInModifica.CodiceProdotto" style="background: #fffde7;" placeholder="Inserisci cod..." />
+        <!-- SE NUOVO: Diventa rosso se il codice esiste già -->
+        <input class="win-input fw-bold" 
+               value="@prodottoInModifica.CodiceProdotto" 
+               @oninput="VerificaDuplicato"
+               style="background: @(codiceDuplicato ? "#ffcccc" : "#fffde7");" 
+               placeholder="Inserisci cod..." />
+        
+        @if (codiceDuplicato)
+        {
+            <small class="text-danger" style="font-size: 8px; font-weight:bold;">⚠️ Codice già presente!</small>
+        }
     }
     else
     {
-        <!-- SE ESISTENTE: Campo grigio e bloccato -->
-        <input class="win-input fw-bold" @bind="prodottoInModifica.CodiceProdotto" style="background: #eee;" readonly />
-        <small class="text-muted" style="font-size: 8px;">Codice non modificabile</small>   }
-                            
-                            <small class="text-muted" style="font-size: 9px;">Il codice non è modificabile</small>
-                        </div>
+        <!-- SE ESISTENTE: Grigio come prima -->
+        <input class="win-input fw-bold" @bind="prodottoInModifica.CodiceProdotto" style="background: #eee;" />
+        <small class="text-muted" style="font-size: 8px;">Si consiglia di non modificare il Codice se esistono Ordini Caricati</small>                   
+    }
+                            </div>
                         <div class="col-8">
                             <label class="win-label d-block text-start">Descrizione:</label>
                             <input class="win-input" @bind="prodottoInModifica.Descrizione" />
@@ -215,13 +223,49 @@
     private string testoRicerca = "";
     private bool mostraPopupModifica = false;
     private Prodotti prodottoInModifica = new();
+    private bool codiceDuplicato = false;
 
     protected override async Task OnInitializedAsync()
     {
         await RicaricaLista();
     }
 
-    private async Task RicaricaLista()
+    private async Task<bool> VerificaCodiceEsistente(string codice)
+{
+    if (string.IsNullOrWhiteSpace(codice)) return false;
+
+    using var db = new SqlConnection(conn);
+    // Controlliamo se esiste un prodotto con lo stesso codice (escludendo l'attuale se siamo in modifica)
+    var esiste = await db.ExecuteScalarAsync<int>(
+        "SELECT COUNT(1) FROM Prodotti WHERE CodiceProdotto = @codice", 
+        new { codice });
+
+    return esiste > 0;
+}
+    
+    
+private async Task VerificaDuplicato(ChangeEventArgs e)
+{
+    string cod = e.Value?.ToString() ?? "";
+    prodottoInModifica.CodiceProdotto = cod; // Aggiorna l'oggetto manualmente
+
+    if (string.IsNullOrWhiteSpace(cod))
+    {
+        codiceDuplicato = false;
+        return;
+    }
+
+    using var db = new SqlConnection(conn);
+    // Conta quanti prodotti hanno questo codice
+    var conteggio = await db.ExecuteScalarAsync<int>(
+        "SELECT COUNT(1) FROM Prodotti WHERE CodiceProdotto = @cod", 
+        new { cod });
+
+    codiceDuplicato = conteggio > 0;
+}
+
+
+private async Task RicaricaLista()
     {
         using var db = new SqlConnection(conn);
         listaProdotti = (await db.QueryAsync<Prodotti>("SELECT * FROM Prodotti ORDER BY CodiceProdotto")).ToList();
@@ -267,6 +311,14 @@ private async Task SalvaModifiche()
     using var db = new SqlConnection(conn);
     string sql;
 
+    // Blocca il salvataggio se è un nuovo inserimento e il codice è doppio
+    if (prodottoInModifica.IDProdotto == 0 && codiceDuplicato)
+    {
+        await JS.InvokeVoidAsync("alert", "Impossibile salvare: il codice inserito è già utilizzato per un altro prodotto.");
+        return;
+    }
+    
+    
     if (prodottoInModifica.IDProdotto == 0) // È UN NUOVO RECORD
     {
         sql = @"INSERT INTO Prodotti (CodiceProdotto, Descrizione, IsAccessorio, PesoAlMetro, LunghezzaVerga, UM, NoteTecniche, FinituraAccessorio) 

@@ -301,10 +301,20 @@
             </div>
             
             <div class="popup-body">
-                <div class="mb-3">
-                    <label class="win-label d-block text-start">Codice Prodotto:</label>
-                    <input class="win-input" @bind="nuovoProdottoListino.CodiceProdotto" disabled style="background:#e9ecef;" />
-                </div>
+                <label class="win-label d-block text-start">Codice Prodotto:</label>
+    <!-- Sblocchiamo il campo e aggiungiamo il controllo colore -->
+    <input class="win-input fw-bold" 
+           value="@nuovoProdottoListino.CodiceProdotto" 
+           @oninput="VerificaDuplicatoOrdine"
+           style="background: @(codiceDuplicatoOrdine ? "#ffcccc" : "#fffde7");" 
+           placeholder="Inserisci codice..." />
+
+    @if (codiceDuplicatoOrdine)
+    {
+        <div class="text-danger" style="font-size: 9px; font-weight: bold; margin-top: 2px;">
+            ⚠️ Questo codice esiste già a listino!
+        </div>
+    }
 
                 <div class="mb-3">
                     <label class="win-label d-block text-start">Descrizione Estesa:</label>
@@ -341,14 +351,14 @@
                         </div>
                     </div>
 
-                    <div class="mb-2 mt-2">
-    <label class="win-label d-block text-start">Note Tecniche / Appunti:</label>
-    <textarea class="win-input" @bind="nuovoProdottoListino.NoteTecniche"
-              style="height: 50px; resize: none;" 
-              placeholder="Inserisci dettagli tecnici, compatibilità..."></textarea>
-</div>
+                    
                 }
-
+                <div class="mb-2 mt-2">
+                    <label class="win-label d-block text-start">Note Tecniche / Appunti:</label>
+                    <textarea class="win-input" @bind="nuovoProdottoListino.NoteTecniche"
+                              style="height: 50px; resize: none;" 
+                              placeholder="Inserisci dettagli tecnici, compatibilità..."></textarea>
+                </div>
                 <div class="mt-4 d-flex justify-content-end gap-2">
                     <button class="win-btn" style="height:40px; background:#005a9e; color:white;" @onclick="SalvaNuovoProdotto">💾 REGISTRA</button>
                     <button class="win-btn" style="height:40px;" @onclick="() => visualizzaPopupProdotto = false">❌ ANNULLA</button>
@@ -381,6 +391,7 @@
     private string snapshotInizialeRiga = "";
     private string snapshotOrdineOriginale = "";
     private bool mostraTastoNuovoAccessorio = false;
+    private bool codiceDuplicatoOrdine = false;
     
 
     @code {
@@ -412,6 +423,39 @@
     }
 }
 }
+
+
+private async Task<bool> VerificaCodiceEsistente(string codice)
+{
+    if (string.IsNullOrWhiteSpace(codice)) return false;
+
+    using var db = new SqlConnection(conn);
+    // Controlliamo se esiste un prodotto con lo stesso codice (escludendo l'attuale se siamo in modifica)
+    var esiste = await db.ExecuteScalarAsync<int>(
+        "SELECT COUNT(1) FROM Prodotti WHERE CodiceProdotto = @codice", 
+        new { codice });
+
+    return esiste > 0;
+}
+
+private async Task VerificaDuplicatoOrdine(ChangeEventArgs e)
+{
+    string cod = e.Value?.ToString() ?? "";
+    nuovoProdottoListino.CodiceProdotto = cod;
+
+    if (string.IsNullOrWhiteSpace(cod))
+    {
+        codiceDuplicatoOrdine = false;
+        return;
+    }
+
+    using var db = new SqlConnection(conn);
+    var conteggio = await db.ExecuteScalarAsync<int>(
+        "SELECT COUNT(1) FROM Prodotti WHERE CodiceProdotto = @cod", new { cod });
+
+    codiceDuplicatoOrdine = conteggio > 0;
+}
+
 
 private void ApriPopupProdotto()
 {
