@@ -1,0 +1,264 @@
+﻿@page "/gestione-attivita"
+@using System.Data.SqlClient
+@using Dapper
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<style>
+    .win-form { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f0f0; min-height: 100vh; border: 1px solid #999; }
+    .win-header { background: linear-gradient(to bottom, #0056b3, #004494); color: white; padding: 5px 10px; font-weight: bold; font-size: 12px; text-shadow: 1px 1px 1px black; }
+    .toolbar-container { background: #e1e1e1; border-bottom: 1px solid #999; padding: 4px; display: flex; justify-content: space-between; align-items: center; }
+    .win-grid { width: 100%; border-collapse: collapse; background: white; font-size: 11px; }
+    .win-grid th { background: #e8e8e8; border: 1px solid #ccc; padding: 4px 8px; text-align: left; font-weight: bold; color: #333; }
+    .win-grid td { border: 1px solid #eee; padding: 4px 8px; vertical-align: middle; }
+    .win-grid tr:hover { background-color: #f0f7ff !important; }
+    .win-btn { padding: 2px 10px; background: #f5f5f5; border: 1px solid #999; font-size: 11px; cursor: pointer; box-shadow: inset 0 1px 0 white; }
+    .win-btn:hover { background: #e5e5e5; border-color: #0056b3; }
+    .win-btn-cell { background: #eee; border: 1px solid #bbb; font-size: 10px; padding: 1px 4px; cursor: pointer; }
+    .win-input { font-size: 11px; border: 1px solid #999; padding: 2px; }
+    .badge-ref { display: inline-block; padding: 1px 5px; background: #e3f2fd; border: 1px solid #2196f3; border-radius: 3px; font-size: 10px; margin-right: 5px; color: #0d47a1; }
+    .win-modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+</style>
+
+<div class="win-form">
+    <div class="win-header">GESTIONE PROMEMORIA E ATTIVITÀ</div>
+
+    <div class="toolbar-container">
+        <div style="display:flex; gap:5px;">
+            <button class="win-btn" @onclick='() => Nav.NavigateTo("/")'>🏠 Home</button>
+            <button class="win-btn" style="background:#d4edda; border-color:#28a745;" @onclick="ApriNuovoTask">➕ Nuovo Task</button>
+            <button class="win-btn" @onclick="CaricaDati">🔄 Aggiorna</button>
+        </div>
+        
+        <div style="display:flex; gap:10px; align-items:center; font-size:11px;">
+            <span>Filtra Stato:</span>
+            <select @bind="filtroStato" @bind:after="CaricaDati" class="win-input" style="width:120px;">
+                <option value="aperti">Solo Aperti</option>
+                <option value="chiusi">Solo Completati</option>
+                <option value="tutti">Tutti</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="win-group" style="margin-top:10px; height: calc(100vh - 150px); overflow-y: auto; padding:0; border:1px solid #ccc;">
+        <table class="win-grid">
+            <thead style="position: sticky; top: 0; z-index: 10;">
+                <tr>
+                    <th style="width:90px;">Scadenza</th>
+                    <th style="width:70px;">Priorità</th>
+                    <th>Descrizione Attività</th>
+                    <th>Riferimento Cliente/Prodotto</th>
+                    <th style="width:100px;">Stato</th>
+                    <th style="width:120px;">Azioni</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in listaAttivita)
+                {
+                    <tr style="background: @(t.Completata ? "#f9f9f9" : (t.Priorita == 3 ? "#fff0f0" : "white"));">
+                        <td class="text-center">@t.DataScadenza.ToShortDateString()</td>
+                        <td class="text-center" style="font-weight:bold; color: @(t.Priorita == 3 ? "red" : (t.Priorita == 2 ? "orange" : "green"));">
+                            @(t.Priorita == 3 ? "ALTA" : (t.Priorita == 2 ? "MEDIA" : "BASSA"))
+                        </td>
+                        <td><strong>@t.Descrizione</strong></td>
+                        <td>
+                            @if (t.IDClienteAttivita > 0) { <span class="badge-ref">👤 @t.NomeRiferimento</span> }
+                            @if (t.IDProdottoAttivita > 0) { <span class="badge-ref" style="background:#e8f5e9; border-color:#2e7d32; color:#1b5e20;">📦 @t.CodiceRiferimento</span> }
+                        </td>
+                        <td class="text-center">
+                            <span style="color: @(t.Completata ? "green" : "red"); font-weight:bold;">
+                                @(t.Completata ? "✅ Chiuso" : "⏳ Aperto")
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            @if (!t.Completata) {
+                                <button class="win-btn-cell" @onclick="() => SegnaFatto(t.IDAttivita)">OK</button>
+                                <button class="win-btn-cell" @onclick="() => ApriModificaTask(t)">✏️</button> 
+                            }
+                            <button class="win-btn-cell" style="color:red;" @onclick="() => Elimina(t.IDAttivita)">🗑️</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (showPopupTask)
+{
+    <div class="win-modal-backdrop">
+        <div class="win-modal-content" style="width: 500px; border: 1px solid #0056b3; background: #f0f0f0; box-shadow: 4px 4px 15px rgba(0,0,0,0.3);">
+            <div style="background: #0056b3; color: white; padding: 6px 10px; font-weight: bold; font-size: 12px; display: flex; justify-content: space-between; align-items:center;">
+                <span>📝 NUOVO PROMEMORIA MANUALE</span>
+                <span @onclick="() => showPopupTask = false" style="cursor:pointer; font-family:monospace;">[X]</span>
+            </div>
+
+            <div style="padding: 15px; font-size: 11px;">
+                <div style="display: flex; gap: 10px; margin-bottom: 10px; background: #e8e8e8; padding: 8px; border: 1px solid #ccc;">
+                    <div style="flex: 1;">
+                        <label class="win-label" style="display:block; font-weight:bold;">Collega Cliente:</label>
+                        <select @bind="nuovoTask.IDClienteAttivita" class="win-input" style="width:100%;">
+                            <option value="0">-- Nessun Cliente --</option>
+                            @foreach (var c in listaClienti) { <option value="@c.IdCliente">@c.RagSociale</option> }
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label class="win-label" style="display:block; font-weight:bold;">Collega Prodotto:</label>
+                        <select @bind="nuovoTask.IDProdottoAttivita" class="win-input" style="width:100%;">
+                            <option value="0">-- Nessun Prodotto --</option>
+                            @foreach (var p in listaProdotti) { <option value="@p.IDProdotto">@p.CodiceProdotto</option> }
+                        </select>
+                    </div>
+                </div>
+
+                <label class="win-label" style="display:block; font-weight:bold; margin-top:10px;">Descrizione Attività:</label>
+                <textarea @bind="nuovoTask.Descrizione" style="width: 100%; height: 70px; border: 1px solid #999; padding:5px; font-family:sans-serif;"></textarea>
+
+                <div style="display: flex; gap: 10px; margin-top:10px;">
+                    <div style="flex: 1;">
+                        <label class="win-label" style="display:block; font-weight:bold;">Scadenza:</label>
+                        <input type="date" @bind="nuovoTask.DataScadenza" class="win-input" style="width:100%;" />
+                    </div>
+                    <div style="flex: 1;">
+                        <label class="win-label" style="display:block; font-weight:bold;">Priorità:</label>
+                        <select @bind="nuovoTask.Priorita" class="win-input" style="width:100%;">
+                            <option value="1">Bassa (Verde)</option>
+                            <option value="2">Media (Arancio)</option>
+                            <option value="3">Alta (Rossa)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; padding-top:10px; border-top:1px solid #ccc; display:flex; justify-content: flex-end; gap: 5px;">
+                    <button class="win-btn" style="background:#d4edda; font-weight:bold; min-width:80px;" @onclick="SalvaTask">💾 SALVA</button>
+                    <button class="win-btn" style="min-width:80px;" @onclick="() => showPopupTask = false">ANNULLA</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
+    private List<Attivita> listaAttivita = new();
+    private string filtroStato = "aperti";
+    private List<Cliente> listaClienti = new();
+    private List<Prodotti> listaProdotti = new();
+    private bool showPopupTask = false;
+    private Attivita nuovoTask = new();
+
+    protected override async Task OnInitializedAsync() 
+{
+    await CaricaAnagrafiche(); // Questo caricherà i clienti e i prodotti
+    await CaricaDati();        // Questo caricherà i task
+    StateHasChanged();         // Forza l'interfaccia a mostrare i dati caricati
+}
+
+    
+    
+    private async Task CaricaDati()
+    {
+        using var db = new SqlConnection(conn);
+        string whereClause = filtroStato switch
+        {
+            "aperti" => "WHERE a.Completata = 0",
+            "chiusi" => "WHERE a.Completata = 1",
+            _ => ""
+        };
+
+        string sql = $@"
+            SELECT a.*, 
+                   c.RagSociale as NomeRiferimento, 
+                   p.CodiceProdotto as CodiceRiferimento
+            FROM Attivita a
+            LEFT JOIN Clienti c ON a.IDClienteAttivita = c.IDCliente
+            LEFT JOIN Prodotti p ON a.IDProdottoAttivita = p.IDProdotto
+            {whereClause}
+            ORDER BY a.Completata ASC, a.Priorita DESC, a.DataScadenza ASC";
+
+        listaAttivita = (await db.QueryAsync<Attivita>(sql)).ToList();
+    }
+
+    
+    
+    private async Task SegnaFatto(int id)
+    {
+        using var db = new SqlConnection(conn);
+        await db.ExecuteAsync("UPDATE Attivita SET Completata = 1 WHERE IDAttivita = @id", new { id });
+        await CaricaDati();
+    }
+
+    private async Task Elimina(int id)
+    {
+        if (await JS.InvokeAsync<bool>("confirm", "Eliminare definitivamente questo promemoria?"))
+        {
+            using var db = new SqlConnection(conn);
+            await db.ExecuteAsync("DELETE FROM Attivita WHERE IDAttivita = @id", new { id });
+            await CaricaDati();
+        }
+    }
+
+    private async Task CaricaAnagrafiche()
+{
+    try 
+    {
+        using var db = new SqlConnection(conn);
+        var resClienti = await db.QueryAsync<Cliente>("SELECT IdCliente, RagSociale FROM Clienti");
+        listaClienti = resClienti.ToList();
+        
+        var resProdotti = await db.QueryAsync<Prodotti>("SELECT IDProdotto, CodiceProdotto FROM Prodotti");
+        listaProdotti = resProdotti.ToList();
+
+        // TEST: Questo ci dirà se le liste si sono riempite
+        Console.WriteLine($"DEBUG: Caricati {listaClienti.Count} clienti e {listaProdotti.Count} prodotti");
+        
+        if (listaClienti.Count == 0) {
+            await JS.InvokeVoidAsync("alert", "ATTENZIONE: Nessun cliente trovato nel Database!");
+        }
+    }
+    catch (Exception ex) 
+    { 
+        await JS.InvokeVoidAsync("alert", "Errore SQL: " + ex.Message); 
+    }
+}
+
+
+    
+
+private void ApriNuovoTask()
+{
+    nuovoTask = new Attivita { DataScadenza = DateTime.Today, Priorita = 1 };
+    showPopupTask = true;
+}
+
+private async Task SalvaTask()
+{
+    using var db = new SqlConnection(conn);
+    string sql;
+
+    if (nuovoTask.IDAttivita == 0) // NUOVO
+    {
+        sql = @"INSERT INTO Attivita (Descrizione, DataScadenza, Priorita, Completata, IDClienteAttivita, IDProdottoAttivita) 
+                VALUES (@Descrizione, @DataScadenza, @Priorita, 0, NULLIF(@IDClienteAttivita, 0), NULLIF(@IDProdottoAttivita, 0))";
+    }
+    else // MODIFICA
+    {
+        sql = @"UPDATE Attivita SET 
+                Descrizione=@Descrizione, DataScadenza=@DataScadenza, Priorita=@Priorita, 
+                IDClienteAttivita=NULLIF(@IDClienteAttivita, 0), IDProdottoAttivita=NULLIF(@IDProdottoAttivita, 0) 
+                WHERE IDAttivita=@IDAttivita";
+    }
+    
+    await db.ExecuteAsync(sql, nuovoTask);
+    showPopupTask = false;
+    await CaricaDati();
+}
+
+
+private void ApriModificaTask(Attivita t)
+{
+    nuovoTask = t; // Carica il task esistente nel modello del popup
+    showPopupTask = true;
+}
+}

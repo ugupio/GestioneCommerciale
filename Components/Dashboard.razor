@@ -5,6 +5,8 @@
 @using Dapper
 @using GestioneCommerciale.Models
 @inject NavigationManager Nav
+@inject IJSRuntime JS
+
 
 <style>
     .win-form { background-color: #f0f0f0; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; border: 1px solid #999; padding: 5px; min-width: 950px; min-height: 100vh; }
@@ -79,11 +81,13 @@
     <div class="win-group">
     <table style="width:100%; table-layout: fixed; border-spacing: 6px; border-collapse: separate;">
         <tr>
-            <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuovo-ordine")'>🛒 GESTIONE ORDINI</div></td>
+            <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuovo-ordine")'>🛒 GESTIONE ORDINI / PREVENTIVI</div></td>
             <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/anagrafica-clienti")'>👥 GESTIONE CLIENTI</div></td>
             <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuova-visita")'>📝 GESTIONE VISITE</div></td>
             <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuovo-reso")'>📦 GESTIONE RESI</div></td>
             <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/anagrafica-prodotti")'>📦 GESTIONE PRODOTTI</div></td>
+            <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/gestione-attivita")'>✅ GESTIONE TASK</div></td>
+
         </tr>
     </table>
 </div>
@@ -246,70 +250,58 @@
 @if (showPopupTask)
 {
     <div class="win-modal-backdrop">
-        <div class="win-modal-content" style="width: 450px; border: 1px solid #0056b3; background: #f0f0f0; box-shadow: 4px 4px 10px rgba(0,0,0,0.4);">
-            
-            <!-- TESTATA BLU STILE ANAGRAFICA -->
-            <div style="background: #0056b3; color: white; padding: 6px 10px; font-weight: bold; font-size: 12px; display: flex; justify-content: space-between; align-items: center;">
-                <span>📝 GESTIONE PROMEMORIA / TASK</span>
-                <span @onclick="ChiudiPopup" style="cursor:pointer; font-family: monospace;">[X]</span>
+        <div class="win-modal-content" style="width: 500px; border: 1px solid #0056b3; background: #f0f0f0; box-shadow: 4px 4px 15px rgba(0,0,0,0.3);">
+            <div style="background: #0056b3; color: white; padding: 6px 10px; font-weight: bold; font-size: 12px; display: flex; justify-content: space-between; align-items:center;">
+                <span>📝 NUOVO PROMEMORIA</span>
+                <span @onclick="() => showPopupTask = false" style="cursor:pointer; font-family:monospace;">[X]</span>
             </div>
 
-            <div style="padding: 15px; font-size: 11px; font-family: 'Segoe UI', Tahoma;">
-                
-                <!-- DESCRIZIONE -->
-                <div style="margin-bottom: 10px;">
-                    <label style="display: block; font-weight: bold; margin-bottom: 3px;">DESCRIZIONE ATTIVITÀ:</label>
-                    <textarea @bind="nuovoTask.Descrizione" 
-                              style="width: 100%; height: 60px; border: 1px solid #999; padding: 4px; font-size: 11px; font-family: 'Segoe UI'; resize: none;"></textarea>
-                </div>
-
-                <div style="display: flex; gap: 15px; margin-bottom: 10px;">
-                    <!-- DATA SCADENZA -->
+            <div style="padding: 15px; font-size: 11px;">
+                <!-- SEZIONE COLLEGAMENTI MANUALI -->
+                <div style="display: flex; gap: 10px; margin-bottom: 10px; background: #e8e8e8; padding: 8px; border: 1px solid #ccc;">
                     <div style="flex: 1;">
-                        <label style="display: block; font-weight: bold; margin-bottom: 3px;">SCADENZA:</label>
-                        <input type="date" @bind="nuovoTask.DataScadenza" 
-                               style="width: 100%; border: 1px solid #999; padding: 3px; font-size: 11px;" />
+                        <label class="win-label" style="display:block; font-weight:bold;">Collega Cliente:</label>
+                        <select @bind="nuovoTask.IDClienteAttivita" class="win-input" style="width:100%;">
+                            <option value="0">-- Nessun Cliente --</option>
+                            @foreach (var c in listaClienti) { <option value="@c.IdCliente">@c.RagSociale</option> }
+                        </select>
                     </div>
-
-                    <!-- PRIORITÀ CON COLORE DINAMICO -->
                     <div style="flex: 1;">
-                        <label style="display: block; font-weight: bold; margin-bottom: 3px;">PRIORITÀ:</label>
-                        <select @bind="nuovoTask.Priorita" 
-                                style="width: 100%; border: 1px solid #999; padding: 3px; font-size: 11px; background-color: @(nuovoTask.Priorita == 3 ? "#ffcccc" : nuovoTask.Priorita == 2 ? "#fff3cd" : "white");">
-                            <option value="1">1 - BASSA (BIANCO)</option>
-                            <option value="2">2 - MEDIA (GIALLO)</option>
-                            <option value="3">3 - ALTA (ROSSO)</option>
+                        <label class="win-label" style="display:block; font-weight:bold;">Collega Prodotto:</label>
+                        <select @bind="nuovoTask.IDProdottoAttivita" class="win-input" style="width:100%;">
+                            <option value="0">-- Nessun Prodotto --</option>
+                            @foreach (var p in listaProdotti) { <option value="@p.IDProdotto">@p.CodiceProdotto</option> }
                         </select>
                     </div>
                 </div>
 
-                <!-- INFO COLLEGAMENTO (Se presente) -->
-                @if (nuovoTask.IDClienteAttivita != null || nuovoTask.IDOrdineAttivita != null)
-                {
-                    <div style="background: #e1e1e1; border: 1px dashed #999; padding: 5px; margin-top: 5px; color: #333;">
-                        <strong>RIFERIMENTO AUTOMATICO:</strong><br />
-                        @if (nuovoTask.IDClienteAttivita != null) { <span>👤 Cliente collegato correttamente</span> }
-                        @if (nuovoTask.IDOrdineAttivita != null) { <span>📦 Ordine collegato correttamente</span> }
-                    </div>
-                }
+                <label class="win-label" style="display:block; font-weight:bold;">Descrizione Attività:</label>
+                <textarea @bind="nuovoTask.Descrizione" style="width: 100%; height: 60px; border: 1px solid #999; padding:5px; font-family:sans-serif;"></textarea>
 
-                <!-- BARRA PULSANTI INFERIORE -->
-                <div style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; display: flex; justify-content: flex-end; gap: 5px;">
-    <button class="win-btn-cell" 
-            style="width: 100px; height: 26px; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center;" 
-            @onclick="SalvaTask">
-        🏠 SALVA
-    </button>
-    <button class="win-btn-cell" 
-            style="width: 100px; height: 26px; font-size: 11px; display: flex; align-items: center; justify-content: center;" 
-            @onclick="ChiudiPopup">
-        🔄 ANNULLA
-    </button>
-</div>
+                <div style="display: flex; gap: 10px; margin-top:10px;">
+                    <div style="flex: 1;">
+                        <label class="win-label" style="display:block; font-weight:bold;">Scadenza:</label>
+                        <input type="date" @bind="nuovoTask.DataScadenza" class="win-input" style="width:100%;" />
+                    </div>
+                    <div style="flex: 1;">
+                        <label class="win-label" style="display:block; font-weight:bold;">Priorità:</label>
+                        <select @bind="nuovoTask.Priorita" class="win-input" style="width:100%;">
+                            <option value="1">Bassa</option>
+                            <option value="2">Media</option>
+                            <option value="3">Alta</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-top: 15px; display:flex; justify-content: flex-end; gap: 5px;">
+                    <button class="win-btn" style="background:#d4edda; font-weight:bold; min-width:80px;" @onclick="SalvaTask">💾 SALVA</button>
+                    <button class="win-btn" style="min-width:80px;" @onclick="() => showPopupTask = false">ANNULLA</button>
+                </div>
             </div>
         </div>
     </div>
 }
+
 
     </div>
 
@@ -330,6 +322,8 @@
     bool showPopupTask = false;
     Attivita nuovoTask = new Attivita(); 
     List<Attivita> listaAttivita = new List<Attivita>();
+    private List<Cliente> listaClienti = new();
+    private List<Prodotti> listaProdotti = new();
     
 
     protected override async Task OnInitializedAsync()
@@ -337,6 +331,8 @@
     try
     {
         using var db = new SqlConnection(conn);
+        listaClienti = (await db.QueryAsync<Cliente>("SELECT IDCliente, RagSociale FROM Clienti ORDER BY RagSociale")).ToList();
+        listaProdotti = (await db.QueryAsync<Prodotti>("SELECT IDProdotto, CodiceProdotto FROM Prodotti ORDER BY CodiceProdotto")).ToList();
 
         // 1. PERFORMANCE
         datiOggi = await GetPerformance(db, DateTime.Today);
@@ -419,11 +415,12 @@ StateHasChanged(); // Forza l'aggiornamento finale della pagina
 
 private async Task SalvaTask() {
     using var db = new SqlConnection(conn);
-    string sql = "INSERT INTO Attivita (Descrizione, DataScadenza, Priorita, Completata, IDClienteAttivita) VALUES (@Descrizione, @DataScadenza, @Priorita, 0, @IDClienteAttivita)";
+    string sql = "INSERT INTO Attivita (Descrizione, DataScadenza, Priorita, Completata, IDClienteAttivita, IDProdottoAttivita) VALUES (@Descrizione, @DataScadenza, @Priorita, 0, NULLIF(@IDClienteAttivita, 0), NULLIF(@IDProdottoAttivita, 0))";
     await db.ExecuteAsync(sql, nuovoTask);
     showPopupTask = false;
     // Ricarica la lista
-    listaAttivita = (await db.QueryAsync<Attivita>("SELECT * FROM Attivita WHERE Completata = 0")).ToList();
+    listaAttivita = await GetAttivitaAperte();
+    StateHasChanged();
 }
 
 private async Task SegnaCompletato(int id) {

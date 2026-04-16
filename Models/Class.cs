@@ -65,6 +65,7 @@ public class Attivita
 
     // Proprietà di navigazione per la UI (comode per Dapper)
     public string NomeRiferimento { get; set; } = ""; // Es: "Rossi SRL" o "Ordine #123"
+    public string CodiceRiferimento { get; set; } = "";
 }
 
 
@@ -95,9 +96,12 @@ public class DettaglioOrdine
     public string FinituraAccessorio { get; set; } = ""; // Solo per accessori
     public decimal LunghezzaVerga { get; set; }
     public decimal PesoAlMetro { get; set; }
-    public List<DettaglioOrdine> Righe { get; set; } = new List<DettaglioOrdine>();
     public string CodiceProdotto { get; set; } = "";
 
+
+
+   // public List<DettaglioOrdine> Righe { get; set; } = new List<DettaglioOrdine>();
+    
 }
 
 public class Visita

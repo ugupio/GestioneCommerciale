@@ -39,25 +39,39 @@ public class DocumentoOrdine : IDocument
                     c.Item().Text("ALQ GENOVA").FontSize(20).ExtraBold().FontColor(Colors.Blue.Medium);
                 });
 
-                row.RelativeItem().Border(0.25f).Padding(5).Column(c => {
-                    c.Item().Text($"RAGIONE SOCIALE: {Cliente?.RagSociale}").FontSize(9).SemiBold();
+                // BOX DESTINATARIO (Sempre visibile)
+                row.RelativeItem().Border(0.25f).Padding(5).Column(c =>
+                {
+                    c.Item().Text("SPETT.LE").FontSize(7).FontColor(Colors.Grey.Medium);
+                    c.Item().Text($"{Cliente?.RagSociale}").FontSize(10).SemiBold();
 
-                    // Riferimento Cliente rimane qui nel box (molto visibile)
+                    // Indirizzo
+                    c.Item().Text($"{Cliente?.Ind_legale}").FontSize(9);
+
+                    // CAP e Città
+                    c.Item().Text($"{Cliente?.CAP_Legale} {Cliente?.Citta_Legale}").FontSize(9);
+
+                    // Cellulare/Telefono (solo se presente)
+                    if (!string.IsNullOrWhiteSpace(Cliente?.Cel1))
+                    {
+                        c.Item().Text($"Tel/Cell: {Cliente.Cel1}").FontSize(9);
+                    }
+
+                    // Spazio per separare e Riferimento Cliente (solo se presente)
                     if (!string.IsNullOrWhiteSpace(Ordine.RiferimentoCliente))
                     {
-                        c.Item().Text(text => {
-                            text.Span("RIFERIMENTO CLIENTE: ").FontSize(8).SemiBold();
+                        c.Item().PaddingTop(4);
+                        c.Item().Text(text =>
+                        {
+                            text.Span("RIFERIMENTO: ").FontSize(8).SemiBold();
                             text.Span(Ordine.RiferimentoCliente).FontSize(8);
                         });
                     }
-
-                    c.Item().Text($"COD. CLIENTE: {Ordine.IDCliente}").FontSize(8);
                 });
             });
 
             col.Item().PaddingTop(5).Table(table =>
             {
-                // Ripristinate a 4 colonne come in origine
                 table.ColumnsDefinition(columns => {
                     columns.RelativeColumn();
                     columns.RelativeColumn();
@@ -77,61 +91,69 @@ public class DocumentoOrdine : IDocument
 
     void ComposeContent(IContainer container)
     {
-        // Usiamo una colonna che occupa tutto lo spazio verticale
         container.Column(col =>
         {
-            // La tabella occupa il suo spazio naturale
             col.Item().Table(table =>
             {
                 table.ColumnsDefinition(columns =>
                 {
-                    columns.ConstantColumn(25);
-                    columns.RelativeColumn(3);
-                    columns.ConstantColumn(50);
-                    columns.ConstantColumn(50);
-                    columns.ConstantColumn(35);
-                    columns.RelativeColumn(1);
+                    columns.ConstantColumn(25); // Pos.
+                    columns.RelativeColumn(3);  // CODICE e DESCRIZIONE
+                    columns.ConstantColumn(50); // INT.
+                    columns.ConstantColumn(50); // EST.
+                    columns.ConstantColumn(35); // Q.TÀ
+                    columns.RelativeColumn(1);  // NOTE (Finitura)
                 });
 
                 table.Header(header =>
                 {
                     header.Cell().Element(CellStyle).AlignCenter().Text("Pos.").FontSize(7).SemiBold();
-                    header.Cell().Element(CellStyle).Text("DESCRIZIONE").FontSize(7).SemiBold();
+                    header.Cell().Element(CellStyle).Text("ARTICOLO / DESCRIZIONE").FontSize(7).SemiBold();
                     header.Cell().Element(CellStyle).AlignCenter().Text("INT.").FontSize(7).SemiBold();
                     header.Cell().Element(CellStyle).AlignCenter().Text("EST.").FontSize(7).SemiBold();
                     header.Cell().Element(CellStyle).AlignCenter().Text("Q.TÀ").FontSize(7).SemiBold();
                     header.Cell().Element(CellStyle).Text("NOTE").FontSize(7).SemiBold();
                 });
 
-                // Generiamo sempre 14 righe per mantenere la struttura del modulo
                 for (int i = 1; i <= 14; i++)
                 {
                     var r = Ordine.Righe.ElementAtOrDefault(i - 1);
 
-                    // Applichiamo .MinHeight(38) a ogni cella per "stirare" la tabella verso il basso
-                    table.Cell().Element(CellStyle).MinHeight(38).AlignCenter().Text(i.ToString()).FontSize(8);
-                    table.Cell().Element(CellStyle).MinHeight(38).Text(r?.Descrizione ?? "").FontSize(8);
-                    table.Cell().Element(CellStyle).MinHeight(38).AlignCenter().Text(r?.ColoreInt ?? "").FontSize(8);
-                    table.Cell().Element(CellStyle).MinHeight(38).AlignCenter().Text(r?.ColoreEst ?? "").FontSize(8);
-                    table.Cell().Element(CellStyle).MinHeight(38).AlignCenter().Text(r != null ? r.Quantita.ToString() : "").FontSize(8);
-                    table.Cell().Element(CellStyle).MinHeight(38).Text(r?.IsAccessorio == true ? r.FinituraAccessorio : "").FontSize(7);
-                }
+                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(i.ToString()).FontSize(8);
 
+                    // CELLA ARTICOLO: Codice + Descrizione
+                    table.Cell().Element(CellStyle).MinHeight(30).Text(txt =>
+                    {
+                        if (r != null)
+                        {
+                            // Codice Prodotto in grassetto e blu per risaltare
+                            txt.Span(r.CodiceProdotto).SemiBold().FontSize(8).FontColor(Colors.Blue.Medium);
+                            txt.EmptyLine();
+                            // Descrizione sotto
+                            txt.Span(r.Descrizione).FontSize(8);
+                        }
+                    });
+
+                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r?.ColoreInt ?? "").FontSize(8);
+                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r?.ColoreEst ?? "").FontSize(8);
+                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r != null ? r.Quantita.ToString() : "").FontSize(8);
+                    table.Cell().Element(CellStyle).MinHeight(30).Text(r?.IsAccessorio == true ? r.FinituraAccessorio : "").FontSize(7);
+                }
             });
 
-            // Spingiamo il blocco Note e Condizioni in fondo alla pagina
+            // Blocco finale (Condizioni e Note)
             col.Item().PaddingTop(10).Row(row =>
             {
                 row.RelativeItem(2).Border(0.25f).Padding(5).Column(c => {
-                    row.RelativeItem(2).Border(0.25f).Padding(5).Column(c => {
-                        c.Item().Text("CONDIZIONI DI VENDITA").FontSize(8).SemiBold();
-                        c.Item().PaddingTop(2).Text($"Totale Imponibile: {Ordine.TotaleImponibile:N2} €").FontSize(9).SemiBold();
+                    c.Item().Text("CONDIZIONI DI VENDITA").FontSize(8).SemiBold();
+                    c.Item().PaddingTop(2).Text($"Totale Imponibile: {Ordine.TotaleImponibile:N2} €").FontSize(9).SemiBold();
 
-                        // Mostra il nome se presente, altrimenti lascia i puntini
-                        c.Item().PaddingTop(10).Text(txt => {
-                            txt.Span("Concordate con: ").FontSize(8);
-                            txt.Span(string.IsNullOrEmpty(Ordine.ConcordatoCon) ? "____________________" : Ordine.ConcordatoCon).FontSize(8).SemiBold();
-                        });
+                    // AGGIUNTA: Peso Totale Ordine (Opzionale, se vuoi mostrarlo qui)
+                    // c.Item().Text($"Peso Totale: {Ordine.Righe.Sum(x => x.Quantita * x.PesoAlMetro * (x.LunghezzaVerga > 0 ? x.LunghezzaVerga : 1)):N2} Kg").FontSize(8);
+
+                    c.Item().PaddingTop(10).Text(txt => {
+                        txt.Span("Concordate con: ").FontSize(8);
+                        txt.Span(string.IsNullOrEmpty(Ordine.ConcordatoCon) ? "____________________" : Ordine.ConcordatoCon).FontSize(8).SemiBold();
                     });
                 });
 
@@ -142,6 +164,7 @@ public class DocumentoOrdine : IDocument
             });
         });
     }
+
 
     void ComposeFooter(IContainer container)
     {

@@ -216,38 +216,53 @@
         </div>
 
         <!-- DX: ACCESSORI -->
-        <div class="win-group" style="flex: 1; border-left: 5px solid #28a745; background: #fafffb;">
-            <div class="section-title">🛠️ INSERIMENTO ACCESSORI</div>
-            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 4px; margin-bottom:4px;">
-                <div style="display:flex; gap:2px;">
+<div class="win-group" style="flex: 1; border-left: 5px solid #28a745; background: #fafffb;">
+    <div class="section-title">🛠️ INSERIMENTO ACCESSORI</div>
+    
+    <!-- RIGA 1: CODICE E DESCRIZIONE -->
+    <div style="display: grid; grid-template-columns: 120px 1fr; gap: 4px; margin-bottom:4px;">
+        <div style="display:flex; gap:2px;">
             <input class="win-input" placeholder="Cod." 
-                   value="@rigaA.CodiceProdotto" 
+                   @bind="rigaA.CodiceProdotto" 
                    @oninput="OnCodiceAccessorioInput" 
-                   style="font-weight:bold; background:#f0fff0;" />
+                   style="font-weight:bold; background:#f0fff0; width: 100%;" />
             
             @if (mostraTastoNuovoAccessorio)
             {
                 <button class="win-btn-cell" @onclick="ApriPopupAccessorio" 
-                        style="background:#28a745; color:white; width:20px; height:20px; line-height:10px;">+</button>
+                        style="background:#28a745; color:white; width:22px; height:21px; padding:0; flex-shrink:0;">+</button>
             }
         </div>
-                <input class="win-input" placeholder="Descrizione" @bind="rigaA.Descrizione" />
-                <input class="win-input" placeholder="Finitura" @bind="rigaA.FinituraAccessorio" />
-            </div>
-            <div style="display: flex; gap: 6px; align-items: end;">
-                <div style="width: 50px;"><label class="win-label">Q.tà</label><input type="number" class="win-input" @bind="rigaA.Quantita" /></div>
-                <div style="width: 70px;"><label class="win-label">€ Cad.</label><input type="number" step="0.01" class="win-input" @bind="rigaA.PrezzoUnitario" /></div>
-                <div style="width: 50px;"><label class="win-label">Sc%</label><input type="number" class="win-input" @bind="rigaA.ScontoRiga" /></div>
-                <div style="flex-grow: 1;"><button class="win-btn" style="background:#28a745; color:white; height:21px; width:100%;" @onclick="() => AggiungiRiga(true)">AGGIUNGI</button></div>
-            </div>
-        </div>
-        @if (taskPendenti.Any()) {
-   <div style="background: red; color: white; padding: 20px;">
-       DEBUG: TROVATI @taskPendenti.Count TASK!
-       
-   </div>
-}
+        <input class="win-input" placeholder="Descrizione" @bind="rigaA.Descrizione" />
     </div>
+
+    <!-- RIGA 2: FINITURA E DATI ECONOMICI -->
+    <div style="display: flex; gap: 6px; align-items: end;">
+        <div style="flex: 2;">
+            <label class="win-label">Finitura</label>
+            <input class="win-input" placeholder="Es. Nero, Argento..." @bind="rigaA.FinituraAccessorio" />
+        </div>
+        <div style="width: 50px;">
+            <label class="win-label">Q.tà</label>
+            <input type="number" class="win-input" @bind="rigaA.Quantita" />
+        </div>
+        <div style="width: 70px;">
+            <label class="win-label">€ Cad.</label>
+            <input type="number" step="0.01" class="win-input" @bind="rigaA.PrezzoUnitario" />
+        </div>
+        <div style="width: 50px;">
+            <label class="win-label">Sc%</label>
+            <input type="number" class="win-input" @bind="rigaA.ScontoRiga" />
+        </div>
+        <div style="flex-grow: 1;">
+            <button class="win-btn" style="background:#28a745; color:white; height:21px; width:100%; font-weight:bold;" 
+                    @onclick="() => AggiungiRiga(true)">
+                AGGIUNGI
+            </button>
+        </div>
+    </div>
+</div>
+</div>
 
     <!-- GRIGLIA -->
     <div class="win-group" style="height: 300px; overflow-y: auto; padding:0;">
@@ -255,6 +270,7 @@
             <thead>
                 <tr>
                     <th style="width:40px;">Tipo</th>
+                    <th style="width:100px;">Codice</th>
                     <th>Descrizione</th>
                     <th class="text-end" style="width:60px;">Q.tà</th>
                     <th class="text-end" style="width:70px;">m/Vrg</th>
@@ -266,47 +282,67 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach (var r in ordine.Righe) {
-                    <tr style="@(r.IsAccessorio ? "background:#fafffb;" : "background:#f9fcff;")">
-                        <td class="text-center">@(r.IsAccessorio ? "🛠️" : "📦")</td>
-                        <td>
-    <!-- Input principale Descrizione -->
-    <input class="input-grid fw-bold" @bind="r.Descrizione" />
+    @foreach (var r in ordine.Righe) 
+    {
+        <tr style="@(r.IsAccessorio ? "background:#fafffb;" : "background:#f9fcff;")">
+            <!-- 1. TIPO -->
+            <td class="text-center">@(r.IsAccessorio ? "🛠️" : "📦")</td>
 
-    <div style="font-size: 0.75rem; color: #888; display: flex; gap: 10px; padding: 0 4px; margin-top: -2px;">
-        @if (!r.IsAccessorio)
-        {
-            <!-- Profilo: Titoli fissi, nessun suggerimento negli input -->
-            <div style="display: flex; align-items: center; gap: 3px;">
-                <span>INT:</span>
-                <input class="input-grid-mini" style="width: 70px;" @bind="r.ColoreInt" />
-            </div>
-            <div style="display: flex; align-items: center; gap: 3px;">
-                <span>EST:</span>
-                <input class="input-grid-mini" style="width: 70px;" @bind="r.ColoreEst" />
-            </div>
-        }
-        else
-        {
-            <!-- Accessorio: Titolo fisso, nessun suggerimento -->
-            <div style="display: flex; align-items: center; gap: 3px;">
-                <span>FIN:</span>
-                <input class="input-grid-mini" style="width: 150px;" @bind="r.FinituraAccessorio" />
-            </div>
-        }
-    </div>
-</td>
+            <!-- 2. CODICE (Ora ha la sua cella dedicata come da testata) -->
+            <td style="font-weight:bold; color: #005a9e; padding-left: 5px;">@r.CodiceProdotto</td>
 
-                        <td><input type="number" class="input-grid text-end" @bind="r.Quantita" @oninput="Ricalcola" /></td>
-                        <td>@if(!r.IsAccessorio){ <input type="number" step="0.01" class="input-grid text-end" @bind="r.LunghezzaVerga" @oninput="Ricalcola" /> }</td>
-                        <td class="text-end">@((!r.IsAccessorio ? (r.Quantita * r.LunghezzaVerga * r.PesoAlMetro) : 0).ToString("N2"))</td>
-                        <td><input type="number" step="0.01" class="input-grid text-end" @bind="r.PrezzoUnitario" @oninput="Ricalcola" /></td>
-                        <td><input type="number" class="input-grid text-end" @bind="r.ScontoRiga" @oninput="Ricalcola" /></td>
-                        <td class="text-end fw-bold">@r.PrezzoTotaleRiga.ToString("N2") €</td>
-                        <td class="text-center"><button class="border-0 bg-transparent text-danger" @onclick="() => RimuoviRiga(r)">✖</button></td>
-                    </tr>
-                }
-            </tbody>
+            <!-- 3. DESCRIZIONE + DETTAGLI -->
+            <td>
+                <input class="input-grid fw-bold" @bind="r.Descrizione" style="width:100%; border:none; background:transparent;" />
+                
+                <div style="font-size: 0.75rem; color: #888; display: flex; gap: 10px; padding: 0 4px; margin-top: -2px;">
+                    @if (!r.IsAccessorio)
+                    {
+                        <div style="display: flex; align-items: center; gap: 3px;">
+                            <span>INT:</span>
+                            <input class="input-grid-mini" style="width: 70px;" @bind="r.ColoreInt" />
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 3px;">
+                            <span>EST:</span>
+                            <input class="input-grid-mini" style="width: 70px;" @bind="r.ColoreEst" />
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="display: flex; align-items: center; gap: 3px;">
+                            <span>FIN:</span>
+                            <input class="input-grid-mini" style="width: 150px;" @bind="r.FinituraAccessorio" />
+                        </div>
+                    }
+                </div>
+            </td>
+
+            <!-- 4. QUANTITÀ -->
+            <td><input type="number" class="input-grid text-end" @bind="r.Quantita" @oninput="Ricalcola" /></td>
+            
+            <!-- 5. m/Vrg -->
+            <td>@if(!r.IsAccessorio){ <input type="number" step="0.01" class="input-grid text-end" @bind="r.LunghezzaVerga" @oninput="Ricalcola" /> }</td>
+            
+            <!-- 6. PESO -->
+            <td class="text-end">@((!r.IsAccessorio ? (r.Quantita * r.LunghezzaVerga * r.PesoAlMetro) : 0).ToString("N2"))</td>
+            
+            <!-- 7. PREZZO -->
+            <td><input type="number" step="0.01" class="input-grid text-end" @bind="r.PrezzoUnitario" @oninput="Ricalcola" /></td>
+            
+            <!-- 8. SC% -->
+            <td><input type="number" class="input-grid text-end" @bind="r.ScontoRiga" @oninput="Ricalcola" /></td>
+            
+            <!-- 9. TOTALE -->
+            <td class="text-end fw-bold">@r.PrezzoTotaleRiga.ToString("N2") €</td>
+            
+            <!-- 10. AZIONE -->
+            <td class="text-center">
+                <button class="border-0 bg-transparent text-danger" @onclick="() => RimuoviRiga(r)">✖</button>
+            </td>
+        </tr>
+    }
+</tbody>
+
         </table>
     </div>
     @if (mostraMessaggio) { <div class="toast-msg">@testoNotifica</div> }
@@ -412,40 +448,53 @@
     private bool mostraTastoNuovoAccessorio = false;
     private bool codiceDuplicatoOrdine = false;
     private List<Attivita> taskPendenti = new();
-    
+
 
     @code {
-    private async Task GeneraIlMioPdf()
-    {
-    try 
-    {
-        // Cerchiamo il cliente corrispondente nell'anagrafica caricata
-        var clienteSelezionato = listaClienti.FirstOrDefault(c => c.IdCliente == ordine.IDCliente);
-        
-        // Se non lo trova (ordine nuovo), creiamo un oggetto temporaneo per non far crashare il PDF
-        if (clienteSelezionato == null) 
+        private async Task GeneraIlMioPdf()
         {
-            clienteSelezionato = new Cliente { RagSociale = "Cliente da definire" };
+            try 
+            {
+                if (ordine.IDCliente == 0) 
+                {
+                    await JS.InvokeVoidAsync("alert", "Selezionare un cliente prima di generare il PDF.");
+                    return;
+                }
+
+                // CARICAMENTO DATI COMPLETI DAL DATABASE
+                Cliente clienteCompleto;
+                using (var db = new SqlConnection(conn))
+                {
+                    // Usiamo SELECT * per essere sicuri di prendere Ind_legale, CAP_Legale, Citta_Legale e Cel1
+                    clienteCompleto = await db.QueryFirstOrDefaultAsync<Cliente>(
+                        "SELECT * FROM Clienti WHERE IDCliente = @id", new { id = ordine.IDCliente });
+                }
+
+                // Se non lo trova nel DB (caso raro), usiamo quello della lista o uno di backup
+                if (clienteCompleto == null) 
+                {
+                    clienteCompleto = listaClienti.FirstOrDefault(c => c.IdCliente == ordine.IDCliente) 
+                                      ?? new Cliente { RagSociale = "Cliente da definire" };
+                }
+
+                // Creiamo il documento con i dati COMPLETI
+                var documento = new DocumentoOrdine(ordine, clienteCompleto); 
+                byte[] pdfBytes = documento.GeneratePdf();
+
+                // Download
+                using var stream = new MemoryStream(pdfBytes);
+                using var streamRef = new DotNetStreamReference(stream);
+                await JS.InvokeVoidAsync("downloadFileFromStream", $"Ordine_{ordine.NumeroDocumento}.pdf", streamRef);
+            }
+            catch (Exception ex)
+            {
+                await JS.InvokeVoidAsync("alert", "ERRORE GENERAZIONE: " + ex.Message);
+            }
         }
-
-        // Creiamo il documento
-        var documento = new DocumentoOrdine(ordine, clienteSelezionato); 
-        byte[] pdfBytes = documento.GeneratePdf();
-
-        // Download
-        using var stream = new MemoryStream(pdfBytes);
-        using var streamRef = new DotNetStreamReference(stream);
-        await JS.InvokeVoidAsync("downloadFileFromStream", $"Ordine_{ordine.IDOrdine}.pdf", streamRef);
-    }
-    catch (Exception ex)
-    {
-        await JS.InvokeVoidAsync("alert", "ERRORE GENERAZIONE: " + ex.Message);
-    }
-}
 }
 
 
-private async Task<bool> VerificaCodiceEsistente(string codice)
+    private async Task<bool> VerificaCodiceEsistente(string codice)
 {
     if (string.IsNullOrWhiteSpace(codice)) return false;
 
@@ -535,7 +584,7 @@ private async Task OnCodiceAccessorioInput(ChangeEventArgs e)
 
     using var db = new SqlConnection(conn);
     var p = await db.QueryFirstOrDefaultAsync<Prodotti>(
-        "SELECT * FROM Prodotti WHERE CodiceProdotto = @codice", new { codice });
+        "SELECT * FROM Prodotti WHERE CodiceProdotto = @codice AND IsAccessorio = 1", new { codice });
 
     if (p != null) {
         rigaA.Descrizione = p.Descrizione;
@@ -670,16 +719,32 @@ private async Task InviaOrdineViaEmail()
     }
 
     private void AggiungiRiga(bool isAcc) {
-        var r = isAcc ? rigaA : rigaP;
-        if (string.IsNullOrEmpty(r.Descrizione)) return;
-        ordine.Righe.Add(new DettaglioOrdine {
-            Descrizione = r.Descrizione, IsAccessorio = r.IsAccessorio, Quantita = r.Quantita,
-            LunghezzaVerga = r.LunghezzaVerga, PesoAlMetro = r.PesoAlMetro, PrezzoUnitario = r.PrezzoUnitario,
-            ScontoRiga = r.ScontoRiga, ColoreInt = r.ColoreInt, ColoreEst = r.ColoreEst, FinituraAccessorio = r.FinituraAccessorio
-        });
-        Ricalcola();
-        if (isAcc) rigaA = new() { IsAccessorio = true, Quantita = 1 }; else rigaP = new() { IsAccessorio = false, Quantita = 1, LunghezzaVerga = 6.50m };
-    }
+    var r = isAcc ? rigaA : rigaP;
+    if (string.IsNullOrEmpty(r.Descrizione)) return;
+
+    ordine.Righe.Add(new DettaglioOrdine {
+        CodiceProdotto = r.CodiceProdotto, // <--- MANCAVA QUESTA RIGA!
+        Descrizione = r.Descrizione, 
+        IsAccessorio = r.IsAccessorio, 
+        Quantita = r.Quantita,
+        LunghezzaVerga = r.LunghezzaVerga, 
+        PesoAlMetro = r.PesoAlMetro, 
+        PrezzoUnitario = r.PrezzoUnitario,
+        ScontoRiga = r.ScontoRiga, 
+        ColoreInt = r.ColoreInt, 
+        ColoreEst = r.ColoreEst, 
+        FinituraAccessorio = r.FinituraAccessorio
+    });
+
+    Ricalcola();
+
+    // Reset dei campi per il prossimo inserimento
+    if (isAcc) 
+        rigaA = new() { IsAccessorio = true, Quantita = 1 }; 
+    else 
+        rigaP = new() { IsAccessorio = false, Quantita = 1, LunghezzaVerga = 6.50m };
+}
+
 
     private void RimuoviRiga(DettaglioOrdine r) { ordine.Righe.Remove(r); Ricalcola(); }
 
@@ -701,7 +766,7 @@ private async Task InviaOrdineViaEmail()
             await db.ExecuteAsync("DELETE FROM Dettaglio_Ordini WHERE IDOrdine=@ID", new { ID = ordine.IDOrdine }, tx);
             foreach (var r in ordine.Righe) {
                 r.IDOrdine = ordine.IDOrdine;
-                string sqlR = "INSERT INTO Dettaglio_Ordini (IDOrdine, Descrizione, Quantita, PrezzoUnitario, ScontoRiga, ColoreInt, ColoreEst, IsAccessorio, FinituraAccessorio, LunghezzaVerga, PesoAlMetro, NoteTecniche) VALUES (@IDOrdine, @Descrizione, @Quantita, @PrezzoUnitario, @ScontoRiga, @ColoreInt, @ColoreEst, @IsAccessorio, @FinituraAccessorio, @LunghezzaVerga, @PesoAlMetro, @NoteTecniche)";
+                string sqlR = "INSERT INTO Dettaglio_Ordini (IDOrdine, CodiceProdotto, Descrizione, Quantita, PrezzoUnitario, ScontoRiga, ColoreInt, ColoreEst, IsAccessorio, FinituraAccessorio, LunghezzaVerga, PesoAlMetro) VALUES (@IDOrdine, @CodiceProdotto, @Descrizione, @Quantita, @PrezzoUnitario, @ScontoRiga, @ColoreInt, @ColoreEst, @IsAccessorio, @FinituraAccessorio, @LunghezzaVerga, @PesoAlMetro)";
                 await db.ExecuteAsync(sqlR, r, tx);
             }
             tx.Commit();
