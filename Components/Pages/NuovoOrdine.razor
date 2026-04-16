@@ -121,12 +121,26 @@
     <div class="win-group">
         <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 8px;">
             <div style="grid-column: span 2;">
-                <label class="win-label">Cliente</label>
-                <select class="win-input" @bind="ordine.IDCliente">
-                    <option value="0">-- Seleziona Cliente --</option>
-                    @foreach (var c in listaClienti) { <option value="@c.IdCliente">@c.RagSociale</option> }
-                </select>
-            </div>
+    <label class="win-label">Cliente</label>
+    <select class="win-input" @onchange="OnClienteChanged">
+        <option value="0">-- Seleziona Cliente --</option>
+        @foreach (var c in listaClienti) { 
+            <option value="@c.IdCliente" selected="@(ordine.IDCliente == c.IdCliente)">@c.RagSociale</option> 
+        }
+    </select>
+    
+    @if (taskPendenti != null && taskPendenti.Any())
+    {
+        <div style="background: #fff3cd; border: 1px solid #ffeeba; padding: 4px; margin-top: 5px; font-size: 11px; color: #856404; border-radius: 2px;">
+            <strong>⚠️ PROMEMORIA PER QUESTO CLIENTE:</strong>
+            @foreach (var t in taskPendenti)
+            {
+                <div style="border-bottom: 1px solid #f0e0b0; padding: 1px 0;">• @t.Descrizione</div>
+            }
+        </div>
+    }
+</div>
+            
             <div><label class="win-label">Data Ordine</label><input type="date" class="win-input" @bind="ordine.DataOrdine" /></div>
             <div><label class="win-label">Rif. Documento</label><input type="text" class="win-input" @bind="ordine.NumeroDocumento" /></div>
             <div class="row">
@@ -227,6 +241,12 @@
                 <div style="flex-grow: 1;"><button class="win-btn" style="background:#28a745; color:white; height:21px; width:100%;" @onclick="() => AggiungiRiga(true)">AGGIUNGI</button></div>
             </div>
         </div>
+        @if (taskPendenti.Any()) {
+   <div style="background: red; color: white; padding: 20px;">
+       DEBUG: TROVATI @taskPendenti.Count TASK!
+       
+   </div>
+}
     </div>
 
     <!-- GRIGLIA -->
@@ -382,8 +402,7 @@
     private bool mostraMessaggio = false;
     private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
     private string snapshotOriginale = "";
-    // Metodo IsDirty che controlla l'intero oggetto ordine (incluse le righe)
-    private bool IsDirty() => snapshotOriginale != JsonSerializer.Serialize(ordine);
+    private bool IsDirty() => snapshotOriginale != JsonSerializer.Serialize(ordine); // Metodo IsDirty che controlla l'intero oggetto ordine (incluse le righe)
     private bool mostraTastoNuovoOrdine = false;
     private bool mostraTastoNuovoProfilo = false;
     private bool visualizzaPopupProdotto = false;
@@ -392,6 +411,7 @@
     private string snapshotOrdineOriginale = "";
     private bool mostraTastoNuovoAccessorio = false;
     private bool codiceDuplicatoOrdine = false;
+    private List<Attivita> taskPendenti = new();
     
 
     @code {
@@ -545,6 +565,40 @@ private void ApriPopupAccessorio()
 }
 
 
+private async Task OnClienteChanged(ChangeEventArgs e)
+{
+    // Recuperiamo l'ID selezionato dalla select
+    if (int.TryParse(e.Value?.ToString(), out int idSelezionato))
+    {
+        ordine.IDCliente = idSelezionato;
+        
+        // Se è stato scelto un cliente (ID > 0), carichiamo i suoi task
+        if (idSelezionato > 0)
+        {
+            try {
+                using var db = new SqlConnection(conn);
+                string sql = "SELECT * FROM Attivita WHERE IDClienteAttivita = @id AND Completata = 0";
+                var res = await db.QueryAsync<Attivita>(sql, new { id = idSelezionato });
+                taskPendenti = res.ToList();
+                // NOTIFICA DI TEST: Se vedi questo messaggio, la query funziona
+                if (taskPendenti.Any()) 
+                   await Notifica($"✅ Trovati {taskPendenti.Count} task per ID {idSelezionato}");
+                else 
+                   await Notifica($"ℹ️ Nessun task trovato per ID {idSelezionato}");
+
+                StateHasChanged(); // Forziamo il refresh per mostrare i task appena caricati
+            } catch (Exception ex) {
+                await Notifica("❌ Errore DB: " + ex.Message);
+                taskPendenti = new(); 
+            }
+        }
+        else {
+            taskPendenti = new();
+        }
+    }
+}
+
+
 private async Task InviaOrdineViaEmail()
 {
     try
@@ -670,6 +724,16 @@ private async Task InviaOrdineViaEmail()
             if (listaIdOrdini.Any()) await CaricaOrdine(listaIdOrdini[0]); else IniziaNuovo();
         } catch (Exception ex) { tx.Rollback(); await Notifica("❌ Errore: " + ex.Message); }
     }
+
+    private async Task CaricaTaskDelCliente()
+{
+    if (ordine.IDCliente == 0) return;
+    try {
+        using var db = new SqlConnection(conn);
+        string sql = "SELECT * FROM Attivita WHERE IDCliente = @id AND Completata = 0";
+        taskPendenti = (await db.QueryAsync<Attivita>(sql, new { id = ordine.IDCliente })).ToList();
+    } catch { }
+}
 
     private async Task CaricaOrdine(int id) {
         using var db = new SqlConnection(conn);

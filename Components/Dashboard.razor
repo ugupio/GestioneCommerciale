@@ -50,6 +50,26 @@
     .action-dropdown { position: absolute; right: 0; top: 30px; background: white; border: 1px solid #ccc; box-shadow: 0 3px 8px rgba(0,0,0,0.15); z-index: 50; min-width: 150px; }
     .action-dropdown div { padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #eee; }
     .action-dropdown div:hover { background: #f5f5f5; }
+
+    .win-modal-backdrop {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: flex; justify-content: center; align-items: center;
+        z-index: 9999;
+    }
+    .win-modal-content {
+        background: white;
+        border: 2px solid #0056b3;
+        box-shadow: 5px 5px 15px rgba(0,0,0,0.3);
+    }
+    .win-header {
+        background: #0056b3;
+        color: white;
+        padding: 5px 10px;
+        font-weight: bold;
+        font-size: 12px;
+    }
 </style>
 
 <div class="win-form">
@@ -63,7 +83,6 @@
             <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/anagrafica-clienti")'>👥 GESTIONE CLIENTI</div></td>
             <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuova-visita")'>📝 GESTIONE VISITE</div></td>
             <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuovo-reso")'>📦 GESTIONE RESI</div></td>
-            <!-- CORREZIONE: Inserito nel TD e con la classe win-btn-cell come gli altri -->
             <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/anagrafica-prodotti")'>📦 GESTIONE PRODOTTI</div></td>
         </tr>
     </table>
@@ -115,30 +134,62 @@
         </table>
     </div>
 
-    <!-- MONITORAGGIO CONSEGNE IN RITARDO -->
-    <div class="win-group">
-        <div class="section-title" style="color: #dc3545;">⚠️ Ordini in Ritardo di Consegna</div>
-        <div style="max-height: 150px; overflow-y: auto;">
+    <div style="display: flex; gap: 10px; align-items: flex-start; margin-top: 10px;">
+    
+    <!-- COLONNA SINISTRA: RITARDI (60%) -->
+    <div class="win-group" style="flex: 6; margin-bottom: 0;">
+        <div class="section-title" style="color: #dc3545;">⚠️ Ordini in Ritardo</div>
+        <div style="max-height: 180px; overflow-y: auto;">
             <table class="win-grid">
                 <thead>
-                    <tr><th>Cliente</th><th>N. Documento</th><th style="color:#dc3545">Prevista</th><th style="width:80px">Azione</th></tr>
+                    <tr><th>Cliente</th><th>N. Doc.</th><th style="color:#dc3545">Prevista</th><th style="width:80px">Azione</th></tr>
                 </thead>
                 <tbody>
                     @foreach (var rit in listaRitardi) {
-                        <tr>
-                            <td>@(rit.RagSociale?.ToString() ?? "")</td>
-                            <td>@(rit.NumeroDocumento?.ToString() ?? "")</td>
-                            <td class="fw-bold text-danger">@((rit.DataConsegnaPrevista as DateTime?)?.ToShortDateString() ?? "")</td>
-                            <td class="text-center"><button class="win-btn-cell p-0" style="font-size:9px; height:20px">📞 SOLLECITA</button></td>
+    <tr>
+        <td>@(rit.RagSociale ?? "")</td>
+        <td>@(rit.NumeroDocumento ?? "")</td>
+        <td class="fw-bold text-danger">@rit.DataConsegnaPrevista.ToShortDateString()</td>
+        
+        <!-- CORREZIONE QUI: Aggiunto <td> e chiuso correttamente il tag <button> -->
+        <td class="text-center">
+            <button class="win-btn-cell p-0" style="font-size:9px; height:20px" 
+    @onclick="@(() => SollecitaOrdine((string)rit.RagSociale, (string)rit.NumeroDocumento, (int)rit.IDClienteAttivita))">
+    📞 SOLLECITA
+</button>
+        </td>
+    </tr>
+}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- COLONNA DESTRA: PROMEMORIA (40%) -->
+    <div class="win-group" style="flex: 4; margin-bottom: 0; border-left: 2px solid #0056b3;">
+        <div class="section-title" style="color: #0056b3; display: flex; justify-content: space-between; align-items: center;">
+            <span>📝 Promemoria</span>
+            <button class="win-btn-cell" style="width: 20px; height: 18px; padding: 0;" @onclick="ApriNuovoTask">➕</button>
+        </div>
+        <div style="max-height: 180px; overflow-y: auto;">
+            <table class="win-grid" style="font-size: 10px;">
+                <tbody>
+                    @foreach (var task in listaAttivita) {
+                        <tr style="background: @(task.Priorita == 3 ? "#fff0f0" : "white");">
+                            <td style="padding: 3px;">
+                                <strong>@task.Descrizione</strong><br/>
+                                @if (task.IDClienteAttivita != null) { <small style="color: #666;">👤 @task.NomeRiferimento</small> }
+                            </td>
+                            <td style="width: 35px; text-align: center;">
+                                <button class="win-btn-cell" @onclick="() => SegnaCompletato(task.IDAttivita)"style="height: 20px; width: 100%; font-size: 9px; padding: 0; line-height: 1;">OK</button>
+                            </td>
                         </tr>
-                    }
-                    @if (!listaRitardi.Any()) {
-                        <tr><td colspan="4" class="text-center p-1 text-muted">✅ Nessun ritardo rilevato</td></tr>
                     }
                 </tbody>
             </table>
         </div>
     </div>
+</div>  
 
     <!-- CLIENTI DORMIENTI -->
     <div class="win-group">
@@ -155,7 +206,7 @@
             </thead>
             <tbody>
                 @foreach (var d in listaDormienti) {
-                    var idCliente = d.IdCliente;
+                    var idCliente = d.IDCliente;
                     <tr>
                         <td>@(d.RagSociale ?? "N/D")</td>
                         <td>@(d.UltimoOrdine?.ToShortDateString() ?? "MAI")</td>
@@ -179,7 +230,7 @@
                                 
                                 @if (openMenuFor == idCliente) {
                                     <div class="action-dropdown" style="display: block; position: absolute; right: 0; z-index: 999;">
-                                        <div @onclick="() => OpenNuovaVisita(idCliente)">📅 Pianifica visita</div>
+                                        <div @onclick="() => PianificaVisitaDormiente(d.RagSociale, d.IDCliente)">📅 Pianifica visita</div>
                                         <div @onclick="() => OpenCliente(idCliente)">👤 Apri cliente</div>
                                         <div @onclick="() => CreaOrdine(idCliente)">🛒 Crea ordine</div>
                                     </div>
@@ -192,6 +243,73 @@
         </table>
     </div>
 </div>
+@if (showPopupTask)
+{
+    <div class="win-modal-backdrop">
+        <div class="win-modal-content" style="width: 450px; border: 1px solid #0056b3; background: #f0f0f0; box-shadow: 4px 4px 10px rgba(0,0,0,0.4);">
+            
+            <!-- TESTATA BLU STILE ANAGRAFICA -->
+            <div style="background: #0056b3; color: white; padding: 6px 10px; font-weight: bold; font-size: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span>📝 GESTIONE PROMEMORIA / TASK</span>
+                <span @onclick="ChiudiPopup" style="cursor:pointer; font-family: monospace;">[X]</span>
+            </div>
+
+            <div style="padding: 15px; font-size: 11px; font-family: 'Segoe UI', Tahoma;">
+                
+                <!-- DESCRIZIONE -->
+                <div style="margin-bottom: 10px;">
+                    <label style="display: block; font-weight: bold; margin-bottom: 3px;">DESCRIZIONE ATTIVITÀ:</label>
+                    <textarea @bind="nuovoTask.Descrizione" 
+                              style="width: 100%; height: 60px; border: 1px solid #999; padding: 4px; font-size: 11px; font-family: 'Segoe UI'; resize: none;"></textarea>
+                </div>
+
+                <div style="display: flex; gap: 15px; margin-bottom: 10px;">
+                    <!-- DATA SCADENZA -->
+                    <div style="flex: 1;">
+                        <label style="display: block; font-weight: bold; margin-bottom: 3px;">SCADENZA:</label>
+                        <input type="date" @bind="nuovoTask.DataScadenza" 
+                               style="width: 100%; border: 1px solid #999; padding: 3px; font-size: 11px;" />
+                    </div>
+
+                    <!-- PRIORITÀ CON COLORE DINAMICO -->
+                    <div style="flex: 1;">
+                        <label style="display: block; font-weight: bold; margin-bottom: 3px;">PRIORITÀ:</label>
+                        <select @bind="nuovoTask.Priorita" 
+                                style="width: 100%; border: 1px solid #999; padding: 3px; font-size: 11px; background-color: @(nuovoTask.Priorita == 3 ? "#ffcccc" : nuovoTask.Priorita == 2 ? "#fff3cd" : "white");">
+                            <option value="1">1 - BASSA (BIANCO)</option>
+                            <option value="2">2 - MEDIA (GIALLO)</option>
+                            <option value="3">3 - ALTA (ROSSO)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- INFO COLLEGAMENTO (Se presente) -->
+                @if (nuovoTask.IDClienteAttivita != null || nuovoTask.IDOrdineAttivita != null)
+                {
+                    <div style="background: #e1e1e1; border: 1px dashed #999; padding: 5px; margin-top: 5px; color: #333;">
+                        <strong>RIFERIMENTO AUTOMATICO:</strong><br />
+                        @if (nuovoTask.IDClienteAttivita != null) { <span>👤 Cliente collegato correttamente</span> }
+                        @if (nuovoTask.IDOrdineAttivita != null) { <span>📦 Ordine collegato correttamente</span> }
+                    </div>
+                }
+
+                <!-- BARRA PULSANTI INFERIORE -->
+                <div style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; display: flex; justify-content: flex-end; gap: 5px;">
+    <button class="win-btn-cell" 
+            style="width: 100px; height: 26px; font-size: 11px; font-weight: bold; display: flex; align-items: center; justify-content: center;" 
+            @onclick="SalvaTask">
+        🏠 SALVA
+    </button>
+    <button class="win-btn-cell" 
+            style="width: 100px; height: 26px; font-size: 11px; display: flex; align-items: center; justify-content: center;" 
+            @onclick="ChiudiPopup">
+        🔄 ANNULLA
+    </button>
+</div>
+            </div>
+        </div>
+    </div>
+}
 
     </div>
 
@@ -208,48 +326,148 @@
     private int ordiniAnno;
     private int resiAnno;
     private int visiteAnno;
+    // Variabile per mostrare/nascondere il popup
+    bool showPopupTask = false;
+    Attivita nuovoTask = new Attivita(); 
+    List<Attivita> listaAttivita = new List<Attivita>();
+    
 
     protected override async Task OnInitializedAsync()
+{
+    try
     {
-        try
-        {
-            using var db = new SqlConnection(conn);
+        using var db = new SqlConnection(conn);
 
-            // 1. CARICAMENTO PERFORMANCE (Oggi, Settimana, Mese, Anno)
-            datiOggi = await GetPerformance(db, DateTime.Today);
-            datiSettimana = await GetPerformance(db, DateTime.Today.AddDays(-7));
-            datiMese = await GetPerformance(db, new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1));
-            datiAnno = await GetPerformance(db, new DateTime(DateTime.Today.Year, 1, 1));
+        // 1. PERFORMANCE
+        datiOggi = await GetPerformance(db, DateTime.Today);
+        datiSettimana = await GetPerformance(db, DateTime.Today.AddDays(-7));
+        datiMese = await GetPerformance(db, new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1));
+        datiAnno = await GetPerformance(db, new DateTime(DateTime.Today.Year, 1, 1));
+        StateHasChanged(); // Forza il caricamento del primo blocco
 
-            // 2. CARICAMENTO RITARDI (Consegna prevista superata e Consegna effettiva NULL)
-            string sqlRitardi = @"
-                SELECT TOP 10 c.RagSociale, o.NumeroDocumento, o.DataConsegnaPrevista 
-                FROM Ordini o 
-                JOIN Clienti c ON o.IDCliente = c.IdCliente
-                WHERE o.DataConsegnaPrevista < GETDATE() AND o.DataConsegnaEffettiva IS NULL
-                ORDER BY o.DataConsegnaPrevista ASC";
-            listaRitardi = (await db.QueryAsync(sqlRitardi)).ToList();
+        // 2. RITARDI (Specifica la classe se esiste, altrimenti usa dynamic)
+        string sqlRitardi = @"
+            SELECT TOP 10 c.IdCliente AS IDClienteAttivita, c.RagSociale, o.NumeroDocumento, o.DataConsegnaPrevista
+            FROM Ordini o 
+            JOIN Clienti c ON o.IDCliente = c.IdCliente
+            WHERE o.DataConsegnaPrevista < GETDATE() AND o.DataConsegnaEffettiva IS NULL
+            ORDER BY o.DataConsegnaPrevista ASC";
+        
+        // CORREZIONE: Se non hai una classe specifica per i ritardi, usa dynamic
+        var resRitardi = await db.QueryAsync<dynamic>(sqlRitardi);
+        listaRitardi = resRitardi.ToList();
+        StateHasChanged();
 
-            // 3. CARICAMENTO DORMIENTI (Nessun ordine negli ultimi 30 giorni)
-            string sqlDormienti = @"
-                SELECT TOP 10 c.IdCliente, c.RagSociale, 
-                MAX(o.DataOrdine) as UltimoOrdine, 
-                DATEDIFF(DAY, MAX(o.DataOrdine), GETDATE()) as GiorniAssenza,
-                (SELECT MAX(DataVisita) FROM Visite v WHERE v.IdCliente = c.IdCliente) as UltimaVisita
-                FROM Clienti c
-                LEFT JOIN Ordini o ON c.IdCliente = o.IDCliente
-                GROUP BY c.IdCliente, c.RagSociale
-                HAVING MAX(o.DataOrdine) < DATEADD(DAY, -30, GETDATE()) OR MAX(o.DataOrdine) IS NULL
-                ORDER BY GiorniAssenza DESC";
-            listaDormienti = (await db.QueryAsync<ClienteDormiente>(sqlDormienti)).ToList();
-        }
-        catch (Exception ex)
-        {
-            // Log errore se necessario
-            Console.WriteLine("Errore Dashboard: " + ex.Message);
-        }
+        // 3. PROMEMORIA (L'ultimo inserito)
+        string sqlAttivita = @"
+            SELECT a.*, c.RagSociale as NomeRiferimento
+            FROM Attivita a
+            LEFT JOIN Clienti c ON a.IDClienteAttivita = c.IdCliente
+            WHERE a.Completata = 0";
+        
+        listaAttivita = (await db.QueryAsync<Attivita>(sqlAttivita)).ToList();
+        StateHasChanged();
+
+        // 4. DORMIENTI
+        string sqlDormienti = @"
+    SELECT TOP 10 
+        c.IDCliente, 
+        c.RagSociale, 
+        MAX(o.DataOrdine) as UltimoOrdine, 
+        DATEDIFF(DAY, MAX(o.DataOrdine), GETDATE()) as GiorniAssenza,
+        (SELECT MAX(DataVisita) FROM Visite v WHERE v.IDCliente = c.IDCliente) as UltimaVisita
+    FROM Clienti c
+    LEFT JOIN Ordini o ON c.IDCliente = o.IDCliente
+    GROUP BY c.IDCliente, c.RagSociale
+    /* Mostra chi non ordina da più di 30 giorni o non ha mai ordinato */
+    HAVING MAX(o.DataOrdine) < DATEADD(DAY, -30, GETDATE()) OR MAX(o.DataOrdine) IS NULL
+    ORDER BY GiorniAssenza DESC";
+var resDormienti = await db.QueryAsync<ClienteDormiente>(sqlDormienti);
+listaDormienti = resDormienti.ToList();
+StateHasChanged(); // Forza l'aggiornamento finale della pagina
     }
+    catch (Exception ex)
+    {
+        // Se la pagina è vuota, l'errore apparirà qui sotto nella console di debug
+        Console.WriteLine($"ERRORE CRITICO DASHBOARD: {ex.Message}");
+    }
+}
 
+    
+    public async Task<List<Attivita>> GetAttivitaAperte()
+{
+    using var db = new SqlConnection(conn);
+    string sql = @"
+        SELECT a.*, 
+               c.RagioneSociale as NomeRiferimento,
+               p.CodiceProdotto as CodiceRiferimento
+        FROM Attivita a
+        LEFT JOIN Clienti c ON a.IDCliente = c.IDCliente
+        LEFT JOIN Prodotti p ON a.IDProdotto = p.IDProdotto
+        WHERE a.Completata = 0
+        ORDER BY a.Priorita DESC, a.DataScadenza ASC";
+    
+    var lista = await db.QueryAsync<Attivita>(sql);
+    return lista.ToList();
+}
+
+    private void ApriNuovoTask()
+{
+    nuovoTask = new Attivita { DataScadenza = DateTime.Today, Priorita = 1 };
+    showPopupTask = true;
+}
+
+private async Task SalvaTask() {
+    using var db = new SqlConnection(conn);
+    string sql = "INSERT INTO Attivita (Descrizione, DataScadenza, Priorita, Completata, IDClienteAttivita) VALUES (@Descrizione, @DataScadenza, @Priorita, 0, @IDClienteAttivita)";
+    await db.ExecuteAsync(sql, nuovoTask);
+    showPopupTask = false;
+    // Ricarica la lista
+    listaAttivita = (await db.QueryAsync<Attivita>("SELECT * FROM Attivita WHERE Completata = 0")).ToList();
+}
+
+private async Task SegnaCompletato(int id) {
+    using var db = new SqlConnection(conn);
+    await db.ExecuteAsync("UPDATE Attivita SET Completata = 1 WHERE IDAttivita = @id", new { id });
+    listaAttivita.RemoveAll(x => x.IDAttivita == id);
+}
+
+
+// Sollecita Ordine in Ritardo
+private void SollecitaOrdine(string cliente, string numDoc, int idClientePassato)
+{
+    nuovoTask = new Attivita 
+    { 
+        Descrizione = $"📞 Sollecitare consegna Ordine {numDoc} - {cliente}",
+        DataScadenza = DateTime.Today,
+        IDClienteAttivita = idClientePassato,
+        Priorita = 3, // Alta priorità per i solleciti
+        
+    };
+    showPopupTask = true;
+}
+
+// Pianifica Visita Cliente Dormiente
+private void PianificaVisitaDormiente(string cliente, int idCliente)
+{
+    nuovoTask = new Attivita 
+    { 
+        Descrizione = $"📅 Pianificare visita commerciale: {cliente}",
+        DataScadenza = DateTime.Today.AddDays(1), // Scadenza domani
+        Priorita = 2,
+        IDClienteAttivita = idCliente
+    };
+    showPopupTask = true;
+}
+
+
+
+
+private void ChiudiPopup()
+{
+    showPopupTask = false;
+}
+    
     private async Task<PerformanceData> GetPerformance(SqlConnection db, DateTime dataInizio)
     {
         var p = new PerformanceData();
@@ -284,7 +502,7 @@
 
     public class ClienteDormiente
     {
-        public int IdCliente { get; set; }
+        public int IDCliente { get; set; }
         public string RagSociale { get; set; }
         public DateTime? UltimoOrdine { get; set; }
         public int? GiorniAssenza { get; set; }

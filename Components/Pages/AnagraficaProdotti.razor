@@ -58,20 +58,53 @@
     </div>
 
     <div class="toolbar-container">
-        <button class="win-btn" @onclick="ApriNuovoDaAnagrafica">
-            <span class="oi oi-plus"></span><br />
-            Nuovo
-        </button>
-        <button class="win-btn" @onclick="RicaricaLista">🔄 Aggiorna</button>
-        <button class="win-btn" @onclick='() => Nav.NavigateTo("/")'>🏠 Home</button>
+        <!-- 1. HOME -->
+    <button class="win-btn" @onclick='() => Nav.NavigateTo("/")'>
+        <span style="font-size: 20px;">🏠</span><br />
+        Home
+    </button>
+
+    <!-- 2. AGGIORNA -->
+    <button class="win-btn" @onclick="RicaricaLista">
+        <span style="font-size: 20px;">🔄</span><br />
+        Aggiorna
+    </button>
+
+    <!-- 3. NUOVO -->
+    <button class="win-btn" @onclick="ApriNuovoDaAnagrafica">
+        <span style="font-size: 20px;">➕</span><br />
+        Nuovo
+    </button>
     </div>
     <div class="win-group" style="background: #f0f0f0;">
-        <div class="d-flex align-items-center gap-2">
-            <label class="win-label">Cerca Prodotto:</label>
-            <input class="win-input" style="width: 300px;" @oninput="FiltraProdotti" placeholder="Digita codice o descrizione..." />
-            <span class="small text-muted ms-2">Trovati: @listaFiltrata.Count</span>
+    <div class="win-group" style="background: #f0f0f0; padding: 5px;">
+    <div style="display: flex; align-items: center; justify-content: flex-start; gap: 15px;">
+        
+        <!-- PARTE RICERCA (Larghezza fissa per non spingere troppo) -->
+        <div style="display: flex; align-items: center; white-space: nowrap;">
+            <label class="win-label" style="margin: 0 5px 0 0;">Cerca:</label>
+            <input class="win-input" style="width: 220px;" @oninput="FiltraProdotti" placeholder="Codice o descrizione..." />
+        </div>
+
+        <!-- CONTATORI (Tutti in fila con i Badge belli) -->
+        <div style="display: flex; align-items: center; gap: 10px; white-space: nowrap;">
+            
+            <span style="background:#6c757d; color:white; padding:3px 10px; font-size:10.5px; border-radius:3px; border:1px solid #545b62;">
+                🔎 Trovati: <b>@listaFiltrata.Count</b>
+            </span>
+
+            <span style="background:#005a9e; color:white; padding:3px 10px; font-size:10.5px; border-radius:3px; border:1px solid #004a87;">
+                📦 Profili: <b>@listaFiltrata.Count(p => !p.IsAccessorio)</b>
+            </span>
+
+            <span style="background:#28a745; color:white; padding:3px 10px; font-size:10.5px; border-radius:3px; border:1px solid #1e7e34;">
+                🛠️ Accessori: <b>@listaFiltrata.Count(p => p.IsAccessorio)</b>
+            </span>
+            
         </div>
     </div>
+</div>
+</div>
     <div class="win-group">
         <div class="section-title">Elenco Articoli a Listino</div>
         <div style="max-height: 70vh; overflow-y: auto;">

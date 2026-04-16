@@ -50,6 +50,24 @@ public class Prodotti
 }
 
 
+public class Attivita
+{
+    public int IDAttivita { get; set; }
+    public string Descrizione { get; set; } = "";
+    public DateTime DataScadenza { get; set; } = DateTime.Now;
+    public bool Completata { get; set; } = false;
+    public int Priorita { get; set; } // 1=Bassa, 2=Media, 3=Alta
+
+    // --- COLLEGAMENTI ATTIVI (Tutti opzionali) ---
+    public int? IDClienteAttivita { get; set; }   // Se riferito a un Cliente
+    public int? IDOrdineAttivita { get; set; }    // Se riferito a un Ordine specifico
+    public int? IDProdottoAttivita { get; set; }  // Se riferito a un Prodotto (es. "Aggiornare peso")
+
+    // Proprietà di navigazione per la UI (comode per Dapper)
+    public string NomeRiferimento { get; set; } = ""; // Es: "Rossi SRL" o "Ordine #123"
+}
+
+
 public class Reso
 {
     public int IDReso { get; set; }
