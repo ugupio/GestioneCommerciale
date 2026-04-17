@@ -453,6 +453,7 @@
     private bool mostraTastoNuovoAccessorio = false;
     private bool codiceDuplicatoOrdine = false;
     private List<Attivita> taskPendenti = new();
+    List<Attivita> tuttiITaskAperti = new();
 
 
     @code {
@@ -548,33 +549,45 @@ private void ApriPopupProdotto()
 }
 
 private async Task OnCodiceProfiloInput(ChangeEventArgs e)
-{ // <--- APRE IL METODO
+{ 
     string codice = e.Value?.ToString() ?? "";
     rigaP.CodiceProdotto = codice;
 
     if (string.IsNullOrWhiteSpace(codice) || codice.Length < 2) 
-    { // <--- APRE IF
+    { 
         mostraTastoNuovoProfilo = false;
         return;
-    } // <--- CHIUDE IF
+    } 
 
     using (var db = new SqlConnection(conn))
-    { // <--- APRE USING
+    {
+        //Cerchiamo il prodotto
         var p = await db.QueryFirstOrDefaultAsync<Prodotti>(
             "SELECT * FROM Prodotti WHERE CodiceProdotto = @codice", new { codice });
 
         if (p != null) 
-        { // <--- APRE IF
+        { 
             rigaP.Descrizione = p.Descrizione;
             rigaP.PesoAlMetro = p.PesoAlMetro;
             mostraTastoNuovoProfilo = false;
+            // 2. --- RADAR TASK: Controlliamo se ci sono task aperti per questo codice ---
+            var task = await db.QueryFirstOrDefaultAsync<Attivita>(
+                "SELECT * FROM Attivita WHERE IDProdottoAttivita = @IDProdotto AND Completata = 0", 
+                new { IDProdotto = p.IDProdotto }); // Assicurati che IDProdotto sia il nome corretto nella tabella Prodotti
+
+            if (task != null)
+            {
+                await JS.InvokeVoidAsync("alert", $"⚠️ NOTA TECNICA ARTICOLO {codice}:\n{task.Descrizione}");
+            }
+
         } 
         else 
-        { // <--- APRE ELSE
+        { 
             mostraTastoNuovoProfilo = true;
-        } // <--- CHIUDE ELSE
-    } // <--- CHIUDE USING
-} // <--- CHIUDE IL METODO (Questa è quella che probabilmente manca!)
+            rigaP.Descrizione = "";
+        } 
+    } 
+} 
 
 
 private async Task OnCodiceAccessorioInput(ChangeEventArgs e)
@@ -653,6 +666,13 @@ private async Task OnClienteChanged(ChangeEventArgs e)
 }
 
 
+private async Task<List<Attivita>> GetAttivitaAperteLocali()
+{
+    using var db = new SqlConnection(conn);
+    return (await db.QueryAsync<Attivita>("SELECT * FROM Attivita WHERE Completata = 0")).ToList();
+}
+
+
 private async Task InviaOrdineViaEmail()
 {
     try
@@ -705,6 +725,7 @@ private async Task InviaOrdineViaEmail()
         using var db = new SqlConnection(conn);
         listaClienti = (await db.QueryAsync<Cliente>("SELECT IdCliente, RagSociale FROM Clienti ORDER BY RagSociale")).ToList();
         listaIdOrdini = (await db.QueryAsync<int>("SELECT IDOrdine FROM Ordini ORDER BY IDOrdine DESC")).ToList();
+        tuttiITaskAperti = await GetAttivitaAperteLocali();  // Carichiamo tutti i task non completati per fare i confronti in memoria
         if (listaIdOrdini.Any()) { indiceCorrente = 0; await CaricaOrdine(listaIdOrdini[0]); }
     }
 
@@ -760,7 +781,7 @@ private async Task InviaOrdineViaEmail()
         using var tx = db.BeginTransaction();
         try {
             string sqlO = (ordine.IDOrdine == 0) 
-                ? "INSERT INTO Ordini (IDCliente, DataOrdine, NumeroDocumento, RiferimentoCliente, StatoOrdine, TotaleImponibile, DataConsegnaPrevista, DataConsegnaEffettiva, NoteOrdine) OUTPUT INSERTED.IDOrdine VALUES (@IDCliente, @DataOrdine, @NumeroDocumento, @RiferimentoCliente, @StatoOrdine, @TotaleImponibile, @DataConsegnaPrevista, @DataConsegnaEffettiva, @NoteOrdine)"
+                ? "INSERT INTO Ordini (IDCliente, DataOrdine, NumeroDocumento, RiferimentoCliente, StatoOrdine, TotaleImponibile, DataConsegnaPrevista, DataConsegnaEffettiva, NoteOrdine, ConcordatoCon) OUTPUT INSERTED.IDOrdine VALUES (@IDCliente, @DataOrdine, @NumeroDocumento, @RiferimentoCliente, @StatoOrdine, @TotaleImponibile, @DataConsegnaPrevista, @DataConsegnaEffettiva, @NoteOrdine, @ConcordatoCon)"
                 : "UPDATE Ordini SET IDCliente=@IDCliente, DataOrdine=@DataOrdine, NumeroDocumento=@NumeroDocumento, RiferimentoCliente=@RiferimentoCliente, StatoOrdine=@StatoOrdine, TotaleImponibile=@TotaleImponibile, DataConsegnaPrevista=@DataConsegnaPrevista, DataConsegnaEffettiva=@DataConsegnaEffettiva, ConcordatoCon=@ConcordatoCon, NoteOrdine=@NoteOrdine WHERE IDOrdine=@IDOrdine";
             if (ordine.IDOrdine == 0) {
                 ordine.IDOrdine = await db.QuerySingleAsync<int>(sqlO, ordine, tx);

@@ -109,11 +109,11 @@ public class Visita
     public int IDVisita { get; set; }
     public int IDCliente { get; set; }
     public DateTime? DataVisita { get; set; }
-    public string StatoVisita { get; set; }
+    public int StatoVisita { get; set; }
     public string Motivazione { get; set; }
     public string ReferenteIncontrato { get; set; }
     public string NoteEsito { get; set; }
-    public int TemperaturaCliente { get; set; }
+    public int TemperaturaCliente { get; set; } = 2; // Cambia da int a string
     public bool RichiedeSeguito { get; set; }
     public DateTime? DataProssimoContatto { get; set; }
 }

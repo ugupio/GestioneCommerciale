@@ -7,6 +7,11 @@
 @using System.Globalization
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@using QuestPDF.Fluent
+@using QuestPDF.Helpers
+@using QuestPDF.Infrastructure
+
+
 
 <style>
     .win-form { background-color: #f0f0f0; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; border: 1px solid #999; padding: 5px; min-width: 1150px; color: #333; position: relative; min-height: 98vh; }
@@ -42,6 +47,9 @@
         </div>
 
         <div style="display:flex; gap:5px;">
+            <label class="win-label">Data Report:</label>
+            <input type="date" class="win-input" @bind="dataReport" style="width:150px;" />
+            <button class="win-btn" style="background:#fff176;" @onclick="ScaricaReportGiornaliero"> 🖨️ Esporta PDF Giornata  </button>
             <button class="win-btn" @onclick="Nuovo" style="background:#fff;">📄 Nuova</button>
             <button class="win-btn" @onclick="Annulla" style="background:#f1f1f1;">✖ Annulla</button>
             <button class="win-btn" @onclick="Salva" style="background:#d4edda; border-color:#28a745;">💾 Salva</button>
@@ -85,31 +93,85 @@
                     </tr>
                 </table>
             </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-top: 15px; background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;">
+    
+    <div>
+        <label class="win-label">Stato Visita</label>
+        <select class="win-input" @bind="v.StatoVisita">
+    <option value="1">Eseguita</option>
+    <option value="2">Programmata</option>
+    <option value="3">Annullata</option>
+</select>
 
-            <!-- STORICO VISITE -->
-            <div class="win-group">
-                <div class="section-title">📜 Storico Visite Cliente</div>
-                <div style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd;">
-                    <table class="win-table">
-                        <thead>
-                            <tr>
-                                <th style="width:80px;">Data</th>
-                                <th style="width:150px;">Motivazione</th>
-                                <th>Esito / Note</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var s in storicoVisite) {
-                                <tr style="@(s.IDVisita == v.IDVisita ? "background-color: #fff9c4; font-weight:bold;" : "")">
-                                    <td>@s.DataVisita?.ToString("dd/MM/yyyy")</td>
-                                    <td>@s.Motivazione</td>
-                                    <td style="color:#555;">@s.NoteEsito</td>
-                                </tr>
+    </div>
+
+    <div>
+    <label class="win-label">Temperatura Cliente</label>
+    <select class="win-input" @bind="v.TemperaturaCliente">
+        <option value="1">❄️ Freddo</option>
+        <option value="2">☁️ Tiepido</option>
+        <option value="3">🔥 Caldo</option>
+    </select>
+</div>
+
+
+    <div style="display:flex; flex-direction:column; justify-content:center;">
+        <label class="win-label">
+            <input type="checkbox" @bind="v.RichiedeSeguito" /> Chiede Seguito?
+        </label>
+    </div>
+
+    <div>
+        <label class="win-label">Data Prossimo Contatto</label>
+        <input type="date" class="win-input" @bind="v.DataProssimoContatto" />
+    </div>
+</div>
+
+            <!-- STORICO VISITE POTENZIATO -->
+<div class="win-group">
+    <div class="section-title">📜 Storico Visite Cliente</div>
+    <div style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd;">
+        <table class="win-table">
+            <thead>
+                <tr>
+                    <th style="width:90px;">Data</th>
+                    <th style="width:100px;">Stato</th>
+                    <th style="width:120px;">Temperatura</th>
+                    <th style="width:150px;">Motivazione</th>
+                    <th>Esito / Note</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in storicoVisite) {
+                    <tr style="@(s.IDVisita == v.IDVisita ? "background-color: #fff9c4; font-weight:bold;" : "")">
+                        <td>@s.DataVisita?.ToString("dd/MM/yyyy")</td>
+                        <td>
+                            <span class="badge" style="background:#e3f2fd; color:#005a9e; font-size:10px;">
+                            @if (s.StatoVisita == 1) { <span>Eseguita</span> }
+                            else if (s.StatoVisita == 2) { <span>Programmata</span> }
+                            else if (s.StatoVisita == 3) { <span>Annullata</span> }
+                            else { <span>@s.StatoVisita</span> }
+                        </span>
+                        </td>
+                        <td>
+                            @if (s.TemperaturaCliente == 1) { <span>❄️ Freddo</span> }
+                            else if (s.TemperaturaCliente == 2) { <span>☁️ Tiepido</span> }
+                            else if (s.TemperaturaCliente == 3) { <span>🔥 Caldo</span> }
+                            else { <span>-</span> }
+                        </td>
+                        <td>@s.Motivazione</td>
+                        <td style="color:#555; font-size: 11px;">
+                            @s.NoteEsito
+                            @if (s.RichiedeSeguito) { 
+                                <span style="color:red; font-weight:bold; margin-left:5px;">[!]</span> 
                             }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
         </div>
 
         <div style="flex: 1;">
@@ -145,7 +207,12 @@
 @if (mostraMessaggio) { <div class="toast-msg">@testoNotifica</div> }
 
 @code {
-    private Visita v = new Visita { DataVisita = DateTime.Now };
+    private Visita v = new() { 
+        DataVisita = DateTime.Now, 
+        StatoVisita = 1, 
+        TemperaturaCliente = 2 // Imposta un valore di default
+    };
+
     private Cliente clienteSelezionato;
     private List<Cliente> clienti = new();
     private List<Cliente> clientiVicini = new();
@@ -159,6 +226,8 @@
     private bool mostraMessaggio = false;
     private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
     private int idPrecedente = 0;
+    private DateTime dataReport = DateTime.Today;
+    
 
 
     protected override async Task OnInitializedAsync() {
@@ -172,6 +241,38 @@
         }
     }
 
+    private async Task ScaricaReportGiornaliero()
+{
+    try 
+    {
+        // 1. Recuperiamo le visite della data selezionata dal DB
+        using var db = new Microsoft.Data.SqlClient.SqlConnection(conn);
+        var sql = @"SELECT v.*, c.RagSociale FROM Visite v 
+                    JOIN Clienti c ON v.IDCliente = c.IdCliente 
+                    WHERE CAST(v.DataVisita AS DATE) = @data";
+        
+        var dataRicerca = dataReport;
+        var record = (await db.QueryAsync(sql, new { data = dataRicerca })).ToList();
+
+        if (!record.Any()) {
+            await JS.InvokeVoidAsync("alert", "Nessuna visita trovata per questa data.");
+            return;
+        }
+
+        // 2. Generiamo il PDF
+        var doc = new DocumentoReportVisite(dataRicerca, record);
+        byte[] pdfBytes = doc.GeneratePdf();
+
+        // 3. Download tramite JavaScript
+        string fileName = $"Report_Visite_{dataRicerca:yyyyMMdd}.pdf";
+        await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(pdfBytes));
+    }
+    catch (Exception ex) {
+        await JS.InvokeVoidAsync("alert", "Errore: " + ex.Message);
+    }
+}
+    
+    
     private async Task CaricaClienti() {
         using var db = new SqlConnection(conn);
         clienti = (await db.QueryAsync<Cliente>("SELECT * FROM Clienti ORDER BY RagSociale")).ToList();
@@ -227,21 +328,41 @@
 }
 
     private async Task Salva() {
-        if (v.IDCliente <= 0) { await ShowToast("Seleziona un cliente!"); return; }
-        using var db = new SqlConnection(conn);
-        if (v.IDVisita == 0) {
-            var sql = @"INSERT INTO Visite (IDCliente, DataVisita, Motivazione, ReferenteIncontrato, NoteEsito) 
-                        VALUES (@IDCliente, @DataVisita, @Motivazione, @ReferenteIncontrato, @NoteEsito); SELECT CAST(SCOPE_IDENTITY() as int);";
-            v.IDVisita = await db.ExecuteScalarAsync<int>(sql, v);
-            await CaricaListaId();
-            indiceCorrente = listaIdVisite.IndexOf(v.IDVisita);
-        } else {
-            await db.ExecuteAsync("UPDATE Visite SET IDCliente=@IDCliente, DataVisita=@DataVisita, Motivazione=@Motivazione, ReferenteIncontrato=@ReferenteIncontrato, NoteEsito=@NoteEsito WHERE IDVisita=@IDVisita", v);
-        }
-        snapshotOriginale = JsonSerializer.Serialize(v); // Aggiorna lo snapshot dopo il salvataggio
-        await AlCambioCliente();
-        await ShowToast("Salvataggio completato.");
+    if (v.IDCliente <= 0) { await ShowToast("Seleziona un cliente!"); return; }
+    using var db = new SqlConnection(conn);
+
+    if (v.IDVisita == 0) {
+        var sql = @"INSERT INTO Visite 
+                    (IDCliente, DataVisita, Motivazione, ReferenteIncontrato, NoteEsito, 
+                     StatoVisita, TemperaturaCliente, RichiedeSeguito, DataProssimoContatto) 
+                    VALUES 
+                    (@IDCliente, @DataVisita, @Motivazione, @ReferenteIncontrato, @NoteEsito, 
+                     @StatoVisita, @TemperaturaCliente, @RichiedeSeguito, @DataProssimoContatto); 
+                    SELECT CAST(SCOPE_IDENTITY() as int);";
+        
+        v.IDVisita = await db.ExecuteScalarAsync<int>(sql, v);
+    } else {
+        var sqlUpdate = @"UPDATE Visite SET 
+                          IDCliente=@IDCliente, 
+                          DataVisita=@DataVisita, 
+                          Motivazione=@Motivazione, 
+                          ReferenteIncontrato=@ReferenteIncontrato, 
+                          NoteEsito=@NoteEsito,
+                          StatoVisita=@StatoVisita, 
+                          TemperaturaCliente=@TemperaturaCliente, 
+                          RichiedeSeguito=@RichiedeSeguito, 
+                          DataProssimoContatto=@DataProssimoContatto 
+                          WHERE IDVisita=@IDVisita";
+        
+        await db.ExecuteAsync(sqlUpdate, v);
     }
+
+    snapshotOriginale = JsonSerializer.Serialize(v);
+    await AlCambioCliente();
+    await ShowToast("Salvataggio completato.");
+}
+
+
 
     private async Task Annulla() {
     var attuale = JsonSerializer.Serialize(v);
