@@ -46,7 +46,7 @@ public class Prodotti
     public decimal LunghezzaVerga { get; set; } = 0;
     public decimal PesoAlMetro { get; set; } = 0;
     public string NoteTecniche { get; set; } = "";
-    public string UM { get; set; } = ""; // Default Metri Lineari o PZ
+    public string UmProdotto { get; set; } = ""; // Default Metri Lineari o PZ
 }
 
 
@@ -97,6 +97,7 @@ public class DettaglioOrdine
     public decimal LunghezzaVerga { get; set; }
     public decimal PesoAlMetro { get; set; }
     public string CodiceProdotto { get; set; } = "";
+    public string UmRiga { get; set; }
 
 
 
