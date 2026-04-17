@@ -111,44 +111,27 @@
                 <button class="win-btn" @onclick="EliminaOrdine" style="background:#f8d7da; border-color:#dc3545; color:#721c24;">🗑️ Elimina</button>
             }
             <button class="win-btn" style="background:#fff;" @onclick="GeneraIlMioPdf">🖨️ PDF</button>
+            <button class="win-btn" style="background:#e3f2fd;" @onclick="InviaOrdineViaEmail">📧 Invia Email</button>
         </div>
-        <button class="win-btn" style="background:#e3f2fd;" @onclick="InviaOrdineViaEmail">📧 Invia Email</button>
-
-
     </div>
 
     <!-- TESTATA -->
     <div class="win-group">
-        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr; gap: 8px;">
-            <div style="grid-column: span 2;">
-    <label class="win-label">Cliente</label>
-    <select class="win-input" @onchange="OnClienteChanged">
-        <option value="0">-- Seleziona Cliente --</option>
-        @foreach (var c in listaClienti) { 
-            <option value="@c.IdCliente" selected="@(ordine.IDCliente == c.IdCliente)">@c.RagSociale</option> 
-        }
-    </select>
-    
-    @if (taskPendenti != null && taskPendenti.Any())
-    {
-        <div style="background: #fff3cd; border: 1px solid #ffeeba; padding: 4px; margin-top: 5px; font-size: 11px; color: #856404; border-radius: 2px;">
-            <strong>⚠️ PROMEMORIA PER QUESTO CLIENTE:</strong>
-            @foreach (var t in taskPendenti)
-            {
-                <div style="border-bottom: 1px solid #f0e0b0; padding: 1px 0;">• @t.Descrizione</div>
-            }
-        </div>
-    }
-</div>
+        <!-- RIGA 1: Dati Base -->
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+            <div>
+                <label class="win-label">Cliente</label>
+                <select class="win-input" @onchange="OnClienteChanged">
+                    <option value="0">-- Seleziona Cliente --</option>
+                    @foreach (var c in listaClienti) { 
+                        <option value="@c.IdCliente" selected="@(ordine.IDCliente == c.IdCliente)">@c.RagSociale</option> 
+                    }
+                </select>
+            </div>
             
             <div><label class="win-label">Data Ordine</label><input type="date" class="win-input" @bind="ordine.DataOrdine" /></div>
             <div><label class="win-label">Rif. Documento</label><input type="text" class="win-input" @bind="ordine.NumeroDocumento" /></div>
-            <div class="row">
-            <div class="col-md-4">
-                <label class="win-label">Riferimento Cliente:</label>
-                <input type="text" class="win-input" @bind="ordine.RiferimentoCliente" placeholder="Es. PO-2024-001" />
-            </div>
-    </div>
+            <div><label class="win-label">Rif. Cliente</label><input type="text" class="win-input" @bind="ordine.RiferimentoCliente" /></div>
             <div>
                 <label class="win-label">Stato</label>
                 <select class="win-input" @bind="ordine.StatoOrdine">
@@ -159,25 +142,47 @@
                     <option value="Completato">Completato</option>
                 </select>
             </div>
-            <div class="win-group">
-            <label>Concordate con:</label>
-            <input class="win-input" @bind="ordine.ConcordatoCon" placeholder="Concordato con...." />
         </div>
-            <div><label class="win-label">Consegna Prevista</label><input type="date" class="win-input" @bind="ordine.DataConsegnaPrevista" /></div>
-        </div>
-        
-        
-        
-        <div style="display: grid; grid-template-columns: 1fr 5fr; gap: 8px; margin-top: 8px;">
-            <div>
-                <label class="win-label">Cons. Effettiva</label>
-                <div style="display: flex; gap: 2px;">
-                    <input type="date" class="win-input" @bind="ordine.DataConsegnaEffettiva" />
-                    <button class="win-btn" style="min-width: 20px; height: 21px; padding: 0; color: #dc3545;" @onclick="() => ordine.DataConsegnaEffettiva = null">✖</button>
-                </div>
+
+        @if (taskPendenti != null && taskPendenti.Any())
+        {
+            <div style="background: #fff3cd; border: 1px solid #ffeeba; padding: 4px; margin-bottom: 10px; font-size: 11px; color: #856404;">
+                <strong>⚠️ PROMEMORIA:</strong> @string.Join(" • ", taskPendenti.Select(t => t.Descrizione))
             </div>
+        }
+
+        <!-- RIGA 2: Allineamento Orizzontale Totale -->
+<div style="display: flex; gap: 8px; align-items: flex-end; margin-top: 5px;">
+    
+    <!-- Concordato con -->
+    <div style="flex: 1.5;">
+        <label class="win-label">Concordate con:</label>
+        <input class="win-input" style="width:100%" @bind="ordine.ConcordatoCon" placeholder="Nome..." />
+    </div>
+
+    <!-- Note Ordine (Il più largo) -->
+    <div style="flex: 4;">
+        <label class="win-label">Note Ordine :</label>
+        <input class="win-input" style="width:100%" @bind="ordine.NoteOrdine" placeholder="Note del cliente..." />
+    </div>
+
+    <!-- Consegna Prevista -->
+    <div style="flex: 1.2;">
+        <label class="win-label">Cons. Prevista</label>
+        <input type="date" class="win-input" style="width:100%" @bind="ordine.DataConsegnaPrevista" />
+    </div>
+
+    <!-- Consegna Effettiva -->
+    <div style="flex: 1.2;">
+        <label class="win-label">Cons. Effettiva</label>
+        <div style="display: flex; gap: 2px;">
+            <input type="date" class="win-input" style="width:100%" @bind="ordine.DataConsegnaEffettiva" />
+            <button class="win-btn" style="min-width: 20px; height: 21px; padding: 0; color: #dc3545;" 
+                    @onclick="() => ordine.DataConsegnaEffettiva = null" title="Cancella data">✖</button>
         </div>
     </div>
+</div>
+</div>
 
     <div style="display: flex; gap: 5px; margin-bottom: 5px;">
         <!-- SX: PROFILI -->
@@ -755,8 +760,8 @@ private async Task InviaOrdineViaEmail()
         using var tx = db.BeginTransaction();
         try {
             string sqlO = (ordine.IDOrdine == 0) 
-                ? "INSERT INTO Ordini (IDCliente, DataOrdine, NumeroDocumento, RiferimentoCliente, StatoOrdine, TotaleImponibile, DataConsegnaPrevista, DataConsegnaEffettiva) OUTPUT INSERTED.IDOrdine VALUES (@IDCliente, @DataOrdine, @NumeroDocumento, @RiferimentoCliente, @StatoOrdine, @TotaleImponibile, @DataConsegnaPrevista, @DataConsegnaEffettiva)"
-                : "UPDATE Ordini SET IDCliente=@IDCliente, DataOrdine=@DataOrdine, NumeroDocumento=@NumeroDocumento, RiferimentoCliente=@RiferimentoCliente, StatoOrdine=@StatoOrdine, TotaleImponibile=@TotaleImponibile, DataConsegnaPrevista=@DataConsegnaPrevista, DataConsegnaEffettiva=@DataConsegnaEffettiva WHERE IDOrdine=@IDOrdine";
+                ? "INSERT INTO Ordini (IDCliente, DataOrdine, NumeroDocumento, RiferimentoCliente, StatoOrdine, TotaleImponibile, DataConsegnaPrevista, DataConsegnaEffettiva, NoteOrdine) OUTPUT INSERTED.IDOrdine VALUES (@IDCliente, @DataOrdine, @NumeroDocumento, @RiferimentoCliente, @StatoOrdine, @TotaleImponibile, @DataConsegnaPrevista, @DataConsegnaEffettiva, @NoteOrdine)"
+                : "UPDATE Ordini SET IDCliente=@IDCliente, DataOrdine=@DataOrdine, NumeroDocumento=@NumeroDocumento, RiferimentoCliente=@RiferimentoCliente, StatoOrdine=@StatoOrdine, TotaleImponibile=@TotaleImponibile, DataConsegnaPrevista=@DataConsegnaPrevista, DataConsegnaEffettiva=@DataConsegnaEffettiva, ConcordatoCon=@ConcordatoCon, NoteOrdine=@NoteOrdine WHERE IDOrdine=@IDOrdine";
             if (ordine.IDOrdine == 0) {
                 ordine.IDOrdine = await db.QuerySingleAsync<int>(sqlO, ordine, tx);
                 listaIdOrdini.Insert(0, ordine.IDOrdine);
@@ -869,33 +874,44 @@ private async Task InviaOrdineViaEmail()
     
     private async Task Annulla()
 {
-    // 1. Controlla se l'ordine è stato effettivamente modificato
     var snapshotAttuale = JsonSerializer.Serialize(ordine);
 
     if (snapshotAttuale != snapshotOrdineOriginale)
     {
-        // 2. Chiede conferma SOLO se ci sono differenze
-        if (!await JS.InvokeAsync<bool>("confirm", "Ci sono modifiche non salvate. Annullare?")) 
+        if (!await JS.InvokeAsync<bool>("confirm", "Ci sono modifiche non salvate. Ripristinare i dati originali?")) 
             return;
     }
 
-    // 3. Se non ci sono modifiche o l'utente conferma, procedi
+    // --- PULIZIA TASK ---
+    // Svuotiamo la lista così il box giallo sparisce istantaneamente
+    taskPendenti = new(); 
+
     if (ordine.IDOrdine == 0) 
     { 
         if (listaIdOrdini != null && listaIdOrdini.Any()) 
         {
-            indiceCorrente = listaIdOrdini.Count - 1;
+            indiceCorrente = 0; 
             await CaricaOrdine(listaIdOrdini[indiceCorrente]);
+            
+            // Dopo aver caricato l'ordine precedente, ricarichiamo i task di quel cliente
+            await CaricaTaskDelCliente(); 
         }
         else 
         {
-            await IniziaNuovo(); 
+            IniziaNuovo(); 
         }
-        return; 
+    }
+    else 
+    {
+        // Se ripristiniamo un ordine esistente, ricarichiamo i suoi task
+        await CaricaOrdine(ordine.IDOrdine);
+        await CaricaTaskDelCliente();
     }
     
-    await CaricaOrdine(ordine.IDOrdine);
+    StateHasChanged();
 }
+
+
     private async Task Prev() { if (indiceCorrente < listaIdOrdini.Count - 1) { indiceCorrente++; await CaricaOrdine(listaIdOrdini[indiceCorrente]); } }
     private async Task Next() { if (indiceCorrente > 0) { indiceCorrente--; await CaricaOrdine(listaIdOrdini[indiceCorrente]); } }
 

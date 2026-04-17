@@ -131,6 +131,7 @@ public class Ordine
     public DateTime? DataConsegnaEffettiva { get; set; }
     public string? ConcordatoCon { get; set; }
     public string? RiferimentoCliente { get; set; }
+    public string? NoteOrdine { get; set; }
 
 
 

@@ -395,11 +395,11 @@ StateHasChanged(); // Forza l'aggiornamento finale della pagina
     using var db = new SqlConnection(conn);
     string sql = @"
         SELECT a.*, 
-               c.RagioneSociale as NomeRiferimento,
+               c.RagSociale as NomeRiferimento,
                p.CodiceProdotto as CodiceRiferimento
         FROM Attivita a
-        LEFT JOIN Clienti c ON a.IDCliente = c.IDCliente
-        LEFT JOIN Prodotti p ON a.IDProdotto = p.IDProdotto
+        LEFT JOIN Clienti c ON a.IDClienteAttivita = c.IDCliente
+        LEFT JOIN Prodotti p ON a.IDProdottoAttivita = p.IDProdotto
         WHERE a.Completata = 0
         ORDER BY a.Priorita DESC, a.DataScadenza ASC";
     
@@ -473,7 +473,8 @@ private void ChiudiPopup()
         var statsOrdini = await db.QueryFirstOrDefaultAsync(@"
             SELECT COUNT(IDOrdine) as Conteggio, SUM(TotaleImponibile) as Totale 
             FROM Ordini 
-            WHERE DataOrdine >= @dataInizio", new { dataInizio });
+            WHERE DataOrdine >= @dataInizio 
+            AND StatoOrdine = 'Ordine'", new { dataInizio });
         
         p.Ordini = statsOrdini?.Conteggio ?? 0;
         p.Fatturato = statsOrdini?.Totale ?? 0;

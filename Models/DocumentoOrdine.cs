@@ -37,6 +37,10 @@ public class DocumentoOrdine : IDocument
             {
                 row.RelativeItem().Column(c => {
                     c.Item().Text("ALQ GENOVA").FontSize(20).ExtraBold().FontColor(Colors.Blue.Medium);
+                    c.Item().Text("Sede Legale: Via E. De Amicis, Milano").FontSize(7).FontColor(Colors.Grey.Medium);
+                    c.Item().Text("Sede Operativa: Via Colano, 9 - Genova Bolzaneto").FontSize(7).FontColor(Colors.Grey.Medium);
+                    c.Item().Text("Tel. +39 010 7491941 - Email: info@alqgenovasrl.com").FontSize(7).FontColor(Colors.Grey.Medium);
+                    c.Item().Text("CF/P.IVA e N° Reg.Imprese MI.12574490962 - REA/CCIAA MI26700419").FontSize(7).FontColor(Colors.Grey.Medium);
                 });
 
                 // BOX DESTINATARIO (Sempre visibile)
@@ -98,24 +102,28 @@ public class DocumentoOrdine : IDocument
                 table.ColumnsDefinition(columns =>
                 {
                     columns.ConstantColumn(25); // Pos.
-                    columns.RelativeColumn(3);  // CODICE e DESCRIZIONE
+                    columns.RelativeColumn(3);  // ARTICOLO (Codice + Desc)
                     columns.ConstantColumn(50); // INT.
                     columns.ConstantColumn(50); // EST.
-                    columns.ConstantColumn(35); // Q.TÀ
-                    columns.RelativeColumn(1);  // NOTE (Finitura)
+                    columns.ConstantColumn(50); // Q.TÀ
+                    columns.ConstantColumn(25); // UM (Nuova)
+                    columns.ConstantColumn(30); // Sc% (Nuova)
+                    columns.RelativeColumn(1);  // NOTE
                 });
 
                 table.Header(header =>
                 {
                     header.Cell().Element(CellStyle).AlignCenter().Text("Pos.").FontSize(7).SemiBold();
-                    header.Cell().Element(CellStyle).Text("ARTICOLO / DESCRIZIONE").FontSize(7).SemiBold();
-                    header.Cell().Element(CellStyle).AlignCenter().Text("INT.").FontSize(7).SemiBold();
-                    header.Cell().Element(CellStyle).AlignCenter().Text("EST.").FontSize(7).SemiBold();
+                    header.Cell().Element(CellStyle).Text("CODICE PRODOTTO / DESCRIZIONE").FontSize(7).SemiBold();
+                    header.Cell().Element(CellStyle).AlignCenter().Text(" COL.INT.").FontSize(7).SemiBold();
+                    header.Cell().Element(CellStyle).AlignCenter().Text("COL.EST.").FontSize(7).SemiBold();
                     header.Cell().Element(CellStyle).AlignCenter().Text("Q.TÀ").FontSize(7).SemiBold();
-                    header.Cell().Element(CellStyle).Text("NOTE").FontSize(7).SemiBold();
+                    header.Cell().Element(CellStyle).AlignCenter().Text("UM").FontSize(7).SemiBold();
+                    header.Cell().Element(CellStyle).AlignCenter().Text("Sc%").FontSize(7).SemiBold();
+                    header.Cell().Element(CellStyle).Text("FINITURA ACC.").FontSize(7).SemiBold();
                 });
 
-                for (int i = 1; i <= 14; i++)
+                for (int i = 1; i <= 17; i++)
                 {
                     var r = Ordine.Righe.ElementAtOrDefault(i - 1);
 
@@ -137,6 +145,8 @@ public class DocumentoOrdine : IDocument
                     table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r?.ColoreInt ?? "").FontSize(8);
                     table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r?.ColoreEst ?? "").FontSize(8);
                     table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r != null ? r.Quantita.ToString() : "").FontSize(8);
+                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r != null ? (r.LunghezzaVerga > 0 ? "ML" : "PZ") : "").FontSize(7);
+                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r != null && r.ScontoRiga > 0 ? $"{(int)Math.Round(r.ScontoRiga)}%" : "").FontSize(8);
                     table.Cell().Element(CellStyle).MinHeight(30).Text(r?.IsAccessorio == true ? r.FinituraAccessorio : "").FontSize(7);
                 }
             });
@@ -146,10 +156,10 @@ public class DocumentoOrdine : IDocument
             {
                 row.RelativeItem(2).Border(0.25f).Padding(5).Column(c => {
                     c.Item().Text("CONDIZIONI DI VENDITA").FontSize(8).SemiBold();
-                    c.Item().PaddingTop(2).Text($"Totale Imponibile: {Ordine.TotaleImponibile:N2} €").FontSize(9).SemiBold();
+                    
 
-                    // AGGIUNTA: Peso Totale Ordine (Opzionale, se vuoi mostrarlo qui)
-                    // c.Item().Text($"Peso Totale: {Ordine.Righe.Sum(x => x.Quantita * x.PesoAlMetro * (x.LunghezzaVerga > 0 ? x.LunghezzaVerga : 1)):N2} Kg").FontSize(8);
+                    // AGGIUNTA: Peso Totale Ordine 
+                    c.Item().Text($"Peso Totale: {Ordine.Righe.Sum(x => x.Quantita * x.PesoAlMetro * (x.LunghezzaVerga > 0 ? x.LunghezzaVerga : 1)):N2} Kg").FontSize(8);
 
                     c.Item().PaddingTop(10).Text(txt => {
                         txt.Span("Concordate con: ").FontSize(8);
@@ -159,7 +169,7 @@ public class DocumentoOrdine : IDocument
 
                 row.RelativeItem(3).PaddingLeft(10).Border(0.25f).Padding(5).Column(c => {
                     c.Item().Text("NOTE").FontSize(8).SemiBold();
-                    c.Item().PaddingTop(2).Text(" ").FontSize(7);
+                    c.Item().PaddingTop(2).Text(Ordine.NoteOrdine ?? "").FontSize(7);
                 });
             });
         });
@@ -176,7 +186,7 @@ public class DocumentoOrdine : IDocument
                 t.Span("Sede Operativa: Genova | ").FontSize(7);
                 t.Span("Sede Amm.: Firenze").FontSize(7);
             });
-            col.Item().AlignCenter().Text("P.IVA 01234567890 - Tel: 010.XXXXXX").FontSize(7);
+            col.Item().AlignCenter().Text("P.IVA 01234567890 - Tel: 010 7491941").FontSize(7);
             col.Item().AlignRight().Text(x => {
                 x.Span("Pagina ");
                 x.CurrentPageNumber();

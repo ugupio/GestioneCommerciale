@@ -204,11 +204,13 @@
     try 
     {
         using var db = new SqlConnection(conn);
-        var resClienti = await db.QueryAsync<Cliente>("SELECT IdCliente, RagSociale FROM Clienti");
+        var resClienti = await db.QueryAsync<Cliente>("SELECT IdCliente, RagSociale FROM Clienti ORDER BY RagSociale ASC");
         listaClienti = resClienti.ToList();
         
-        var resProdotti = await db.QueryAsync<Prodotti>("SELECT IDProdotto, CodiceProdotto FROM Prodotti");
+        var resProdotti = await db.QueryAsync<Prodotti>("SELECT IDProdotto, CodiceProdotto FROM Prodotti ORDER BY CodiceProdotto ASC");
         listaProdotti = resProdotti.ToList();
+
+        StateHasChanged();
 
         // TEST: Questo ci dirà se le liste si sono riempite
         Console.WriteLine($"DEBUG: Caricati {listaClienti.Count} clienti e {listaProdotti.Count} prodotti");
