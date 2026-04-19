@@ -299,9 +299,23 @@
 
             <!-- 3. DESCRIZIONE -->
             <td>
-                <input class="input-grid fw-bold" @bind="r.Descrizione" style="width:100%; border:none; background:transparent;" />
-                @* ... (il resto del tuo div colori/finitura rimane uguale) ... *@
-            </td>
+    <!-- Descrizione principale in grassetto -->
+    <input class="input-grid fw-bold" @bind="r.Descrizione" style="width:100%; border:none; background:transparent;" />
+    
+    <!-- Finitura Interna/Esterna con carattere tenue -->
+    <div style="font-size: 0.8em; color: #757575; display: flex; gap: 8px; margin-top: 2px;">
+        <div style="display: flex; align-items: center;">
+            <span style="margin-right: 3px;">COLORE INTERNO:</span>
+            <input @bind="r.ColoreInt" class="input-grid" 
+                   style="width: 100px; border: none; background: transparent; color: #757575; border-bottom: 1px dotted #ccc;" />
+        </div>
+        <div style="display: flex; align-items: center;">
+            <span style="margin-right: 3px;">COLORE ESTERNO:</span>
+            <input @bind="r.ColoreEst" class="input-grid" 
+                   style="width: 100px; border: none; background: transparent; color: #757575; border-bottom: 1px dotted #ccc;" />
+        </div>
+    </div>
+</td>
 
             <!-- 4. UM (Mancava questa! Deve stare tra Descrizione e Quantità) -->
             <td class="text-center">
@@ -309,19 +323,45 @@
             </td>
 
             <!-- 5. QUANTITÀ -->
-            <td><input type="number" class="input-grid text-end" @bind="r.Quantita" @oninput="Ricalcola" /></td>
+            <td>
+    <input type="number" class="input-grid" 
+           @bind="r.Quantita" 
+           @bind:event="oninput"
+           @onchange="@(() => AggiornaConteggi(r))" />
+</td>
+
             
             <!-- 6. m/Vrg -->
             <td>@if(!r.IsAccessorio){ <input type="number" step="0.01" class="input-grid text-end" @bind="r.LunghezzaVerga" @oninput="Ricalcola" /> }</td>
             
-            <!-- 7. PESO -->
-            <td class="text-end">@((!r.IsAccessorio ? (r.Quantita * r.LunghezzaVerga * r.PesoAlMetro) : 0).ToString("N2"))</td>
+            <!-- 7. PESO (Colonna aggiornata per profili vs accessori) -->
+<td class="text-end" style="background: #fdfdfd; font-family: 'Courier New';">
+    @if(!r.IsAccessorio)
+    {
+        // Se è un profilo, mostra il calcolo del peso (Kg)
+        <span>@((r.Quantita * r.LunghezzaVerga * r.PesoAlMetro).ToString("N2")) Kg</span>
+    }
+    else
+    {
+        // Se è un accessorio, il peso non è rilevante per il prezzo
+        <span class="text-muted">-</span>
+    }
+</td>
             
             <!-- 8. PREZZO -->
-            <td><input type="number" step="0.01" class="input-grid text-end" @bind="r.PrezzoUnitario" @oninput="Ricalcola" /></td>
+            <td>
+    <input type="number" step="0.01" class="input-grid" 
+           @bind="r.PrezzoUnitario" 
+           @onblur="@(() => AggiornaConteggi(r))" 
+           @onkeydown="@((e) => { if(e.Key == "Enter") AggiornaConteggi(r); })" />
+</td>
             
             <!-- 9. SC% -->
-            <td><input type="number" class="input-grid text-end" @bind="r.ScontoRiga" @oninput="Ricalcola" /></td>
+<td>
+    <input type="number" step="0.1" class="input-grid text-end" 
+           @bind="r.ScontoRiga" 
+           @onblur="@(() => AggiornaConteggi(r))" />
+</td>
             
             <!-- 10. TOTALE -->
             <td class="text-end fw-bold">@r.PrezzoTotaleRiga.ToString("N2") €</td>
@@ -377,11 +417,7 @@
                         @(nuovoProdottoListino.IsAccessorio ? "🛠️ ACCESSORIO" : "📦 PROFILO")
                         </div>
                     </div>
-                    <div class="col-6">
-                        <label class="win-label d-block text-start">U.M.:</label>
-                        <!-- Bind corretto a UmProdotto -->
-                        <input class="win-input" @bind="nuovoProdottoListino.UmProdotto" placeholder="BR, PZ o MT" />
-                    </div>
+                    
                 </div>
 
                 @if (!nuovoProdottoListino.IsAccessorio)
@@ -758,7 +794,7 @@ private async Task InviaOrdineViaEmail()
     protected override async Task OnInitializedAsync() {
         using var db = new SqlConnection(conn);
         listaClienti = (await db.QueryAsync<Cliente>("SELECT IdCliente, RagSociale FROM Clienti ORDER BY RagSociale")).ToList();
-        listaIdOrdini = (await db.QueryAsync<int>("SELECT IDOrdine FROM Ordini ORDER BY IDOrdine DESC")).ToList();
+        listaIdOrdini = (await db.QueryAsync<int>(@"SELECT IDOrdine FROM Ordini ORDER BY DataOrdine DESC, IDOrdine DESC")).ToList();
         tuttiITaskAperti = await GetAttivitaAperteLocali();  // Carichiamo tutti i task non completati per fare i confronti in memoria
         if (listaIdOrdini.Any()) { indiceCorrente = 0; await CaricaOrdine(listaIdOrdini[0]); }
     }
@@ -948,6 +984,30 @@ private async Task InviaOrdineViaEmail()
 }
 
 
+private void AggiornaConteggi(DettaglioOrdine r)
+{
+    if (r == null) return;
+
+    // 1. Calcoliamo la base (Prezzo Lordo)
+    decimal prezzoLordo;
+    if (!r.IsAccessorio) {
+        // Peso (Qta * L * P) * Prezzo al Kg
+        prezzoLordo = r.Quantita * r.LunghezzaVerga * r.PesoAlMetro * r.PrezzoUnitario;
+    } else {
+        // Quantità * Prezzo Unitario
+        prezzoLordo = r.Quantita * r.PrezzoUnitario;
+    }
+
+    // 2. Applichiamo lo sconto (se ScontoRiga è una percentuale, es: 10 per 10%)
+    decimal fattoreSconto = (100 - r.ScontoRiga) / 100;
+    r.PrezzoTotaleRiga = Math.Round(prezzoLordo * fattoreSconto, 2);
+
+    // 3. Ricalcola il totale ordine
+    ordine.TotaleImponibile = ordine.Righe.Sum(x => x.PrezzoTotaleRiga);
+    
+    StateHasChanged();
+}
+
 
     
     
@@ -989,6 +1049,23 @@ private async Task InviaOrdineViaEmail()
     
     StateHasChanged();
 }
+
+private void CalcolaTotaleOrdine()
+{
+    // Ricalcola il totale di ogni riga e poi il totale generale
+    foreach (var r in ordine.Righe)
+    {
+        // Esempio: Quantità * Prezzo (meno eventuale sconto)
+        r.PrezzoTotaleRiga = r.Quantita * r.PrezzoUnitario; 
+    }
+    
+    // Somma tutti i totali riga nel totale ordine
+    ordine.TotaleImponibile = ordine.Righe.Sum(x => x.PrezzoTotaleRiga);
+    
+    // Notifica a Blazor che i dati sono cambiati e deve ridisegnare la UI
+    StateHasChanged();
+}
+
 
 
     private async Task Prev() { if (indiceCorrente < listaIdOrdini.Count - 1) { indiceCorrente++; await CaricaOrdine(listaIdOrdini[indiceCorrente]); } }

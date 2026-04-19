@@ -354,13 +354,13 @@ private async Task SalvaModifiche()
     
     if (prodottoInModifica.IDProdotto == 0) // È UN NUOVO RECORD
     {
-        sql = @"INSERT INTO Prodotti (CodiceProdotto, Descrizione, IsAccessorio, PesoAlMetro, LunghezzaVerga, UM, NoteTecniche, FinituraAccessorio) 
-                VALUES (@CodiceProdotto, @Descrizione, @IsAccessorio, @PesoAlMetro, @LunghezzaVerga, @UM, @NoteTecniche, '')";
+        sql = @"INSERT INTO Prodotti (CodiceProdotto, Descrizione, IsAccessorio, PesoAlMetro, LunghezzaVerga, UmProdotto, NoteTecniche, FinituraAccessorio) 
+                VALUES (@CodiceProdotto, @Descrizione, @IsAccessorio, @PesoAlMetro, @LunghezzaVerga, @UmProdotto, @NoteTecniche, '')";
     }
     else // È UNA MODIFICA
     {
         sql = @"UPDATE Prodotti SET CodiceProdotto = @CodiceProdotto, Descrizione = @Descrizione, 
-                PesoAlMetro = @PesoAlMetro, LunghezzaVerga = @LunghezzaVerga, UM = @UM , NoteTecniche = @NoteTecniche
+                PesoAlMetro = @PesoAlMetro, LunghezzaVerga = @LunghezzaVerga, UmProdotto = @UmProdotto , NoteTecniche = @NoteTecniche
                 WHERE IDProdotto = @IDProdotto";
     }
     

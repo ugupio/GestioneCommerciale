@@ -147,9 +147,9 @@
                         <td>@s.DataVisita?.ToString("dd/MM/yyyy")</td>
                         <td>
                             <span class="badge" style="background:#e3f2fd; color:#005a9e; font-size:10px;">
-                            @if (s.StatoVisita == 1) { <span>Eseguita</span> }
-                            else if (s.StatoVisita == 2) { <span>Programmata</span> }
-                            else if (s.StatoVisita == 3) { <span>Annullata</span> }
+                            @if (s.StatoVisita == "1") { <span>Eseguita</span> }
+                            else if (s.StatoVisita == "2") { <span>Programmata</span> }
+                            else if (s.StatoVisita == "3") { <span>Annullata</span> }
                             else { <span>@s.StatoVisita</span> }
                         </span>
                         </td>
@@ -209,7 +209,7 @@
 @code {
     private Visita v = new() { 
         DataVisita = DateTime.Now, 
-        StatoVisita = 1, 
+        StatoVisita = "1", 
         TemperaturaCliente = 2 // Imposta un valore di default
     };
 
