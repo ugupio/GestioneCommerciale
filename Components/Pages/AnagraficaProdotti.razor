@@ -45,6 +45,36 @@
         from { opacity: 0; transform: translateY(-20px); }
         to { opacity: 1; transform: translateY(0); }
     }
+
+    .btn-xs {
+    padding: 0.1rem 0.4rem;
+    font-size: 0.75rem;
+}
+
+/* Evita che il testo della descrizione rompa il layout se troppo lungo */
+.text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.win-btn-tablet {
+    padding: 8px 12px; /* Più spazio interno */
+    font-size: 1.2rem;   /* Icona più grande */
+    min-width: 45px;    /* Larghezza minima garantita */
+    min-height: 45px;   /* Altezza minima per il pollice */
+    margin: 2px;        /* Distanza tra i tasti */
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    background: #f8f9fa;
+    transition: background 0.2s;
+}
+
+.win-btn-tablet:active {
+    background: #e2e6ea; /* Feedback visivo al tocco */
+    transform: scale(0.95);
+}
+
 </style>
 
 
@@ -113,11 +143,11 @@
                     <tr style="background:#f0f0f0; position: sticky; top: 0;">
                         <th style="width:100px">Codice</th>
                         <th style="width:80px">Tipo</th>
-                        <th style="width:250px">Descrizione</th> <!-- Larghezza fissa per non ballare -->
-                        <th>Note Tecniche</th> <!-- Questa colonna prenderà tutto lo spazio rimasto -->
+                        <th>Descrizione</th> 
+                        <th style="width:350px">Note Tecniche</th> 
                         <th style="width:90px" class="text-end">Kg/ml</th>
                         <th style="width:50px">U.M.</th>
-                        <th style="width:110px" class="text-center">Azione</th>
+                        <th style="width:200px" class="text-center">Azione</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -136,9 +166,21 @@
                         <td class="text-end">@(p.IsAccessorio ? "-" : p.PesoAlMetro.ToString("N3"))</td>
                         <td>@p.UmProdotto</td>
                         <td class="text-center">
-            <button class="win-btn-cell me-1" @onclick="() => ApriModifica(p)">✏️</button>
-            <button class="win-btn-cell text-danger" @onclick="() => EliminaProdotto(p.IDProdotto)">🗑️</button>
-        </td>
+                <!-- NUOVO TASTO RADAR -->
+                <button class="win-btn-tablet text-primary" @onclick="() => ApriModalRadar(p)" title="Radar">
+        🔍
+    </button>
+    
+    <!-- EDIT (Matita) -->
+    <button class="win-btn-tablet text-dark" @onclick="() => ApriModifica(p)" title="Modifica">
+        ✏️
+    </button>
+    
+    <!-- DELETE (Cestino) -->
+    <button class="win-btn-tablet text-danger" @onclick="() => EliminaProdotto(p.IDProdotto)" title="Elimina">
+        🗑️
+    </button>
+            </td>
     </tr>
 }
                 </tbody>
@@ -248,15 +290,184 @@
     </div>
 }
 
+
+
+@if (!string.IsNullOrEmpty(messaggioInfo))
+{
+    <!-- Sfondo scuro leggero per far risaltare il messaggio -->
+    <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.1); z-index: 9998;"></div>
+
+    <!-- Messaggio al centro esatto -->
+    <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; 
+                background: white; border: 2px solid #ffc107; color: #856404; 
+                padding: 30px 50px; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                text-align: center; min-width: 400px; animation: popIn 0.3s ease-out;">
+        
+        <div style="font-size: 40px; margin-bottom: 10px;">⚠️</div>
+        <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">ATTENZIONE</div>
+        <div style="font-size: 16px;">@messaggioInfo</div>
+    </div>
+}
+
+<style>
+    @@keyframes popIn { 
+        0% { opacity: 0; transform: translate(-50%, -60%) scale(0.9); } 
+        100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 
+    }
+</style>
+
+
+
+
+@if (mostraModalRadar)
+{
+    <!-- Sfondo oscurante con effetto sfocatura (Blur) -->
+    <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
+                background: rgba(0, 0, 0, 0.3); backdrop-filter: blur(4px); z-index: 1040;"></div>
+
+    <!-- Popup in stile Windows Glass -->
+    <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                z-index: 1050; width: 90%; max-width: 1200px; 
+                background: rgba(255, 255, 255, 0.85);
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+                border-radius: 8px; border: 2px solid #005a9e; overflow: hidden;">
+        
+        <!-- Header -->
+        <div style="background: #005a9e; color: white; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center;">
+            <h5 style="margin: 0; font-size: 18px; font-weight: bold;">🔍 Analisi Commerciale: @prodottoSelezionatoRadar?.CodiceProdotto</h5>
+            <button class="win-btn-tablet" style="background: #c42b1c; color: white; border: none; min-width: 40px; min-height: 40px;" 
+                    @onclick="() => mostraModalRadar = false">✕</button>
+        </div>
+        
+        <div style="padding: 20px; max-height: 80vh; overflow-y: auto;">
+            
+            <!-- SEZIONE BI: BOX KPI PER TABLET -->
+            @if (statsPrezzi != null)
+            {
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                    <div style="background: rgba(0, 90, 158, 0.1); border-left: 6px solid #005a9e; padding: 12px; border-radius: 4px;">
+                        <div style="font-size: 11px; color: #555; text-transform: uppercase;">Prezzo Medio</div>
+                        <div style="font-size: 20px; font-weight: bold; color: #005a9e;">€ @((statsPrezzi?.Media as double?)?.ToString("N2") ?? "0,00")</div>
+                    </div>
+                    <div style="background: rgba(40, 167, 69, 0.1); border-left: 6px solid #28a745; padding: 12px; border-radius: 4px;">
+                        <div style="font-size: 11px; color: #555; text-transform: uppercase;">Prezzo Max</div>
+                        <div style="font-size: 20px; font-weight: bold; color: #28a745;">€ @statsPrezzi.Massimo?.ToString("N2")</div>
+                    </div>
+                    <div style="background: rgba(220, 53, 69, 0.1); border-left: 6px solid #dc3545; padding: 12px; border-radius: 4px;">
+                        <div style="font-size: 11px; color: #555; text-transform: uppercase;">Prezzo Min</div>
+                        <div style="font-size: 20px; font-weight: bold; color: #dc3545;">€ @statsPrezzi.Minimo?.ToString("N2")</div>
+                    </div>
+                    <div style="background: rgba(108, 117, 125, 0.1); border-left: 6px solid #6c757d; padding: 12px; border-radius: 4px;">
+                        <div style="font-size: 11px; color: #555; text-transform: uppercase;">Volume Totale</div>
+                        <div style="font-size: 20px; font-weight: bold; color: #333;">@((statsPrezzi?.VolumeTotale as decimal?)?.ToString("N0") ?? "0") <small style="font-size: 12px;">@prodottoSelezionatoRadar?.UmProdotto</small></div>
+                    </div>
+                </div>
+            }
+
+            <!-- Barra di ricerca -->
+            <div style="margin-bottom: 15px;">
+                <input type="text" class="form-control form-control-lg" 
+                       style="background: rgba(255, 255, 255, 0.6); border: 2px solid #005a9e; height: 50px;"
+                       placeholder="Filtra per colore o finitura..." 
+                       @bind="filtroColoreRadar" @bind:event="oninput" @onkeyup="EseguiRicercaRadar" />
+            </div>
+
+            <!-- Tabella Risultati -->
+            <table class="table table-hover align-middle" style="background: transparent;">
+                <thead style="background: rgba(0, 0, 0, 0.05);">
+                    <tr>
+                        <th>Data</th>
+                        <th>Cliente</th>
+                        <th>Colori / Finitura</th>
+                        <th class="text-end">Prezzo Unit.</th> <!-- BI: Aggiunto prezzo specifico -->
+                        <th class="text-end">Quantità</th>
+                        <th class="text-center">U.M.</th>
+                        <th class="text-center">Contatti</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in listaRisultatiRadar)
+    {
+        <tr style="background: rgba(255, 255, 255, 0.4); border-bottom: 1px solid #ddd;">
+            <!-- Data -->
+            <td>@(((DateTime)r.DataOrdine).ToShortDateString())</td>
+            
+            <!-- Ragione Sociale -->
+            <td style="font-weight: bold; text-transform: uppercase;">@r.RagSociale?.ToString()</td>
+            
+            <!-- Colori e Finitura -->
+            <td>
+                <span style="color: #005a9e; font-weight: 500;">@r.ColoreInt?.ToString()</span> 
+                <span style="color: #666;">@r.ColoreEst?.ToString()</span> 
+                <i style="display: block; font-size: 0.8em; color: #777;">@r.FinituraAccessorio?.ToString()</i>
+            </td>
+            
+            <!-- Prezzo Unitario -->
+            <td class="text-end fw-bold" style="color: #28a745;">
+    € @(r.PrezzoUnitario != null ? Convert.ToDecimal(r.PrezzoUnitario).ToString("N2") : "0,00")
+</td>
+            
+            <!-- Quantità -->
+            <td class="text-end fw-bold">
+                @(Convert.ToDecimal(r.Quantita).ToString("N2"))
+            </td>
+            
+            <!-- Unità di Misura -->
+            <td class="text-center small">@r.UmRiga?.ToString()</td>
+            
+            <!-- Contatti -->
+            <td class="text-center">
+                @if (!string.IsNullOrEmpty(r.Cel1?.ToString()))
+                {
+                    <a href="tel:@r.Cel1?.ToString()" class="win-btn-tablet" 
+   style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; width: 45px; height: 45px; padding: 0;">
+    📞
+</a>
+
+                }
+            </td>
+        </tr>
+    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer per Tablet -->
+        <div style="background: rgba(0, 0, 0, 0.05); padding: 15px; text-align: center;">
+            <button class="win-btn-tablet" style="width: 100%; max-width: 300px; font-weight: bold;" 
+                    @onclick="() => mostraModalRadar = false">CHIUDI ANALISI</button>
+        </div>
+    </div>
+}
+
+
+
+
+
 </div>
 
 @code {
     private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
     private List<Prodotti> listaProdotti = new();
-    private string testoRicerca = "";
+    private string testoRicerca = ""; // Ricerca principale tabella prodotti
+
+    // Gestione Modifica
     private bool mostraPopupModifica = false;
     private Prodotti prodottoInModifica = new();
     private bool codiceDuplicato = false;
+
+    // Gestione Radar Stock (Rinominate per evitare duplicati)
+    private bool mostraModalRadar = false; 
+    private string filtroColoreRadar = ""; 
+    private Prodotti prodottoSelezionatoRadar;
+    private IEnumerable<dynamic> listaRisultatiRadar = new List<dynamic>();
+    private string messaggioInfo = "";
+    private dynamic statsPrezzi;
+    private string biMedia = "---";
+private string biMinimo = "---";
+private string biMassimo = "---";
+private string biVolume = "0";
+
 
     protected override async Task OnInitializedAsync()
     {
@@ -381,4 +592,63 @@ private async Task SalvaModifiche()
     {
         testoRicerca = e.Value?.ToString() ?? "";
     }
+    private async Task ApriModalRadar(Prodotti p)
+{
+    prodottoSelezionatoRadar = p;
+    filtroColoreRadar = ""; 
+    
+    await EseguiRicercaRadar();
+
+    if (listaRisultatiRadar != null && listaRisultatiRadar.Any())
+    {
+        mostraModalRadar = true;
+        // Per ora non chiamiamo CalcolaBIPrezzi per evitare crash
+    }
+    else
+    {
+        messaggioInfo = $"ℹ️ Nessuno storico vendite per: {p.CodiceProdotto}";
+        StateHasChanged();
+        await Task.Delay(2500);
+        messaggioInfo = "";
+    }
+    StateHasChanged();
+}
+
+
+
+
+private async Task EseguiRicercaRadar()
+{
+    if (prodottoSelezionatoRadar == null) return;
+    using var db = new Microsoft.Data.SqlClient.SqlConnection(conn);
+    
+    string sql = @"
+        SELECT O.DataOrdine, C.RagSociale, D.Quantita, D.ColoreInt, D.ColoreEst, D.FinituraAccessorio, C.Cel1, D.UmRiga, D.PrezzoUnitario
+        FROM Dettaglio_Ordini D
+        JOIN Ordini O ON D.IDOrdine = O.IDOrdine
+        JOIN Clienti C ON O.IDCliente = C.IdCliente
+        WHERE LTRIM(RTRIM(D.CodiceProdotto)) = LTRIM(RTRIM(@Codice))
+        ORDER BY O.DataOrdine DESC";
+
+    var result = await db.QueryAsync(sql, new { Codice = prodottoSelezionatoRadar.CodiceProdotto });
+    listaRisultatiRadar = result.ToList();
+}
+
+
+private async Task CalcolaBIPrezzi(string codice)
+{
+    // Domani sistemeremo il legame ID/Codice con calma
+    biMedia = biMinimo = biMassimo = "0,00";
+    biVolume = "0";
+    await Task.CompletedTask;
+}
+
+
+
+
+
+
+
+
+
 }

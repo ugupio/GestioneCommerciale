@@ -279,6 +279,7 @@
                     <th>Descrizione</th>
                     <th style="width:40px" class="text-center">UM</th>
                     <th class="text-end" style="width:60px;">Q.tà</th>
+                    <th style="width:100px">Peso/ml</th>
                     <th class="text-end" style="width:70px;">m/Vrg</th>
                     <th class="text-end" style="width:70px;">Peso</th>
                     <th class="text-end" style="width:80px;">Prezzo</th>
@@ -289,89 +290,97 @@
             </thead>
             <tbody>
     @foreach (var r in ordine.Righe) 
-    {
-        <tr style="@(r.IsAccessorio ? "background:#fafffb;" : "background:#f9fcff;")">
-            <!-- 1. TIPO -->
-            <td class="text-center">@(r.IsAccessorio ? "🛠️" : "📦")</td>
+{
+    <tr style="@(r.IsAccessorio ? "background:#fafffb;" : "background:#f9fcff;")">
+        <!-- 1. TIPO -->
+        <td class="text-center">@(r.IsAccessorio ? "🛠️" : "📦")</td>
 
-            <!-- 2. CODICE -->
-            <td style="font-weight:bold; color: #005a9e; padding-left: 5px;">@r.CodiceProdotto</td>
+        <!-- 2. CODICE -->
+        <td style="font-weight:bold; color: #005a9e; padding-left: 5px;">@r.CodiceProdotto</td>
 
-            <!-- 3. DESCRIZIONE -->
-            <td>
-    <!-- Descrizione principale in grassetto -->
-    <input class="input-grid fw-bold" @bind="r.Descrizione" style="width:100%; border:none; background:transparent;" />
-    
-    <!-- Finitura Interna/Esterna con carattere tenue -->
-    <div style="font-size: 0.8em; color: #757575; display: flex; gap: 8px; margin-top: 2px;">
-        <div style="display: flex; align-items: center;">
-            <span style="margin-right: 3px;">COLORE INTERNO:</span>
-            <input @bind="r.ColoreInt" class="input-grid" 
-                   style="width: 100px; border: none; background: transparent; color: #757575; border-bottom: 1px dotted #ccc;" />
-        </div>
-        <div style="display: flex; align-items: center;">
-            <span style="margin-right: 3px;">COLORE ESTERNO:</span>
-            <input @bind="r.ColoreEst" class="input-grid" 
-                   style="width: 100px; border: none; background: transparent; color: #757575; border-bottom: 1px dotted #ccc;" />
-        </div>
-    </div>
-</td>
+        <!-- 3. DESCRIZIONE -->
+        <td>
+            <input class="input-grid fw-bold" @bind="r.Descrizione" style="width:100%; border:none; background:transparent;" />
+            <div style="font-size: 0.8em; color: #757575; display: flex; gap: 8px; margin-top: 2px;">
+                <div style="display: flex; align-items: center;">
+                    <span style="margin-right: 3px;">INT:</span>
+                    <input @bind="r.ColoreInt" class="input-grid" style="width: 80px; border: none; background: transparent; color: #757575; border-bottom: 1px dotted #ccc;" />
+                </div>
+                <div style="display: flex; align-items: center;">
+                    <span style="margin-right: 3px;">EST:</span>
+                    <input @bind="r.ColoreEst" class="input-grid" style="width: 80px; border: none; background: transparent; color: #757575; border-bottom: 1px dotted #ccc;" />
+                </div>
+            </div>
+        </td>
 
-            <!-- 4. UM (Mancava questa! Deve stare tra Descrizione e Quantità) -->
-            <td class="text-center">
-                <span class="badge bg-light text-dark border" style="font-size: 0.7rem;">@r.UmRiga</span>
-            </td>
+        <!-- 4. UM -->
+        <td class="text-center">
+            <select class="form-select form-select-sm border-0 bg-light" style="font-size: 0.8rem; width: 65px; padding: 2px;" @bind="r.UmRiga">
+                <option value="ML">ML</option>
+                <option value="PZ">PZ</option>
+                <option value="KG">KG</option>
+                <option value="BAR">BR</option>
+            </select>
+        </td>
 
-            <!-- 5. QUANTITÀ -->
-            <td>
-    <input type="number" class="input-grid" 
-           @bind="r.Quantita" 
-           @bind:event="oninput"
-           @onchange="@(() => AggiornaConteggi(r))" />
-</td>
+        <!-- 5. QUANTITÀ -->
+        <td>
+            <input type="number" class="input-grid text-end" @bind="r.Quantita" @bind:event="oninput" @onchange="@(() => AggiornaConteggi(r))" />
+        </td>
 
-            
-            <!-- 6. m/Vrg -->
-            <td>@if(!r.IsAccessorio){ <input type="number" step="0.01" class="input-grid text-end" @bind="r.LunghezzaVerga" @oninput="Ricalcola" /> }</td>
-            
-            <!-- 7. PESO (Colonna aggiornata per profili vs accessori) -->
-<td class="text-end" style="background: #fdfdfd; font-family: 'Courier New';">
-    @if(!r.IsAccessorio)
-    {
-        // Se è un profilo, mostra il calcolo del peso (Kg)
-        <span>@((r.Quantita * r.LunghezzaVerga * r.PesoAlMetro).ToString("N2")) Kg</span>
-    }
-    else
-    {
-        // Se è un accessorio, il peso non è rilevante per il prezzo
-        <span class="text-muted">-</span>
-    }
-</td>
-            
-            <!-- 8. PREZZO -->
-            <td>
-    <input type="number" step="0.01" class="input-grid" 
-           @bind="r.PrezzoUnitario" 
-           @onblur="@(() => AggiornaConteggi(r))" 
-           @onkeydown="@((e) => { if(e.Key == "Enter") AggiornaConteggi(r); })" />
-</td>
-            
-            <!-- 9. SC% -->
-<td>
-    <input type="number" step="0.1" class="input-grid text-end" 
-           @bind="r.ScontoRiga" 
-           @onblur="@(() => AggiornaConteggi(r))" />
-</td>
-            
-            <!-- 10. TOTALE -->
-            <td class="text-end fw-bold">@r.PrezzoTotaleRiga.ToString("N2") €</td>
-            
-            <!-- 11. AZIONE -->
-            <td class="text-center">
-                <button class="border-0 bg-transparent text-danger" @onclick="() => RimuoviRiga(r)">✖</button>
-            </td>
-        </tr>
-    }
+        <!-- 5b. PESO/ML (NUOVA COLONNA EDITABILE) -->
+        <td>
+            @if(!r.IsAccessorio) {
+                <input type="number" step="0.001" class="input-grid text-end fw-bold" 
+                       style="color: #005a9e;" 
+                       @bind="r.PesoAlMetro" 
+                       @bind:event="oninput" 
+                       @onchange="@(() => AggiornaConteggi(r))" />
+            } else {
+                <span class="text-muted d-block text-center">-</span>
+            }
+        </td>
+
+        <!-- 6. m/Vrg -->
+        <td>
+            @if(!r.IsAccessorio){ 
+                <input type="number" step="0.01" class="input-grid text-end" @bind="r.LunghezzaVerga" @bind:event="oninput" @onchange="@(() => AggiornaConteggi(r))" /> 
+            }
+        </td>
+        
+        <!-- 7. PESO TOTALE RIGA (Kg) -->
+        <td class="text-end" style="background: #fdfdfd; font-family: 'Courier New';">
+            @if(!r.IsAccessorio) {
+                <span>@((r.Quantita * r.LunghezzaVerga * r.PesoAlMetro).ToString("N2")) Kg</span>
+            } else {
+                <span class="text-muted">-</span>
+            }
+        </td>
+        
+        <!-- 8. PREZZO -->
+        <td>
+            <input type="number" step="0.01" class="input-grid text-end" @bind="r.PrezzoUnitario" @onblur="@(() => AggiornaConteggi(r))" />
+        </td>
+        
+        <!-- 9. SC% -->
+        <td>
+            <input type="number" step="0.1" class="input-grid text-end" @bind="r.ScontoRiga" @onblur="@(() => AggiornaConteggi(r))" />
+        </td>
+        
+        <!-- 10. TOTALE RIGA -->
+        <td class="text-end fw-bold">@r.PrezzoTotaleRiga.ToString("N2") €</td>
+        
+        <!-- 11. AZIONE -->
+        <td class="text-center">
+            <div style="display: flex; justify-content: center; gap: 6px; align-items: center;">
+                <button class="win-btn-tablet" style="color: #28a745;" @onclick="() => AggiornaDatiDaArchivio(r)" title="Importa">🔄</button>
+                <button class="win-btn-tablet" style="color: #005a9e;" @onclick="() => SalvaDatiInArchivio(r)" title="Esporta">💾</button>
+                <button class="win-btn-tablet" style="color: #dc3545;" @onclick="() => RimuoviRiga(r)" title="Elimina">🗑️</button>
+            </div>
+        </td>
+    </tr>
+}
+
 </tbody>
 
 
@@ -925,11 +934,28 @@ private async Task InviaOrdineViaEmail()
     private bool IsPreventivo => string.Equals(ordine.StatoOrdine, "Preventivo", StringComparison.OrdinalIgnoreCase);
 
     private async Task Notifica(string msg) { testoNotifica = msg; mostraMessaggio = true; StateHasChanged(); await Task.Delay(3000); mostraMessaggio = false; StateHasChanged(); }
+    
+    
     private async Task IniziaNuovo()
-    {
-        ordine = new Ordine { DataOrdine = DateTime.Now, DataConsegnaPrevista = DateTime.Now.AddDays(7) }; indiceCorrente = -1; Ricalcola();
-        snapshotOrdineOriginale = JsonSerializer.Serialize(ordine);
-    }
+{
+    // Resettando l'ID a 0, la condizione (ordine.IDCliente == c.IdCliente) 
+    // diventerà falsa per tutti i clienti, e la select tornerà sulla prima opzione.
+    ordine = new Ordine 
+    { 
+        IDCliente = 0, 
+        DataOrdine = DateTime.Now, 
+        DataConsegnaPrevista = DateTime.Now.AddDays(7) 
+    };
+
+    indiceCorrente = -1; 
+    Ricalcola();
+    
+    snapshotOrdineOriginale = JsonSerializer.Serialize(ordine);
+    
+    await Task.Yield();
+    StateHasChanged();
+}
+
     
     
     private async Task VaiA(Func<Task> azioneSpostamento)
@@ -1008,6 +1034,65 @@ private void AggiornaConteggi(DettaglioOrdine r)
     StateHasChanged();
 }
 
+private async Task SalvaDatiInArchivio(DettaglioOrdine riga)
+{
+    // Chiediamo conferma per evitare salvataggi accidentali in archivio
+    bool conferma = await JS.InvokeAsync<bool>("confirm", 
+        $"Vuoi aggiornare l'archivio PRODOTTI con il peso ({riga.PesoAlMetro} kg/ml) di questa riga?");
+
+    if (conferma)
+    {
+        using var db = new Microsoft.Data.SqlClient.SqlConnection(conn);
+        string sql = @"
+            UPDATE Prodotti 
+            SET PesoAlMetro = @Peso, 
+                LunghezzaVerga = @Lunghezza,
+                UmProdotto = @UM
+            WHERE CodiceProdotto = @Codice";
+
+        int righeColpite = await db.ExecuteAsync(sql, new { 
+            Peso = riga.PesoAlMetro, 
+            Lunghezza = riga.LunghezzaVerga, 
+            UM = riga.UmRiga,
+            Codice = riga.CodiceProdotto 
+        });
+
+        if (righeColpite > 0)
+        {
+            await JS.InvokeVoidAsync("alert", "Archivio Prodotti aggiornato con successo!");
+        }
+    }
+}
+
+
+
+private async Task AggiornaDatiDaArchivio(DettaglioOrdine riga)
+{
+    using var db = new Microsoft.Data.SqlClient.SqlConnection(conn);
+    
+    // Peschiamo i dati aggiornati dall'anagrafica
+    string sql = "SELECT * FROM Prodotti WHERE CodiceProdotto = @Codice";
+    var prodottoAggiornato = await db.QueryFirstOrDefaultAsync<Prodotti>(sql, new { Codice = riga.CodiceProdotto });
+
+    if (prodottoAggiornato != null)
+    {
+        // Sovrascriviamo solo i dati tecnici che possono cambiare
+        riga.PesoAlMetro = prodottoAggiornato.PesoAlMetro;
+        riga.LunghezzaVerga = prodottoAggiornato.LunghezzaVerga;
+        riga.Descrizione = prodottoAggiornato.Descrizione; // Opzionale
+        riga.IsAccessorio = prodottoAggiornato.IsAccessorio;
+        riga.UmRiga = prodottoAggiornato.UmProdotto;
+
+        // Ricalcoliamo subito i totali della riga e dell'ordine
+        Ricalcola(); 
+        
+        await JS.InvokeVoidAsync("console.log", $"Dati aggiornati per {riga.CodiceProdotto}");
+    }
+    else
+    {
+        await JS.InvokeVoidAsync("alert", "Prodotto non trovato in archivio. Impossibile aggiornare.");
+    }
+}
 
     
     
