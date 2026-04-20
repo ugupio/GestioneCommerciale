@@ -141,49 +141,48 @@
             <table class="win-grid" style="width:100%">
                 <thead>
                     <tr style="background:#f0f0f0; position: sticky; top: 0;">
-                        <th style="width:100px">Codice</th>
-                        <th style="width:80px">Tipo</th>
-                        <th>Descrizione</th> 
-                        <th style="width:350px">Note Tecniche</th> 
-                        <th style="width:90px" class="text-end">Kg/ml</th>
-                        <th style="width:50px">U.M.</th>
-                        <th style="width:200px" class="text-center">Azione</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var p in listaFiltrata)
-                    {
-                    <tr>
-                    <td class="fw-bold">@p.CodiceProdotto</td>
-                    <td>@(p.IsAccessorio ? "🛠️ ACC" : "📦 PROF")</td>
-                    <td>@p.Descrizione</td>
-        
-                    <!-- CELLA NOTE CON ICONA -->
-                        <td style="color: #005a9e; font-style: italic; font-size: 10px;">
-                            @(string.IsNullOrWhiteSpace(p.NoteTecniche) ? "-" : p.NoteTecniche)
-                        </td>
+    <th style="width:100px">Codice</th>
+    <th style="width:80px">Tipo</th>
+    <th>Descrizione</th> 
+    <th style="width:100px" class="text-end">Lung. Verga</th> <!-- NUOVA COLONNA -->
+    <th style="width:350px">Note Tecniche</th> 
+    <th style="width:90px" class="text-end">Kg/ml</th>
+    <th style="width:50px">U.M.</th>
+    <th style="width:200px" class="text-center">Azione</th>
+</tr>
 
-                        <td class="text-end">@(p.IsAccessorio ? "-" : p.PesoAlMetro.ToString("N3"))</td>
-                        <td>@p.UmProdotto</td>
-                        <td class="text-center">
-                <!-- NUOVO TASTO RADAR -->
-                <button class="win-btn-tablet text-primary" @onclick="() => ApriModalRadar(p)" title="Radar">
-        🔍
-    </button>
-    
-    <!-- EDIT (Matita) -->
-    <button class="win-btn-tablet text-dark" @onclick="() => ApriModifica(p)" title="Modifica">
-        ✏️
-    </button>
-    
-    <!-- DELETE (Cestino) -->
-    <button class="win-btn-tablet text-danger" @onclick="() => EliminaProdotto(p.IDProdotto)" title="Elimina">
-        🗑️
-    </button>
+                </thead>
+               <tbody>
+    @foreach (var p in listaFiltrata)
+    {
+        <tr>
+            <td class="fw-bold">@p.CodiceProdotto</td>
+            <td>@(p.IsAccessorio ? "🛠️ ACC" : "📦 PROF")</td>
+            <td>@p.Descrizione</td>
+            
+            <!-- NUOVA CELLA LUNGHEZZA VERGA (3 DECIMALI) -->
+            <td class="text-end fw-bold" style="color: #2c3e50;">
+                @(p.IsAccessorio ? "-" : p.LunghezzaVerga.ToString("N3"))
             </td>
-    </tr>
-}
-                </tbody>
+
+            <!-- CELLA NOTE CON ICONA -->
+            <td style="color: #005a9e; font-style: italic; font-size: 10px;">
+                @(string.IsNullOrWhiteSpace(p.NoteTecniche) ? "-" : p.NoteTecniche)
+            </td>
+
+            <td class="text-end">@(p.IsAccessorio ? "-" : p.PesoAlMetro.ToString("N3"))</td>
+            <td class="text-uppercase">@p.UmProdotto</td>
+            
+            <td class="text-center">
+                <button class="win-btn-tablet text-primary" @onclick="() => ApriModalRadar(p)" title="Radar">🔍</button>
+                <button class="win-btn-tablet text-dark" @onclick="() => ApriModifica(p)" title="Modifica">✏️</button>
+                <button class="win-btn-tablet text-danger" @onclick="() => EliminaProdotto(p.IDProdotto)" title="Elimina">🗑️</button>
+            </td>
+        </tr>
+    }
+</tbody>
+
+
             </table>
         </div>
     </div>
@@ -376,17 +375,19 @@
             <table class="table table-hover align-middle" style="background: transparent;">
                 <thead style="background: rgba(0, 0, 0, 0.05);">
                     <tr>
-                        <th>Data</th>
-                        <th>Cliente</th>
-                        <th>Colori / Finitura</th>
-                        <th class="text-end">Prezzo Unit.</th> <!-- BI: Aggiunto prezzo specifico -->
-                        <th class="text-end">Quantità</th>
-                        <th class="text-center">U.M.</th>
-                        <th class="text-center">Contatti</th>
-                    </tr>
+    <th>Data</th>
+    <th>Cliente</th>
+    <th>Colori / Finitura</th>
+    <th class="text-end">Prezzo Unit.</th> 
+    <th class="text-center" style="color: #e67e22;">Sconto %</th> <!-- NUOVO -->
+    <th class="text-end fw-bold" style="color: #27ae60;">Prezzo Netto</th> <!-- NUOVO -->
+    <th class="text-end">Quantità</th>
+    <th class="text-center">U.M.</th>
+    <th class="text-center">Contatti</th>
+</tr>
                 </thead>
                 <tbody>
-                    @foreach (var r in listaRisultatiRadar)
+    @foreach (var r in listaRisultatiRadar)
     {
         <tr style="background: rgba(255, 255, 255, 0.4); border-bottom: 1px solid #ddd;">
             <!-- Data -->
@@ -402,10 +403,20 @@
                 <i style="display: block; font-size: 0.8em; color: #777;">@r.FinituraAccessorio?.ToString()</i>
             </td>
             
-            <!-- Prezzo Unitario -->
+            <!-- Prezzo Unitario (Listino) -->
+            <td class="text-end" style="color: #666;">
+                € @(r.PrezzoUnitario != null ? Convert.ToDecimal(r.PrezzoUnitario).ToString("N2") : "0,00")
+            </td>
+
+            <!-- NUOVO: Sconto % -->
+            <td class="text-center" style="color: #e67e22; font-weight: bold;">
+                @(r.Sconto != null ? Convert.ToDecimal(r.Sconto).ToString("N1") : "0,0")%
+            </td>
+
+            <!-- NUOVO: Prezzo Netto (Scontato) - 3 Decimali -->
             <td class="text-end fw-bold" style="color: #28a745;">
-    € @(r.PrezzoUnitario != null ? Convert.ToDecimal(r.PrezzoUnitario).ToString("N2") : "0,00")
-</td>
+                € @(r.PrezzoNetto != null ? Convert.ToDecimal(r.PrezzoNetto).ToString("N3") : "0,000")
+            </td>
             
             <!-- Quantità -->
             <td class="text-end fw-bold">
@@ -420,15 +431,15 @@
                 @if (!string.IsNullOrEmpty(r.Cel1?.ToString()))
                 {
                     <a href="tel:@r.Cel1?.ToString()" class="win-btn-tablet" 
-   style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; width: 45px; height: 45px; padding: 0;">
-    📞
-</a>
-
+                       style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; width: 45px; height: 45px; padding: 0;">
+                        📞
+                    </a>
                 }
             </td>
         </tr>
     }
-                </tbody>
+</tbody>
+
             </table>
         </div>
 
@@ -623,7 +634,19 @@ private async Task EseguiRicercaRadar()
     using var db = new Microsoft.Data.SqlClient.SqlConnection(conn);
     
     string sql = @"
-        SELECT O.DataOrdine, C.RagSociale, D.Quantita, D.ColoreInt, D.ColoreEst, D.FinituraAccessorio, C.Cel1, D.UmRiga, D.PrezzoUnitario
+        SELECT 
+            O.DataOrdine, 
+            C.RagSociale, 
+            D.Quantita, 
+            D.ColoreInt, 
+            D.ColoreEst, 
+            D.FinituraAccessorio, 
+            C.Cel1, 
+            D.UmRiga, 
+            D.PrezzoUnitario,
+            D.ScontoRiga AS Sconto, -- Mappato come 'Sconto' per la UI
+            -- Calcolo BI: Prezzo scontato con precisione a 3 decimali
+            CAST(D.PrezzoUnitario * (1 - (ISNULL(D.ScontoRiga, 0) / 100)) AS DECIMAL(18,3)) AS PrezzoNetto
         FROM Dettaglio_Ordini D
         JOIN Ordini O ON D.IDOrdine = O.IDOrdine
         JOIN Clienti C ON O.IDCliente = C.IdCliente
@@ -633,6 +656,8 @@ private async Task EseguiRicercaRadar()
     var result = await db.QueryAsync(sql, new { Codice = prodottoSelezionatoRadar.CodiceProdotto });
     listaRisultatiRadar = result.ToList();
 }
+
+
 
 
 private async Task CalcolaBIPrezzi(string codice)
