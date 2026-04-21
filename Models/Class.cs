@@ -34,6 +34,8 @@ public class Cliente
     // coordinate columns added to DB as float
     public float? Lat { get; set; } // Da Latitudine a Lat
     public float? Lon { get; set; } // Da Longitudine a Lon
+    public int? GiorniDallUltimoOrdine { get; set; }
+    public double DistanzaKM { get; set; }
 }
 
 public class Prodotti

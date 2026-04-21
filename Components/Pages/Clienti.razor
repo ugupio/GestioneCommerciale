@@ -11,6 +11,8 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject IHttpClientFactory ClientFactory
+@inject IJSRuntime JSRuntime
+
 
 <style>
     .win-form { background-color: #f0f0f0; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; border: 1px solid #999; padding: 5px; min-width: 1150px; color: #333; position: relative; min-height: 98vh; }
@@ -49,6 +51,8 @@
     .tab-table th { background: #f0f0f0; padding: 8px; border: 1px solid #ccc; text-align: left; }
     .tab-
 
+    .row-clickable { cursor: pointer; transition: background 0.2s; }
+    .row-clickable:hover { background-color: #d1e8ff !important; }
 </style>
 
 <div class="win-form">
@@ -204,7 +208,7 @@
             </thead>
             <tbody>
                 @foreach (var o in listaOrdiniCliente) {
-                    <tr>
+                    <tr @ondblclick='() => ApriDocumento((int)(o.IDOrdine ?? 0), "ORDINE")' class="row-clickable">
                         <td>@string.Format("{0:dd/MM/yyyy}", (object)o.DataOrdine)</td>
                         <td>@(((object)o.NumeroDocumento)?.ToString() ?? "")</td>
                         <td>@(((object)o.RiferimentoCliente)?.ToString() ?? "-")</td>
@@ -223,7 +227,7 @@
             </thead>
             <tbody>
                 @foreach (var r in listaResiCliente) {
-                    <tr>
+                    <tr @ondblclick='() => ApriDocumento((int)(r.IDReso ?? 0), "RESO")' class="row-clickable">
                         <td>@(((object)r.DataReso)?.ToString() ?? "")</td>
                         <td>@(((object)r.Motivazione)?.ToString() ?? "")</td>
                         <td class="text-end">@(((object)r.Quantita)?.ToString() ?? "0")</td>
@@ -241,7 +245,7 @@
             </thead>
             <tbody>
                 @foreach (var v in listaVisiteCliente) {
-                    <tr>
+                   <tr @ondblclick='() => ApriDocumento((int)(v.IDVisita ?? 0), "VISITA")' class="row-clickable">
                         <td>@(((object)v.DataVisita)?.ToString() ?? "")</td>
                         <td>@(((object)v.StatoVisita)?.ToString() ?? "")</td>
                         <td>@(((object)v.Note)?.ToString() ?? "")</td>
@@ -251,8 +255,7 @@
         </table>
     }
 </div>
-
-    </div>
+</div>
 
     @if (mostraMessaggio) { <div class="toast-msg">@testoNotifica</div> }
 </div>
@@ -433,6 +436,21 @@
     }
     StateHasChanged();
 }
+
+private async Task ApriDocumento(int id, string tipo)
+{
+    string url = tipo switch
+    {
+        "ORDINE" => $"/nuovo-ordine/{id}", // Cambia l'URL in base alla tua rotta reale
+        "RESO" => $"/nuovo-reso/{id}",
+        "VISITA" => $"/nuova-visita/{id}",
+        _ => "/"
+    };
+
+    await JSRuntime.InvokeVoidAsync("openInNewTab", url);
+}
+
+
 
     private async Task CaricaDettagliCorrelati(int idCliente)
 {

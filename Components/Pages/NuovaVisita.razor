@@ -29,6 +29,51 @@
     .win-table { width: 100%; border-collapse: collapse; background: white; font-size: 10px; }
     .win-table th { background: #f0f0f0; border: 1px solid #ccc; padding: 4px; text-align: left; position: sticky; top:0; }
     .win-table td { border: 1px solid #eee; padding: 4px; vertical-align: top; }
+    .status-green { border-left: 5px solid #28a745; background: #f0fff4; }
+    .status-yellow { border-left: 5px solid #ffc107; background: #fffdf0; }
+    .status-red { border-left: 5px solid #dc3545; background: #fff5f5; }
+
+    .vicini-box {
+    transition: transform 0.2s;
+    margin-bottom: 5px;
+    display: flex;
+    padding: 8px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+     /* Colori semaforo con sfondo leggero */
+    .status-green { border-left-color: #28a745 !important; background: #f8fff9; border: 1px solid #d4edda; }
+    .status-yellow { border-left-color: #ffc107 !important; background: #fffdf2; border: 1px solid #ffeeba; }
+    .status-red { border-left-color: #dc3545 !important; background: #fff8f8; border: 1px solid #f8d7da; }
+
+    /* Stile Badge KM */
+    .badge-km {
+        background: #0078d4;
+        color: white;
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+
+    .vicini-box:hover {
+        filter: brightness(0.95);
+        transform: translateX(3px);
+    }
+
+    .btn-waze-sm {
+        border: none;
+        background: #f0f0f0;
+        border-radius: 50%;
+        width: 35px;
+        height: 35px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
 </style>
 
 <div class="win-form">
@@ -188,15 +233,37 @@
                         </select>
                     </div>
 
-                    <div style="max-height: 450px; overflow-y: auto;">
-                        @foreach (var vic in clientiVicini) {
-                            <div class="vicini-box">
-                                <div style="cursor:pointer; flex-grow:1;" @onclick="() => SelezionaDaGiro(vic.IdCliente)">
-                                    <b>@vic.RagSociale</b><br /><span>@vic.Citta_Legale (@vic.Prov_Legale)</span>
-                                </div>
-                                <button type="button" class="btn-waze-sm" @onclick="() => NavigaWaze(vic)">🚙</button>
-                            </div>
-                        }
+                    <div style="max-height: 450px; overflow-y: auto; padding-right: 5px;">
+                        @foreach (var vic in clientiVicini) 
+    {
+        // 1. Determina il colore in base ai giorni dall'ultimo ordine
+        string statusClass = vic.GiorniDallUltimoOrdine <= 30 ? "status-green" : 
+                            vic.GiorniDallUltimoOrdine <= 90 ? "status-yellow" : "status-red";
+
+        <div class="vicini-box @statusClass" style="display: flex; align-items: center; margin-bottom: 8px; padding: 8px; border-radius: 6px; border-left: 6px solid; transition: 0.2s;">
+            
+            <div style="cursor:pointer; flex-grow:1;" @onclick="() => SelezionaDaGiro(vic.IdCliente)">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <b style="font-size: 13px; color: #333;">@vic.RagSociale</b>
+                    <!-- 2. Badge KM -->
+                    <span class="badge-km">@(Math.Round(vic.DistanzaKM, 1)) KM</span>
+                </div>
+                
+                <div style="font-size: 11px; color: #666; margin-top: 3px;">
+                    <span>📍 @vic.Citta_Legale</span><br />
+                    <!-- 3. Indicatore temporale -->
+                    <small style="font-weight: bold;">
+                        @(vic.GiorniDallUltimoOrdine >= 999 ? "⚠️ Mai ordinato" : $"🕒 Ultimo ordine: {vic.GiorniDallUltimoOrdine} gg fa")
+                    </small>
+                </div>
+            </div>
+
+            <!-- Tasto Waze -->
+            <button type="button" class="btn-waze-sm" style="margin-left: 10px;" @onclick="() => NavigaWaze(vic)">
+                🚙
+            </button>
+        </div>
+    }
                     </div>
                 }
             </div>
@@ -409,17 +476,43 @@
     private async Task CheckAndGoHome() { if (await CheckModificheRealmenteFatte()) Nav.NavigateTo("/"); }
 
     private async Task CaricaClientiVicini() {
-        if (clienteSelezionato == null) return;
-        using var db = new SqlConnection(conn);
-        if (tipoFiltroGiro == "provincia")
-            clientiVicini = (await db.QueryAsync<Cliente>("SELECT * FROM Clienti WHERE Prov_Legale = @p AND IdCliente <> @id", new { p = clienteSelezionato.Prov_Legale, id = clienteSelezionato.IdCliente })).ToList();
-        else if (tipoFiltroGiro == "comune")
-            clientiVicini = (await db.QueryAsync<Cliente>("SELECT * FROM Clienti WHERE Citta_Legale = @c AND IdCliente <> @id", new { c = clienteSelezionato.Citta_Legale, id = clienteSelezionato.IdCliente })).ToList();
-        else if (tipoFiltroGiro == "distanza" && clienteSelezionato.Lat.HasValue) {
-            var tutti = (await db.QueryAsync<Cliente>("SELECT * FROM Clienti WHERE Lat IS NOT NULL AND IdCliente <> @id", new { id = clienteSelezionato.IdCliente })).ToList();
-            clientiVicini = tutti.Where(c => CalcolaKM(clienteSelezionato.Lat.Value, clienteSelezionato.Lon.Value, c.Lat.Value, c.Lon.Value) <= 50).ToList();
-        }
-    }
+    if (clienteSelezionato == null) return;
+    using var db = new SqlConnection(conn);
+
+    string sqlBase = @"
+        SELECT *, 
+        ISNULL(DATEDIFF(day, (SELECT MAX(DataOrdine) FROM Ordini o WHERE o.IdCliente = Clienti.IdCliente), GETDATE()), 999) as GiorniDallUltimoOrdine 
+        FROM Clienti";
+
+    IEnumerable<Cliente> listaPartenza;
+
+    if (tipoFiltroGiro == "provincia")
+        listaPartenza = await db.QueryAsync<Cliente>($"{sqlBase} WHERE Prov_Legale = @p AND IdCliente <> @id", new { p = clienteSelezionato.Prov_Legale, id = clienteSelezionato.IdCliente });
+    else if (tipoFiltroGiro == "comune")
+        listaPartenza = await db.QueryAsync<Cliente>($"{sqlBase} WHERE Citta_Legale = @c AND IdCliente <> @id", new { c = clienteSelezionato.Citta_Legale, id = clienteSelezionato.IdCliente });
+    else
+        listaPartenza = await db.QueryAsync<Cliente>($"{sqlBase} WHERE Lat IS NOT NULL AND IdCliente <> @id", new { id = clienteSelezionato.IdCliente });
+
+    // CALCOLO EFFETTIVO E ASSEGNAZIONE
+    clientiVicini = listaPartenza
+        .Select(c => {
+            if (clienteSelezionato.Lat.HasValue && c.Lat.HasValue && c.Lat.Value != 0)
+            {
+                // Qui assegniamo il valore alla proprietà!
+                c.DistanzaKM = CalcolaKM(clienteSelezionato.Lat.Value, clienteSelezionato.Lon.Value, c.Lat.Value, c.Lon.Value);
+            }
+            else
+            {
+                c.DistanzaKM = 999; // Valore di fallback se mancano coordinate
+            }
+            return c;
+        })
+        .Where(c => tipoFiltroGiro != "distanza" || c.DistanzaKM <= 50)
+        .OrderBy(c => c.DistanzaKM) 
+        .ToList();
+}
+
+
 
     private double CalcolaKM(double lat1, double lon1, double lat2, double lon2) {
         var dLat = (lat2 - lat1) * Math.PI / 180;

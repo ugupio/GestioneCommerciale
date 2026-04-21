@@ -1,4 +1,4 @@
-﻿@page "/nuovo-ordine"
+﻿@page "/nuovo-ordine/{id:int}"
 @rendermode InteractiveServer
 @using Microsoft.Data.SqlClient
 @using Dapper
@@ -205,11 +205,11 @@
                 <div style="width: 135px;">
                     <label class="win-label">Metri/Vrg</label>
                     <div class="d-flex gap-1">
-                        <select class="win-input" style="width:55px;" @onchange="OnLunghezzaChanged">
+                        <!-- <select class="win-input" style="width:55px;" @onchange="OnLunghezzaChanged"> 
                             <option value="6.5">6.5</option>
                             <option value="6.8">6.8</option>
                             <option value="0">Libera</option>
-                        </select>
+                        </select> -->
                         <input type="number" step="0.01" class="win-input" @bind="rigaP.LunghezzaVerga" />
                     </div>
                 </div>
@@ -514,6 +514,7 @@ else
     private bool codiceDuplicatoOrdine = false;
     private List<Attivita> taskPendenti = new();
     List<Attivita> tuttiITaskAperti = new();
+    [Parameter] public int id { get; set; }
 
 
     @code {
@@ -801,12 +802,34 @@ private async Task InviaOrdineViaEmail()
     
     
     protected override async Task OnInitializedAsync() {
-        using var db = new SqlConnection(conn);
-        listaClienti = (await db.QueryAsync<Cliente>("SELECT IdCliente, RagSociale FROM Clienti ORDER BY RagSociale")).ToList();
-        listaIdOrdini = (await db.QueryAsync<int>(@"SELECT IDOrdine FROM Ordini ORDER BY DataOrdine DESC, IDOrdine DESC")).ToList();
-        tuttiITaskAperti = await GetAttivitaAperteLocali();  // Carichiamo tutti i task non completati per fare i confronti in memoria
-        if (listaIdOrdini.Any()) { indiceCorrente = 0; await CaricaOrdine(listaIdOrdini[0]); }
+    using var db = new SqlConnection(conn);
+    listaClienti = (await db.QueryAsync<Cliente>("SELECT IdCliente, RagSociale FROM Clienti ORDER BY RagSociale")).ToList();
+    listaIdOrdini = (await db.QueryAsync<int>(@"SELECT IDOrdine FROM Ordini ORDER BY DataOrdine DESC, IDOrdine DESC")).ToList();
+    tuttiITaskAperti = await GetAttivitaAperteLocali();
+
+    if (id > 0) 
+    {
+        // CERCA L'ORDINE SCELTO NELLA LISTA
+        var pos = listaIdOrdini.IndexOf(id);
+        if (pos != -1) 
+        {
+            indiceCorrente = pos;
+            await CaricaOrdine(id);
+        }
+        else 
+        {
+            // Se l'ID non è in lista (raro), caricalo comunque
+            await CaricaOrdine(id);
+        }
     }
+    else if (listaIdOrdini.Any()) 
+    {
+        // LOGICA STANDARD: Carica l'ultimo se non c'è un ID nell'URL
+        indiceCorrente = 0; 
+        await CaricaOrdine(listaIdOrdini[0]); 
+    }
+}
+
 
     private decimal PesoTotale => ordine.Righe.Where(x => !x.IsAccessorio).Sum(x => x.Quantita * x.LunghezzaVerga * x.PesoAlMetro);
 
