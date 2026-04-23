@@ -75,6 +75,16 @@
     transform: scale(0.95);
 }
 
+.form-control:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
+}
+.badge-um {
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+
+
 </style>
 
 
@@ -144,12 +154,15 @@
     <th style="width:100px">Codice</th>
     <th style="width:80px">Tipo</th>
     <th>Descrizione</th> 
-    <th style="width:100px" class="text-end">Lung. Verga</th> <!-- NUOVA COLONNA -->
-    <th style="width:350px">Note Tecniche</th> 
+    <th>Finitura</th>
+    <th style="width:100px" class="text-end">Lung. Verga</th>
+    <th style="width:300px">Note Tecniche</th> @* Ridotto leggermente per far spazio *@
     <th style="width:90px" class="text-end">Kg/ml</th>
-    <th style="width:50px">U.M.</th>
-    <th style="width:200px" class="text-center">Azione</th>
+    <th style="width:60px">U.M.</th>
+    <th style="width:140px" class="text-center">Conf. (v2.6)</th> <!-- NUOVA COLONNA -->
+    <th style="width:250px" class="text-center">Azione</th>
 </tr>
+
 
                 </thead>
                <tbody>
@@ -159,20 +172,38 @@
             <td class="fw-bold">@p.CodiceProdotto</td>
             <td>@(p.IsAccessorio ? "🛠️ ACC" : "📦 PROF")</td>
             <td>@p.Descrizione</td>
+
+            <!-- 4. NUOVA CELLA FINITURA (Senza questa i tasti scalano!) -->
+            <td style="font-size: 11px; color: #444;">
+                @(p.IsAccessorio ? p.FinituraAccessorio : "-")
+            </td>
             
-            <!-- NUOVA CELLA LUNGHEZZA VERGA (3 DECIMALI) -->
             <td class="text-end fw-bold" style="color: #2c3e50;">
                 @(p.IsAccessorio ? "-" : p.LunghezzaVerga.ToString("N3"))
             </td>
 
-            <!-- CELLA NOTE CON ICONA -->
             <td style="color: #005a9e; font-style: italic; font-size: 10px;">
                 @(string.IsNullOrWhiteSpace(p.NoteTecniche) ? "-" : p.NoteTecniche)
             </td>
 
             <td class="text-end">@(p.IsAccessorio ? "-" : p.PesoAlMetro.ToString("N3"))</td>
+            
             <td class="text-uppercase">@p.UmProdotto</td>
             
+            <td class="text-center">
+                @if (p.HaConfezione)
+                {
+                    <span style="font-size: 11px; color: #d35400; font-weight: bold;">
+                        📦 1:@p.PezziPerConfezione <span style="font-size: 9px;">@p.UmSecondaria</span>
+                    </span>
+                }
+                else
+                {
+                    <span class="text-muted" style="font-size: 11px;">-</span>
+                }
+            </td>
+
+            <!-- 10. AZIONE (Ora finalmente al suo posto) -->
             <td class="text-center">
                 <button class="win-btn-tablet text-primary" @onclick="() => ApriModalRadar(p)" title="Radar">🔍</button>
                 <button class="win-btn-tablet text-dark" @onclick="() => ApriModifica(p)" title="Modifica">✏️</button>
@@ -181,6 +212,8 @@
         </tr>
     }
 </tbody>
+
+
 
 
             </table>
@@ -197,67 +230,75 @@
             
             <div class="popup-body">
                 <div class="win-group" style="background: #f9f9f9;">
+                    @* Riga Codice e Descrizione *@
                     <div class="row mb-2">
                         <div class="col-4">
                             <label class="win-label d-block text-start">Codice:</label>
-                                @if (prodottoInModifica.IDProdotto == 0)
-    {
-        <!-- SE NUOVO: Diventa rosso se il codice esiste già -->
-        <input class="win-input fw-bold" 
-               value="@prodottoInModifica.CodiceProdotto" 
-               @oninput="VerificaDuplicato"
-               style="background: @(codiceDuplicato ? "#ffcccc" : "#fffde7");" 
-               placeholder="Inserisci cod..." />
-        
-        @if (codiceDuplicato)
-        {
-            <small class="text-danger" style="font-size: 8px; font-weight:bold;">⚠️ Codice già presente!</small>
-        }
-    }
-    else
-    {
-        <!-- SE ESISTENTE: Grigio come prima -->
-        <input class="win-input fw-bold" @bind="prodottoInModifica.CodiceProdotto" style="background: #eee;" />
-        <small class="text-muted" style="font-size: 8px;">Si consiglia di non modificare il Codice se esistono Ordini Caricati</small>                   
-    }
-                            </div>
+                            @if (prodottoInModifica.IDProdotto == 0)
+                            {
+                                <input class="win-input fw-bold" 
+                                       value="@prodottoInModifica.CodiceProdotto" 
+                                       @oninput="VerificaDuplicato"
+                                       style="background: @(codiceDuplicato ? "#ffcccc" : "#fffde7");" 
+                                       placeholder="Inserisci cod..." />
+                                @if (codiceDuplicato) { <small class="text-danger" style="font-size: 8px; font-weight:bold;">⚠️ Codice già presente!</small> }
+                            }
+                            else
+                            {
+                                <input class="win-input fw-bold" @bind="prodottoInModifica.CodiceProdotto" style="background: #eee;" readonly />
+                                <small class="text-muted" style="font-size: 8px;">Si consiglia di non modificare il Codice</small>                   
+                            }
+                        </div>
                         <div class="col-8">
                             <label class="win-label d-block text-start">Descrizione:</label>
                             <input class="win-input" @bind="prodottoInModifica.Descrizione" />
                         </div>
                     </div>
 
+                    @* Riga Tipo e U.M. Base *@
                     <div class="row mb-2">
                         <div class="col-6">
-    <label class="win-label d-block text-start">Tipo Articolo:</label>
-    @if (prodottoInModifica.IDProdotto == 0) {
-        <!-- Se è NUOVO, posso scegliere -->
-        <select class="win-input" 
-        value="@prodottoInModifica.IsAccessorio.ToString().ToLower()" 
-        @onchange="@((ChangeEventArgs e) => { 
-            prodottoInModifica.IsAccessorio = bool.Parse(e.Value.ToString()); 
-            StateHasChanged(); 
-        })">
-    <option value="false">📦 PROFILO</option>
-    <option value="true">🛠️ ACCESSORIO</option>
-</select>
-    } else {
-        <!-- Se è MODIFICA, è bloccato -->
-        <div class="win-input" style="background:#e9ecef; font-weight:bold; display:flex; align-items:center;">
-            @(prodottoInModifica.IsAccessorio ? "🛠️ ACCESSORIO" : "📦 PROFILO")
-        </div>
-    }
-</div>
-
+                            <label class="win-label d-block text-start">Tipo Articolo:</label>
+                            @if (prodottoInModifica.IDProdotto == 0) {
+                                <select class="win-input" 
+                                        value="@prodottoInModifica.IsAccessorio.ToString().ToLower()" 
+                                        @onchange="@((ChangeEventArgs e) => { prodottoInModifica.IsAccessorio = bool.Parse(e.Value.ToString()); StateHasChanged(); })">
+                                    <option value="false">📦 PROFILO</option>
+                                    <option value="true">🛠️ ACCESSORIO</option>
+                                </select>
+                            } else {
+                                <div class="win-input" style="background:#e9ecef; font-weight:bold; display:flex; align-items:center;">
+                                    @(prodottoInModifica.IsAccessorio ? "🛠️ ACCESSORIO" : "📦 PROFILO")
+                                </div>
+                            }
+                        </div>
                         <div class="col-6">
-                            <label class="win-label d-block text-start">Unità di Misura:</label>
-                            <input class="win-input" @bind="prodottoInModifica.UmProdotto" placeholder="ML o PZ" />
+                            <label class="win-label d-block text-start">U.M. Base:</label>
+                            <input class="win-input text-uppercase" @bind="prodottoInModifica.UmProdotto" placeholder="ML o PZ" />
                         </div>
                     </div>
 
-                    @if (!prodottoInModifica.IsAccessorio)
+                    @* --- SEZIONE DINAMICA v2.6 --- *@
+                    @if (prodottoInModifica.IsAccessorio)
                     {
-                        <div class="row mt-3 p-2" style="background: #eef6ff; border: 1px solid #b4c7e7;">
+                        <div class="row mt-2 p-2 mx-0" style="background: #fff4e5; border: 1px solid #ffd0a0; border-radius: 4px;">
+                            <div class="col-12 mb-2">
+                                <label class="win-label d-block text-start" style="color: #a0522d; font-weight: bold;">Finitura Accessorio:</label>
+                                <input type="text" class="win-input text-uppercase" @bind="prodottoInModifica.FinituraAccessorio" placeholder="es. ARGENTO, BIANCO, ORO..." style="background: #fffde7;" />
+                            </div>
+                            <div class="col-6">
+                                <label class="win-label d-block text-start" style="color: #a0522d;">Pezzi x Conf.:</label>
+                                <input type="number" class="win-input" @bind="prodottoInModifica.PezziPerConfezione" />
+                            </div>
+                            <div class="col-6">
+                                <label class="win-label d-block text-start" style="color: #a0522d;">Etichetta Conf.:</label>
+                                <input type="text" class="win-input text-uppercase" @bind="prodottoInModifica.UmSecondaria" placeholder="es. CT o PACCO" />
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="row mt-2 p-2 mx-0" style="background: #eef6ff; border: 1px solid #b4c7e7; border-radius: 4px;">
                             <div class="col-6">
                                 <label class="win-label d-block text-start">Peso (Kg/ml):</label>
                                 <input type="number" step="0.001" class="win-input" @bind="prodottoInModifica.PesoAlMetro" />
@@ -269,11 +310,10 @@
                         </div>
                     }
                 </div>
+
                 <div class="mb-2 mt-2">
                     <label class="win-label d-block text-start">Note Tecniche / Appunti:</label>
-                    <textarea class="win-input" @bind="prodottoInModifica.NoteTecniche" 
-                    style="height: 50px; resize: none;" 
-                    placeholder="Inserisci dettagli tecnici, compatibilità..."></textarea>
+                    <textarea class="win-input" @bind="prodottoInModifica.NoteTecniche" style="height: 50px; resize: none;" placeholder="Dettagli tecnici..."></textarea>
                 </div>
 
                 <div class="mt-4 d-flex align-items-center justify-content-end gap-2">
@@ -288,6 +328,7 @@
         </div>
     </div>
 }
+
 
 
 
@@ -556,33 +597,62 @@ private async Task RicaricaLista()
         PesoAlMetro = p.PesoAlMetro,
         LunghezzaVerga = p.LunghezzaVerga,
         UmProdotto = p.UmProdotto,
-        NoteTecniche = p.NoteTecniche
+        NoteTecniche = p.NoteTecniche,
+        // --- AGGIORNAMENTO v2.6 ---
+        PezziPerConfezione = p.PezziPerConfezione,
+        UmSecondaria = p.UmSecondaria
     };
     mostraPopupModifica = true;
 }
+
 
 private async Task SalvaModifiche()
 {
     using var db = new SqlConnection(conn);
     string sql;
 
-    // Blocca il salvataggio se è un nuovo inserimento e il codice è doppio
     if (prodottoInModifica.IDProdotto == 0 && codiceDuplicato)
     {
         await JS.InvokeVoidAsync("alert", "Impossibile salvare: il codice inserito è già utilizzato per un altro prodotto.");
         return;
     }
-    
-    
-    if (prodottoInModifica.IDProdotto == 0) // È UN NUOVO RECORD
+
+    // --- LOGICA v2.6: Sanificazione dati ---
+    if (prodottoInModifica.IsAccessorio)
     {
-        sql = @"INSERT INTO Prodotti (CodiceProdotto, Descrizione, IsAccessorio, PesoAlMetro, LunghezzaVerga, UmProdotto, NoteTecniche, FinituraAccessorio) 
-                VALUES (@CodiceProdotto, @Descrizione, @IsAccessorio, @PesoAlMetro, @LunghezzaVerga, @UmProdotto, @NoteTecniche, '')";
+        if (prodottoInModifica.PezziPerConfezione <= 0) prodottoInModifica.PezziPerConfezione = 1;
+        if (string.IsNullOrWhiteSpace(prodottoInModifica.UmSecondaria)) prodottoInModifica.UmSecondaria = "CT";
+        
+        prodottoInModifica.UmSecondaria = prodottoInModifica.UmSecondaria.Trim().ToUpper();
+        // Sanificazione Finitura
+        prodottoInModifica.FinituraAccessorio = prodottoInModifica.FinituraAccessorio?.Trim().ToUpper() ?? "";
     }
-    else // È UNA MODIFICA
+    else
     {
-        sql = @"UPDATE Prodotti SET CodiceProdotto = @CodiceProdotto, Descrizione = @Descrizione, 
-                PesoAlMetro = @PesoAlMetro, LunghezzaVerga = @LunghezzaVerga, UmProdotto = @UmProdotto , NoteTecniche = @NoteTecniche
+        // Se non è accessorio, svuotiamo la finitura per pulizia database
+        prodottoInModifica.FinituraAccessorio = "";
+    }
+
+    prodottoInModifica.UmProdotto = prodottoInModifica.UmProdotto?.Trim().ToUpper() ?? "PZ";
+    
+    if (prodottoInModifica.IDProdotto == 0) // INSERT
+    {
+        sql = @"INSERT INTO Prodotti (CodiceProdotto, Descrizione, IsAccessorio, PesoAlMetro, LunghezzaVerga, UmProdotto, NoteTecniche, FinituraAccessorio, PezziPerConfezione, UmSecondaria) 
+                VALUES (@CodiceProdotto, @Descrizione, @IsAccessorio, @PesoAlMetro, @LunghezzaVerga, @UmProdotto, @NoteTecniche, @FinituraAccessorio, @PezziPerConfezione, @UmSecondaria)";
+    }
+    else // UPDATE
+    {
+        sql = @"UPDATE Prodotti SET 
+                CodiceProdotto = @CodiceProdotto, 
+                Descrizione = @Descrizione, 
+                IsAccessorio = @IsAccessorio,
+                PesoAlMetro = @PesoAlMetro, 
+                LunghezzaVerga = @LunghezzaVerga, 
+                UmProdotto = @UmProdotto, 
+                NoteTecniche = @NoteTecniche,
+                FinituraAccessorio = @FinituraAccessorio,
+                PezziPerConfezione = @PezziPerConfezione,
+                UmSecondaria = @UmSecondaria
                 WHERE IDProdotto = @IDProdotto";
     }
     
@@ -590,6 +660,8 @@ private async Task SalvaModifiche()
     mostraPopupModifica = false;
     await RicaricaLista();
 }
+
+
 
 
 
@@ -650,7 +722,7 @@ private async Task EseguiRicercaRadar()
         FROM Dettaglio_Ordini D
         JOIN Ordini O ON D.IDOrdine = O.IDOrdine
         JOIN Clienti C ON O.IDCliente = C.IdCliente
-        WHERE LTRIM(RTRIM(D.CodiceProdotto)) = LTRIM(RTRIM(@Codice))
+        WHERE LTRIM(RTRIM(D.CodiceArticolo)) = LTRIM(RTRIM(@Codice))
         ORDER BY O.DataOrdine DESC";
 
     var result = await db.QueryAsync(sql, new { Codice = prodottoSelezionatoRadar.CodiceProdotto });

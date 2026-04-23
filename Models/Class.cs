@@ -48,8 +48,14 @@ public class Prodotti
     public decimal LunghezzaVerga { get; set; } = 0;
     public decimal PesoAlMetro { get; set; } = 0;
     public string NoteTecniche { get; set; } = "";
-    public string UmProdotto { get; set; } = ""; // Default Metri Lineari o PZ
+    public string UmProdotto { get; set; } = ""; // Esempio: "PZ" o "ML"
+    public int PezziPerConfezione { get; set; } = 1; // Default a 1 per evitare divisioni per zero
+    public string UmSecondaria { get; set; } = "CT"; // Default Cartone/Confezione
+
+    // Helper per l'interfaccia Blazor
+    public bool HaConfezione => IsAccessorio && PezziPerConfezione > 1;
 }
+
 
 
 public class Attivita
@@ -86,26 +92,29 @@ public class DettaglioOrdine
 {
     public int IDRigaOrdine { get; set; }
     public int IDOrdine { get; set; }
+    public int IDProdotto { get; set; } // <--- AGGIUNTO: serve per il collegamento con l'archivio
     public string Descrizione { get; set; }
     public decimal Quantita { get; set; }
     public decimal PrezzoUnitario { get; set; }
     public decimal ScontoRiga { get; set; }
-    public decimal PrezzoTotaleRiga { get; set; } // Campo calcolato SQL
+    public decimal PrezzoTotaleRiga { get; set; }
     public string ColoreInt { get; set; } = "";
     public string ColoreEst { get; set; } = "";
-    public bool IsAccessorio { get; set; } // Identifica se è un profilo o un accessorio
+    public bool IsAccessorio { get; set; }
     public int Verghe => !IsAccessorio ? (int)Quantita : 0;
-    public string FinituraAccessorio { get; set; } = ""; // Solo per accessori
+    public string FinituraAccessorio { get; set; } = "";
     public decimal LunghezzaVerga { get; set; }
     public decimal PesoAlMetro { get; set; }
     public string CodiceProdotto { get; set; } = "";
     public string UmRiga { get; set; }
 
-
-
-    // public List<DettaglioOrdine> Righe { get; set; } = new List<DettaglioOrdine>();
-
+    // --- AGGIORNAMENTI v2.6 PER GESTIONE CONFEZIONI ---
+    public int PezziPerConfezione { get; set; } = 1; // Valore ereditato dall'anagrafica
+    public bool IsConfezione { get; set; } = false; // Stato del Toggle (PZ vs CT)
+    public string UmSecondaria { get; set; } = "CT"; // Etichetta (es. CT, PACCO, BOX)
+    public decimal QuantitaOriginalePezzi { get; set; } // La nostra "memoria"
 }
+
 
 public class Visita
 {

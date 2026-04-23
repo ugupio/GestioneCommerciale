@@ -1,4 +1,5 @@
 ﻿@page "/nuovo-ordine/{id:int}"
+@page "/nuovo-ordine"
 @rendermode InteractiveServer
 @using Microsoft.Data.SqlClient
 @using Dapper
@@ -274,19 +275,30 @@
         <table class="win-grid">
             <thead>
                 <tr>
-                    <th style="width:40px;">Tipo</th>
-                    <th style="width:100px;">Codice</th>
-                    <th>Descrizione</th>
-                    <th style="width:40px" class="text-center">UM</th>
-                    <th class="text-end" style="width:60px;">Q.tà</th>
-                    <th style="width:100px">Peso/ml</th>
-                    <th class="text-end" style="width:70px;">m/Vrg</th>
-                    <th class="text-end" style="width:70px;">Peso</th>
-                    <th class="text-end" style="width:80px;">Prezzo</th>
-                    <th class="text-end" style="width:50px;">Sc%</th>
-                    <th class="text-end" style="width:90px;">Totale</th>
-                    <th style="width:30px;"></th>
-                </tr>
+    <th style="width:40px;">Tipo</th>
+    <th style="width:100px;">Codice</th>
+    <th>Descrizione</th>
+    <th style="width:40px" class="text-center">UM</th>
+    <th class="text-end" style="width:60px;">Q.tà</th>
+    
+    @* --- TITOLO DINAMICO v2.6 (Corretto) --- *@
+    <th class="text-end" style="width:110px; line-height: 1.1; font-size: 0.8rem;">
+        <span style="color: #005a9e;">⚖️ Peso ml</span><br />
+    </th>
+
+    <th class="text-end" style="width:70px;">m/Vrg</th>
+
+    @* --- TITOLO DINAMICO TOTALI --- *@
+    <th class="text-end" style="width:110px; line-height: 1.1; font-size: 0.8rem;">
+        <span style="color: #005a9e;">Tot. Kg</span><br />
+    </th>
+
+    <th class="text-end" style="width:80px;">Prezzo</th>
+    <th class="text-end" style="width:50px;">Sc%</th>
+    <th class="text-end" style="width:90px;">Totale</th>
+    <th style="width:30px;"></th>
+</tr>
+
             </thead>
             <tbody>
     @foreach (var r in ordine.Righe) 
@@ -324,9 +336,34 @@
         </td>
 
         <!-- 5. QUANTITÀ -->
-        <td>
-            <input type="number" class="input-grid text-end" @bind="r.Quantita" @bind:event="oninput" @onchange="@(() => AggiornaConteggi(r))" />
-        </td>
+<td class="text-center">
+    <div class="d-flex flex-column align-items-center">
+        <!-- Input originale con i tuoi bind -->
+        <input type="number" 
+               class="input-grid text-end" 
+               @bind="r.Quantita" 
+               @bind:event="oninput" 
+               @onchange="@(() => OnQuantitaModificata(r))" />
+
+        @if (r.IsAccessorio && r.PezziPerConfezione > 1)
+        {
+            <!-- Toggle compatto sotto l'input -->
+            <div @onclick="() => InvertiUsoConfezione(r)" 
+                 style="cursor:pointer; font-size: 0.65rem; margin-top: 2px; padding: 1px 5px; border-radius: 4px; border: 1px solid @(r.IsConfezione ? "#28a745" : "#ccc"); background-color: @(r.IsConfezione ? "#e8f5e9" : "#f8f9fa"); color: @(r.IsConfezione ? "#1b5e20" : "#6c757d"); min-width: 60px; text-align: center; user-select: none;">
+                
+                @if (r.IsConfezione)
+                {
+                    <span title="Multiplo di @r.PezziPerConfezione">📦 <strong>@r.UmSecondaria</strong></span>
+                }
+                else
+                {
+                    <span>⚪ PZ</span>
+                }
+            </div>
+        }
+    </div>
+</td>
+
 
         <!-- 5b. PESO/ML (NUOVA COLONNA EDITABILE) -->
         <td>
@@ -851,19 +888,24 @@ private async Task InviaOrdineViaEmail()
     if (string.IsNullOrEmpty(r.Descrizione)) return;
 
     ordine.Righe.Add(new DettaglioOrdine {
-        CodiceProdotto = r.CodiceProdotto, // <--- MANCAVA QUESTA RIGA!
-        Descrizione = r.Descrizione,
-        UmRiga = r.UmRiga,
-        IsAccessorio = r.IsAccessorio, 
-        Quantita = r.Quantita,
-        LunghezzaVerga = r.LunghezzaVerga, 
-        PesoAlMetro = r.PesoAlMetro, 
-        PrezzoUnitario = r.PrezzoUnitario,
-        ScontoRiga = r.ScontoRiga, 
-        ColoreInt = r.ColoreInt, 
-        ColoreEst = r.ColoreEst, 
-        FinituraAccessorio = r.FinituraAccessorio
-    });
+    IDProdotto = r.IDProdotto,          // <--- FONDAMENTALE per il legame
+    PezziPerConfezione = r.PezziPerConfezione, // <--- FONDAMENTALE per il Toggle
+    CodiceProdotto = r.CodiceProdotto,
+    Descrizione = r.Descrizione,
+    UmRiga = r.UmRiga,
+    IsAccessorio = r.IsAccessorio, 
+    Quantita = r.Quantita,
+    QuantitaOriginalePezzi = r.Quantita, // <--- Inizializza la memoria
+    LunghezzaVerga = r.LunghezzaVerga, 
+    PesoAlMetro = r.PesoAlMetro, 
+    PrezzoUnitario = r.PrezzoUnitario,
+    ScontoRiga = r.ScontoRiga, 
+    ColoreInt = r.ColoreInt, 
+    ColoreEst = r.ColoreEst, 
+    FinituraAccessorio = r.FinituraAccessorio,
+    UmSecondaria = "CT" // Valore di default per il toggle
+});
+
 
     Ricalcola();
 
@@ -896,15 +938,23 @@ private async Task InviaOrdineViaEmail()
         await db.ExecuteAsync("DELETE FROM Dettaglio_Ordini WHERE IDOrdine=@ID", new { ID = ordine.IDOrdine }, tx);
         
         foreach (var r in ordine.Righe) {
-            r.IDOrdine = ordine.IDOrdine;
-            // AGGIORNATO: Inserito UmRiga nella query di inserimento dettaglio
-            string sqlR = @"INSERT INTO Dettaglio_Ordini 
-                            (IDOrdine, CodiceProdotto, Descrizione, Quantita, UmRiga, PrezzoUnitario, ScontoRiga, ColoreInt, ColoreEst, IsAccessorio, FinituraAccessorio, LunghezzaVerga, PesoAlMetro) 
-                            VALUES 
-                            (@IDOrdine, @CodiceProdotto, @Descrizione, @Quantita, @UmRiga, @PrezzoUnitario, @ScontoRiga, @ColoreInt, @ColoreEst, @IsAccessorio, @FinituraAccessorio, @LunghezzaVerga, @PesoAlMetro)";
-            
-            await db.ExecuteAsync(sqlR, r, tx);
-        }
+    r.IDOrdine = ordine.IDOrdine;
+    
+    // AGGIORNATO v2.6: Inclusi i campi per la gestione confezioni e IDProdotto
+    string sqlR = @"INSERT INTO Dettaglio_Ordini 
+                    (IDOrdine, IDProdotto, CodiceProdotto, Descrizione, Quantita, UmRiga, 
+                     PrezzoUnitario, ScontoRiga, ColoreInt, ColoreEst, IsAccessorio, 
+                     FinituraAccessorio, LunghezzaVerga, PesoAlMetro, 
+                     PezziPerConfezione, IsConfezione, QuantitaOriginalePezzi) 
+                    VALUES 
+                    (@IDOrdine, @IDProdotto, @CodiceProdotto, @Descrizione, @Quantita, @UmRiga, 
+                     @PrezzoUnitario, @ScontoRiga, @ColoreInt, @ColoreEst, @IsAccessorio, 
+                     @FinituraAccessorio, @LunghezzaVerga, @PesoAlMetro, 
+                     @PezziPerConfezione, @IsConfezione, @QuantitaOriginalePezzi)";
+    
+    await db.ExecuteAsync(sqlR, r, tx);
+}
+
         
         tx.Commit();
         
@@ -946,13 +996,33 @@ private async Task InviaOrdineViaEmail()
 }
 
     private async Task CaricaOrdine(int id) {
-        using var db = new SqlConnection(conn);
-        ordine = await db.QueryFirstOrDefaultAsync<Ordine>("SELECT * FROM Ordini WHERE IDOrdine = @id", new { id });
-        ordine.Righe = (await db.QueryAsync<DettaglioOrdine>("SELECT * FROM Dettaglio_Ordini WHERE IDOrdine = @id", new { id })).ToList();
-        Ricalcola();
-        // SCATTA LA FOTO QUI:
-        snapshotOrdineOriginale = JsonSerializer.Serialize(ordine);
+    using var db = new SqlConnection(conn);
+    
+    // 1. Carica la testata
+    ordine = await db.QueryFirstOrDefaultAsync<Ordine>("SELECT * FROM Ordini WHERE IDOrdine = @id", new { id });
+    
+    // 2. Carica le righe unendo la tabella Prodotti per recuperare i pezzi per confezione
+    var sql = @"
+        SELECT d.*, p.PezziPerConfezione 
+        FROM Dettaglio_Ordini d
+        LEFT JOIN Prodotti p ON d.IDProdotto = p.IDProdotto
+        WHERE d.IDOrdine = @id";
+        
+    var righe = await db.QueryAsync<DettaglioOrdine>(sql, new { id });
+    ordine.Righe = righe.ToList();
+
+    // 3. Inizializza la "memoria" per il toggle
+    foreach(var r in ordine.Righe) 
+    {
+        r.QuantitaOriginalePezzi = r.Quantita;
     }
+
+    Ricalcola();
+
+    // SCATTA LA FOTO
+    snapshotOrdineOriginale = JsonSerializer.Serialize(ordine);
+}
+
 
     private bool IsPreventivo => string.Equals(ordine.StatoOrdine, "Preventivo", StringComparison.OrdinalIgnoreCase);
 
@@ -1178,6 +1248,71 @@ private void CalcolaTotaleOrdine()
 
     private async Task Prev() { if (indiceCorrente < listaIdOrdini.Count - 1) { indiceCorrente++; await CaricaOrdine(listaIdOrdini[indiceCorrente]); } }
     private async Task Next() { if (indiceCorrente > 0) { indiceCorrente--; await CaricaOrdine(listaIdOrdini[indiceCorrente]); } }
+
+
+    
+
+
+private void ApplicaSogliaConfezione(DettaglioOrdine riga)
+{
+    if (riga.PezziPerConfezione > 1)
+    {
+        // Esempio: 160 pezzi / 100 per confezione = 1.6 -> Ceiling = 2 -> 2 * 100 = 200
+        decimal nConfezioni = Math.Ceiling(riga.Quantita / riga.PezziPerConfezione);
+        riga.Quantita = nConfezioni * riga.PezziPerConfezione;
+    }
+}
+
+private void OnQuantitaChanged(DettaglioOrdine riga, decimal nuovoValore)
+{
+    riga.Quantita = nuovoValore;
+
+    if (riga.IsConfezione)
+    {
+        // Se il toggle è attivo, forziamo subito al multiplo superiore
+        ApplicaSogliaConfezione(riga);
+    }
+    else
+    {
+        // Se il toggle è spento, aggiorniamo la "memoria" per il futuro
+        riga.QuantitaOriginalePezzi = nuovoValore;
+    }
+    
+    Ricalcola();
+}
+
+private void OnQuantitaModificata(DettaglioOrdine r)
+{
+    if (r.IsConfezione)
+    {
+        // Forza al multiplo se il toggle è attivo
+        decimal nConfezioni = Math.Ceiling(r.Quantita / r.PezziPerConfezione);
+        r.Quantita = nConfezioni * r.PezziPerConfezione;
+    }
+    else
+    {
+        // Salva in memoria per il futuro
+        r.QuantitaOriginalePezzi = r.Quantita;
+    }
+    AggiornaConteggi(r);
+}
+
+private void InvertiUsoConfezione(DettaglioOrdine r)
+{
+    r.IsConfezione = !r.IsConfezione;
+
+    if (r.IsConfezione)
+    {
+        r.QuantitaOriginalePezzi = r.Quantita; // Backup
+        decimal nConfezioni = Math.Ceiling(r.Quantita / r.PezziPerConfezione);
+        r.Quantita = nConfezioni * r.PezziPerConfezione;
+    }
+    else
+    {
+        r.Quantita = r.QuantitaOriginalePezzi; // Ripristino
+    }
+    AggiornaConteggi(r);
+}
 
 
 }
