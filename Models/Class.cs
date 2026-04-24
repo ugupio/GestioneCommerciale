@@ -86,7 +86,25 @@ public class Reso
     public string StatoReso { get; set; }
     public string Motivazione { get; set; }
     public string Aspetto { get; set; }
+
+    public string RagSociale { get; set; }
+    public string Agente { get; set; } = "Gucci";
+    public string RifDocumentoVendita { get; set; }
+    public DateTime? DataDocumentoVendita { get; set; }
+
+    // Questa conterrà le tue 'righeReso' per la stampa
+    public List<DettaglioReso> Righe { get; set; } = new();
 }
+
+public class DettaglioReso
+{
+    public string Codice { get; set; } = "";
+    public string Descrizione { get; set; } = "";
+    public decimal Quantita { get; set; }
+    public string Colore { get; set; } = "";
+    public string StatoBene { get; set; } = "";
+}
+
 
 public class DettaglioOrdine
 {
@@ -167,4 +185,15 @@ public class PerformanceData
     public int Resi { get; set; }
 }
 
+public class ElementoAgenda
+{
+    public DateTime Data { get; set; }
+    public DateTime DataFine { get; set; }
+    public string Titolo { get; set; }
+    public string Tipo { get; set; }
+    public string Dettaglio { get; set; }
+    public int PrioritaOLevel { get; set; }
+    public bool IsChiuso { get; set; }
+    public object OriginalObject { get; set; }
+}
 

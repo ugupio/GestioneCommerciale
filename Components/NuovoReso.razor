@@ -5,6 +5,8 @@
 @using GestioneCommerciale.Models
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@using QuestPDF.Fluent
+
 
 <style>
     .win-form { background-color: #f0f0f0; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; border: 1px solid #999; padding: 5px; min-width: 1000px; color: #333; position: relative; min-height: 98vh; }
@@ -20,6 +22,20 @@
     .win-grid td { border: 1px solid #eee; padding: 2px 4px; }
     .section-title { font-weight: bold; color: #005a9e; border-bottom: 1px solid #ddd; margin-bottom: 8px; font-size: 10px; text-transform: uppercase; }
     .toast-msg { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 30px; border-radius: 3px; z-index: 9999; border-left: 5px solid #dc3545; }
+    .win-grid {
+        background-color: white !important;
+        color: #333 !important;
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+    }
+    .win-grid thead th {
+        background-color: #f8f9fa !important;
+        color: #1e3c72 !important;
+        border-bottom: 2px solid #1e3c72;
+        position: sticky;
+        top: 0;
+    }
 </style>
 
 <div class="win-form">
@@ -27,20 +43,27 @@
 
     <!-- TOOLBAR -->
     <div class="toolbar-container">
-        <div style="display:flex; gap:5px;">
-            <button class="win-btn" @onclick='() => Nav.NavigateTo("/")'>🏠 Home</button>
-            <button class="win-btn" @onclick="Prev" disabled="@(indiceCorrente >= listaIdResi.Count - 1)">◀ Prec.</button>
-            <button class="win-btn" @onclick="Next" disabled="@(indiceCorrente <= 0)">Succ. ▶</button>
-        </div>
-        <div style="display:flex; gap:5px;">
-            <button class="win-btn" @onclick="IniziaNuovo">➕ Nuovo</button>
-            <button class="win-btn" @onclick="Annulla" style="background:#f1f1f1;">✖ Annulla</button>
-            <button class="win-btn" @onclick="SalvaTutto" style="background:#d4edda; border-color:#28a745;">💾 Salva</button>
-            @if (reso.IDReso > 0) {
-                <button class="win-btn" @onclick="EliminaReso" style="background:#f8d7da; border-color:#dc3545;">🗑️ Elimina</button>
-            }
-        </div>
+    <div style="display:flex; gap:5px;">
+        <button class="win-btn" @onclick='() => Nav.NavigateTo("/")'>🏠 Home</button>
+        <button class="win-btn" @onclick="Prev" disabled="@(indiceCorrente >= listaIdResi.Count - 1)">◀ Prec.</button>
+        <button class="win-btn" @onclick="Next" disabled="@(indiceCorrente <= 0)">Succ. ▶</button>
     </div>
+    <div style="display:flex; gap:5px;">
+        <button class="win-btn" @onclick="IniziaNuovo">➕ Nuovo</button>
+        <button class="win-btn" @onclick="Annulla" style="background:#f1f1f1;">✖ Annulla</button>
+        <button class="win-btn" @onclick="SalvaTutto" style="background:#d4edda; border-color:#28a745;">💾 Salva</button>
+        
+        @if (reso.IDReso > 0) {
+            <!-- PULSANTE STAMPA PDF -->
+            <button class="win-btn" @onclick="StampaDocumentoReso" style="background:#cfe2ff; border-color:#0d6efd; color:#084298; font-weight:bold;">
+                🖨️ Stampa PDF
+            </button>
+            
+            <button class="win-btn" @onclick="EliminaReso" style="background:#f8d7da; border-color:#dc3545;">🗑️ Elimina</button>
+        }
+    </div>
+</div>
+
 
     <!-- TESTATA -->
     <div class="win-group">
@@ -234,4 +257,52 @@
     }
     private async Task Prev() { if (indiceCorrente < listaIdResi.Count - 1) { indiceCorrente++; await CaricaReso(listaIdResi[indiceCorrente]); } }
     private async Task Next() { if (indiceCorrente > 0) { indiceCorrente--; await CaricaReso(listaIdResi[indiceCorrente]); } }
+
+
+    private async Task StampaDocumentoReso()
+{
+    try
+    {
+        // 1. Recuperiamo i testi descrittivi per la testata
+        var clienteSelezionato = listaClienti.FirstOrDefault(c => c.IdCliente == reso.IDCliente);
+        var ordineSelezionato = listaOrdiniCliente.FirstOrDefault(o => o.IDOrdine == reso.IDOrdine);
+
+        // 2. Popoliamo il modello per la stampa
+        reso.RagSociale = clienteSelezionato?.RagSociale ?? "________________";
+        reso.Agente = "Gucci"; 
+        
+        if (ordineSelezionato != null)
+        {
+            reso.RifDocumentoVendita = ordineSelezionato.NumeroDocumento;
+            reso.DataDocumentoVendita = ordineSelezionato.DataOrdine;
+        }
+
+        // --- FONDAMENTALE: Passiamo la tua griglia alla classe del PDF ---
+        // Se la tua classe Reso ha una lista di righe, la popoliamo ora
+        reso.Righe = righeReso.Select(x => new DettaglioReso {
+            Descrizione = $"[{x.Codice}] {x.Descrizione}", // Uniamo codice e descrizione come nel PDF originale
+            Quantita = x.Quantita,
+            Colore = "", // Se hai il colore nella tua riga, aggiungilo qui
+            StatoBene = "" 
+        }).ToList();
+
+        // 3. Generazione e Download
+        var documento = new ResoDocument(reso);
+        byte[] pdfBytes = documento.GeneratePdf();
+
+        var fileName = $"Reso_{reso.RagSociale.Replace(" ", "_")}.pdf";
+        await JS.InvokeVoidAsync("downloadFileFromStream", fileName, Convert.ToBase64String(pdfBytes));
+    }
+    catch (Exception ex)
+    {
+        await Notifica("❌ Errore durante la generazione del PDF: " + ex.Message);
+    }
+}
+
+
+}
+
+
+
+
 }

@@ -1,0 +1,327 @@
+﻿@page "/agenda"
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Nav
+@using GestioneCommerciale.Models
+@using Radzen
+@using Radzen.Blazor
+@using Microsoft.Data.SqlClient
+@using Dapper
+@inject DialogService DialogService
+
+
+
+
+
+<style>
+    /* 1. SFONDO VIVACE: Sostituisce il vecchio grigio/azzurro */
+    .agenda-wrapper { 
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); 
+        padding: 30px; 
+        min-height: 100vh; 
+        font-family: 'Segoe UI', sans-serif;
+    }
+
+    /* 2. TITOLO: Bianco con ombra per risaltare sul blu scuro */
+    .agenda-header h2 {
+        color: white !important;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        margin: 0;
+    }
+
+    /* 3. TASTI HOME/AGGIORNA: Stile Dashboard ma con contrasto elevato */
+    .win-btn-cell {
+        background: #ffffff !important;
+        color: #1e3c72 !important;
+        font-weight: bold !important;
+        border: 2px solid #ffffff !important;
+        border-radius: 12px;
+        padding: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+    }
+
+    .win-btn-cell:hover {
+        background: #00d2ff !important; /* Azzurro neon al passaggio */
+        color: white !important;
+        transform: scale(1.05);
+        border-color: #00d2ff !important;
+    }
+
+    /* 4. SCHEDULER: Effetto "Galleggiamento" sul blu */
+    .rz-scheduler {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border-radius: 20px !important;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.4) !important;
+        padding: 10px;
+        border: none !important;
+    }
+
+    /* 5. TESTI INTERNI CALENDARIO: Blu scuro per leggibilità */
+    .rz-scheduler-nav-title, .rz-view-header, .rz-slot-header {
+        color: #1e3c72 !important;
+        font-weight: bold !important;
+    }
+</style>
+
+
+
+
+
+<div class="agenda-wrapper">
+    <div class="agenda-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 20px;">
+    
+    <!-- Pulsante HOME identico alla Dashboard -->
+    <div style="width: 250px;"> <!-- Larghezza fissa per somigliare alla cella della tabella -->
+        <div class="win-btn-cell" 
+             style="cursor: pointer; text-align: center;" 
+             @onclick='() => Nav.NavigateTo("/")'>
+             🏠 TORNA ALLA HOME
+        </div>
+    </div>
+
+    <!-- Titolo Centrale -->
+    <h2 style="font-weight: 800; color: #2f3542; margin: 0; flex-grow: 1; text-align: center;">
+        📅 AGENDA GUCCI RICCARDO
+    </h2>
+
+    <!-- Pulsante AGGIORNA (anche questo in stile Dashboard per coerenza) -->
+    <div style="width: 250px;">
+        <div class="win-btn-cell" 
+             style="cursor: pointer; text-align: center; background: #f8f9fa; color: #333;" 
+             @onclick="CaricaDatiAgenda">
+             🔄 AGGIORNA DATI
+        </div>
+    </div>
+</div>
+
+
+
+    <div class="card shadow-lg p-3" style="border-radius: 20px; border: none; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px);">
+    <RadzenScheduler @ref="scheduler" 
+                     style="height: 700px;" 
+                     TValue="ElementoAgenda"
+                     Data="@ListaAgenda" 
+                     StartProperty="Data" 
+                     EndProperty="DataFine"
+                     TextProperty="Titolo" 
+                     SelectedIndex="2"
+                     AppointmentRender="@OnAppointmentRender"
+                     AppointmentSelect="@(new EventCallback<SchedulerAppointmentSelectEventArgs<ElementoAgenda>>(this, (SchedulerAppointmentSelectEventArgs<ElementoAgenda> args) => OnAppointmentSelect(args)))"
+                     AppointmentMove="@OnAppointmentMove"
+                     SlotSelect="@( (SchedulerSlotSelectEventArgs args) => OnSlotSelect(args) )">
+
+
+        <RadzenDayView Text="Giorno" />
+        <RadzenWeekView Text="Settimana" />
+        <RadzenMonthView Text="Mese" />
+        <RadzenYearView Text="Anno" />
+    </RadzenScheduler>
+
+</div>
+
+</div>
+
+<RadzenDialog />
+
+
+@code {
+    private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
+    private List<ElementoAgenda> ListaAgenda = new List<ElementoAgenda>();
+    RadzenScheduler<ElementoAgenda> scheduler;
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CaricaDatiAgenda();
+    }
+
+    private async Task CaricaDatiAgenda()
+    {
+        using var db = new SqlConnection(conn);
+        
+        var sqlVisite = @"SELECT v.*, c.RagSociale as NomeRiferimento FROM Visite v 
+                          LEFT JOIN Clienti c ON v.IDCliente = c.IdCliente";
+        var visite = await db.QueryAsync<dynamic>(sqlVisite);
+
+        var sqlAttivita = @"SELECT a.*, c.RagSociale as NomeRiferimento FROM Attivita a 
+                            LEFT JOIN Clienti c ON a.IDClienteAttivita = c.IdCliente WHERE a.Completata = 0";
+        var attivita = await db.QueryAsync<dynamic>(sqlAttivita);
+
+        ListaAgenda.Clear();
+
+        foreach (var v in visite)
+        {
+            DateTime inizio = v.DataVisita ?? DateTime.Now;
+            ListaAgenda.Add(new ElementoAgenda
+            {
+                Data = inizio,
+                DataFine = inizio.AddHours(1), // Durata stimata visita
+                Titolo = "🤝 " + (v.NomeRiferimento ?? "Cliente Sconosciuto"),
+                Tipo = "VISITA",
+                Dettaglio = v.Motivazione,
+                PrioritaOLevel = v.TemperaturaCliente,
+                OriginalObject = v
+            });
+        }
+
+        foreach (var a in attivita)
+        {
+            ListaAgenda.Add(new ElementoAgenda
+            {
+                Data = a.DataScadenza,
+                DataFine = a.DataScadenza.AddMinutes(30),
+                Titolo = "📌 " + (string.IsNullOrEmpty(a.NomeRiferimento) ? a.Descrizione : a.NomeRiferimento),
+                Tipo = "TASK",
+                Dettaglio = a.Descrizione,
+                PrioritaOLevel = a.Priorita,
+                OriginalObject = a
+            });
+        }
+        
+        if (scheduler != null) await scheduler.Reload();
+    }
+
+    void OnAppointmentRender(SchedulerAppointmentRenderEventArgs<ElementoAgenda> args)
+    {
+        // Colori professionali
+        if (args.Data.Tipo == "VISITA")
+        {
+            args.Attributes["style"] = args.Data.PrioritaOLevel == 3
+                ? "background: #ff4757; color: white;" // Caldo: Rosso
+                : "background: #1e90ff; color: white;"; // Normale: Blu
+        }
+        else
+        {
+            args.Attributes["style"] = "background: #ffa502; color: black;"; // Task: Arancio
+        }
+        args.Attributes["style"] += "border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);";
+    }
+
+    private string GetTermometro(int temp) => temp switch { 1 => "❄️", 2 => "☁️", 3 => "🔥", _ => "⚪" };
+
+    private async Task Notifica(string messaggio) => await JSRuntime.InvokeVoidAsync("alert", messaggio);
+
+
+
+    // Funzioni di supporto per la grafica
+    private string GetColor(ElementoAgenda item) => item.Tipo == "VISITA" ? "#00b4d8" : (item.PrioritaOLevel == 3 ? "#ef476f" : "#ffd166");
+    
+    
+
+    private async Task ToggleTask(ElementoAgenda item)
+    {
+        // Usiamo 'as' per tentare di convertire l'oggetto originale in Attivita
+        var task = item.OriginalObject as Attivita;
+
+        if (task != null)
+        {
+            // Invertiamo lo stato
+            task.Completata = !task.Completata;
+            item.IsChiuso = task.Completata;
+
+            using var db = new SqlConnection(conn);
+        
+            // Query blindata sull'ID specifico
+            await db.ExecuteAsync("UPDATE Attivita SET Completata = @Completata WHERE IDAttivita = @IDAttivita",
+                new { task.Completata, task.IDAttivita });
+
+            if (task.Completata)
+            {
+                await Notifica("✅ Attività completata!");
+            }
+        
+            StateHasChanged();
+        }
+    }
+
+
+    private async Task OnAppointmentSelect(SchedulerAppointmentSelectEventArgs<ElementoAgenda> args)
+{
+    var item = args.Data;
+    if (item == null) return;
+
+    await DialogService.OpenAsync(item.Titolo, ds =>
+        @<div class="p-2">
+            @* ... tutto il tuo codice HTML del popup ... *@
+            <button class="btn btn-outline-secondary" @onclick="() => ds.Close()">Chiudi</button>
+        </div>, 
+        new DialogOptions() { Width = "550px", Style = "border-radius: 18px;" });
+}
+
+async Task OnAppointmentMove(SchedulerAppointmentMoveEventArgs args)
+{
+    // 1. Recuperiamo l'oggetto corretto
+    var item = args.Appointment.Data as ElementoAgenda;
+    if (item == null) return;
+
+    // 2. Aggiorniamo le date locali (Radzen usa Start e End come proprietà dell'evento)
+    // Se la tua versione non ha .Start, usa args.Appointment.Start + args.TimeSpan
+    DateTime nuovaDataInizio = args.Appointment.Start + args.TimeSpan;
+    
+    item.Data = nuovaDataInizio;
+    item.DataFine = nuovaDataInizio.AddHours(1); // Manteniamo la durata di un'ora
+
+    using var db = new SqlConnection(conn);
+
+    if (item.Tipo == "VISITA")
+    {
+        var v = item.OriginalObject as dynamic;
+        await db.ExecuteAsync("UPDATE Visite SET DataVisita = @NuovaData WHERE IDVisita = @id", 
+            new { NuovaData = nuovaDataInizio, id = (int)v.IDVisita });
+    }
+    else
+    {
+        var a = item.OriginalObject as dynamic;
+        await db.ExecuteAsync("UPDATE Attivita SET DataScadenza = @NuovaData WHERE IDAttivita = @id", 
+            new { NuovaData = nuovaDataInizio, id = (int)a.IDAttivita });
+    }
+
+    // Ricarichiamo lo scheduler per riflettere il cambio
+    await scheduler.Reload();
+}
+
+async Task OnSlotSelect(SchedulerSlotSelectEventArgs args)
+{
+    // Creiamo un popup rapido per la scelta
+    await DialogService.OpenAsync("Nuovo Impegno", ds =>
+        @<div class="p-3 text-center">
+            <p class="mb-4">Cosa vuoi pianificare per il giorno <br/> <strong>@args.Start.ToString("dd/MM/yyyy HH:mm")</strong>?</p>
+            
+            <div class="d-grid gap-3">
+                <button class="btn btn-primary btn-lg shadow-sm" @onclick="() => { ds.Close(); NuovaVisitaRapida(args.Start); }">
+                    🚗 Nuova Visita Cliente
+                </button>
+                <button class="btn btn-warning btn-lg shadow-sm" @onclick="() => { ds.Close(); NuovoTaskRapido(args.Start); }">
+                    📌 Nuovo Promemoria / Task
+                </button>
+                <hr />
+                <button class="btn btn-light" @onclick="() => ds.Close()">Annulla</button>
+            </div>
+        </div>, 
+        new DialogOptions() { Width = "450px", Style = "border-radius: 20px;" });
+}
+
+// Metodi per l'inserimento effettivo (Esempio rapido)
+private async Task NuovaVisitaRapida(DateTime data)
+{
+    // Qui potresti aprire una maschera di inserimento visita pre-compilata con la data
+    await Notifica("Funzione di creazione Visita da collegare alla tua maschera esistente per la data: " + data);
+}
+
+private async Task NuovoTaskRapido(DateTime data)
+{
+    using var db = new SqlConnection(conn);
+    string desc = "Nuovo Task creato da Agenda";
+    await db.ExecuteAsync("INSERT INTO Attivita (Descrizione, DataScadenza, Completata, Priorita) VALUES (@desc, @data, 0, 1)", 
+        new { desc, data });
+    
+    await CaricaDatiAgenda();
+    await scheduler.Reload();
+    await Notifica("✅ Task creato correttamente!");
+}
+
+
+}
