@@ -130,7 +130,7 @@ public class DocumentoOrdine : IDocument
 
                     table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(i.ToString()).FontSize(8);
 
-                    // CELLA ARTICOLO: Codice + Descrizione (+ Lunghezza Verga se Profilo)
+                    // CELLA ARTICOLO: Codice + Descrizione (+ Info Lunghezza o Confezione)
                     table.Cell().Element(CellStyle).MinHeight(30).Text(txt =>
                     {
                         if (r != null)
@@ -139,22 +139,47 @@ public class DocumentoOrdine : IDocument
                             txt.EmptyLine();
 
                             string descrizioneInfo = r.Descrizione;
-                            // Se è una barra, aggiungiamo l'info della lunghezza per chiarezza magazzino
+
+                            // Se è una barra, aggiungiamo l'info della lunghezza
                             if (r.UmRiga == "BR" && r.LunghezzaVerga > 0)
                             {
                                 descrizioneInfo += $" (Verga L: {r.LunghezzaVerga:N2} mt)";
                             }
 
                             txt.Span(descrizioneInfo).FontSize(7);
+
+                            // --- AGGIUNTA NOTA CONFEZIONE ---
+                            if (r.IsConfezione)
+                            {
+                                txt.EmptyLine();
+                                // Calcoliamo il numero di colli per dare un riferimento extra al magazzino
+                                int nColli = (int)Math.Ceiling(r.Quantita / (decimal)r.PezziPerConfezione);
+                                txt.Span($"📦 CONFEZIONE INTERA ({nColli} {r.UmSecondaria})")
+                                   .FontSize(7)
+                                   .Italic()
+                                   .FontColor(Colors.Green.Medium);
+                            }
                         }
                     });
+
 
                     table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r?.ColoreInt ?? "").FontSize(8);
                     table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r?.ColoreEst ?? "").FontSize(8);
                     table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r != null ? r.Quantita.ToString() : "").FontSize(8);
 
-                    // UM REALE: Ora legge UmRiga (BR, PZ, MT, KG) anziché calcolarla
-                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r?.UmRiga ?? "").FontSize(7);
+                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(txt =>
+                    {
+                        if (r != null)
+                        {
+                            // Se il toggle è attivo, usa UmSecondaria, altrimenti UmRiga
+                            string umDaMostrare = (r.IsConfezione && !string.IsNullOrEmpty(r.UmSecondaria))
+                                                   ? r.UmSecondaria
+                                                   : r.UmRiga;
+
+                            txt.Span(umDaMostrare).FontSize(7);
+                        }
+                    });
+
 
                     // Sconto Intero
                     table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r != null && r.ScontoRiga > 0 ? $"{(int)Math.Round(r.ScontoRiga)}%" : "").FontSize(8);

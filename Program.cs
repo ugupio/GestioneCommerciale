@@ -2,7 +2,6 @@ using GestioneCommerciale.Components;
 using QuestPDF.Infrastructure;
 using Radzen;
 using Radzen;
-QuestPDF.Settings.License = LicenseType.Community;
 
 
 
@@ -10,10 +9,17 @@ QuestPDF.Settings.License = LicenseType.Community;
 
 
 var builder = WebApplication.CreateBuilder(args);
+QuestPDF.Settings.License = LicenseType.Community;
+
 
 // Aggiunge i servizi per i componenti Razor e la modalità Interactive Server
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents()
+    .AddHubOptions(options =>
+    {
+        // Alza il limite per permettere l'invio di file PDF grandi (10MB)
+        options.MaximumReceiveMessageSize = 10 * 1024 * 1024;
+    });
 builder.Services.AddHttpClient();
 builder.Services.AddRadzenComponents();
 

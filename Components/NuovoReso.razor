@@ -15,8 +15,6 @@
     .win-label { font-weight: 500; color: #333; font-size: 10px; display: block; margin-bottom: 2px; }
     .win-input { border: 1px solid #ccc; padding: 1px 4px; height: 21px; width: 100%; font-size: 11px; }
     .toolbar-container { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px; background: #fdfdfd; border: 1px solid #c0c0c0; margin-bottom: 5px; }
-    .win-btn { background: #e1e1e1; border: 1px solid #adadad; padding: 0 15px; color: black; font-size: 11px; height: 64px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-width: 85px; text-decoration:none; }
-    .win-btn:hover { background: #e5f1fb; border-color: #0078d7; }
     .win-grid { width: 100%; border-collapse: collapse; background: white; font-size: 10.5px; }
     .win-grid th { background: #f0f0f0; border: 1px solid #ccc; padding: 4px; text-align: left; }
     .win-grid td { border: 1px solid #eee; padding: 2px 4px; }
@@ -36,6 +34,55 @@
         position: sticky;
         top: 0;
     }
+
+    /* STILE PREMIUM TALL - GESTIONE RESI */
+    .btn-comando-ordine {
+        height: 90px !important;
+        min-width: 95px !important;
+        display: inline-flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 5px !important;
+        padding: 10px !important;
+        background: #ffffff !important;
+        color: #1e3c72 !important;
+        font-weight: bold !important;
+        border: 2px solid #ffffff !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+        transition: all 0.2s ease-in-out !important;
+        cursor: pointer !important;
+        text-transform: uppercase;
+        font-size: 10px !important;
+    }
+
+    .btn-comando-ordine:hover {
+        background: #00d2ff !important;
+        color: white !important;
+        border-color: #00d2ff !important;
+        transform: scale(1.05) !important;
+        box-shadow: 0 0 20px rgba(0, 210, 255, 0.6) !important;
+    }
+
+    .btn-comando-ordine span:first-child { font-size: 2rem !important; pointer-events: none !important; }
+    .btn-start-nav { background: #f8f9fa !important; border-color: #dee2e6 !important; }
+    .btn-start-verde { background: #d4edda !important; border-color: #28a745 !important; }
+    .btn-start-rosso { background: #f8d7da !important; border-color: #dc3545 !important; color: #721c24 !important; }
+
+    .search-wrapper-premium {
+        display: flex; align-items: center; background: white;
+        border: 2px solid #ffffff; border-radius: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1); height: 90px; overflow: hidden;
+    }
+    .search-input-premium {
+        border: none !important; padding: 0 20px !important; font-size: 16px !important;
+        flex-grow: 1; outline: none !important; height: 100%; color: #1e3c72;
+    }
+    .search-btn-premium {
+        background: #f8f9fa; border: none; width: 70px; height: 100%;
+        cursor: pointer; font-size: 1.5rem; border-left: 1px solid #eee;
+    }
 </style>
 
 <div class="win-form">
@@ -43,23 +90,45 @@
 
     <!-- TOOLBAR -->
     <div class="toolbar-container">
-    <div style="display:flex; gap:5px;">
-        <button class="win-btn" @onclick='() => Nav.NavigateTo("/")'>🏠 Home</button>
-        <button class="win-btn" @onclick="Prev" disabled="@(indiceCorrente >= listaIdResi.Count - 1)">◀ Prec.</button>
-        <button class="win-btn" @onclick="Next" disabled="@(indiceCorrente <= 0)">Succ. ▶</button>
+    <!-- NAVIGAZIONE -->
+    <div style="display:flex; gap:5px; flex-shrink: 0;">
+        <button class="btn-comando-ordine btn-start-nav" @onclick='() => Nav.NavigateTo("/")'>
+            <span>🏠</span><span>HOME</span>
+        </button>
+        <button class="btn-comando-ordine btn-start-nav" @onclick="Prev" disabled="@(indiceCorrente <= 0)">
+            <span>◀</span><span>PREC.</span>
+        </button>
+        <button class="btn-comando-ordine btn-start-nav" @onclick="Next">
+            <span>▶</span><span>SUCC.</span>
+        </button>
     </div>
-    <div style="display:flex; gap:5px;">
-        <button class="win-btn" @onclick="IniziaNuovo">➕ Nuovo</button>
-        <button class="win-btn" @onclick="Annulla" style="background:#f1f1f1;">✖ Annulla</button>
-        <button class="win-btn" @onclick="SalvaTutto" style="background:#d4edda; border-color:#28a745;">💾 Salva</button>
+
+    <!-- RICERCA RESI -->
+    <div style="flex-grow: 1; min-width: 200px;">
+        <div class="search-wrapper-premium">
+            <input type="text" class="search-input-premium" placeholder="Cerca Numero Reso o Cliente..." @bind="testoRicerca" />
+            <button class="search-btn-premium" @onclick="EseguiRicerca">🔍</button>
+        </div>
+    </div>
+
+    <!-- AZIONI RESO -->
+    <div style="display:flex; gap:5px; flex-shrink: 0;">
+        <button class="btn-comando-ordine" @onclick="IniziaNuovo">
+            <span>🔄➕</span><span>NUOVO RESO</span>
+        </button>
         
-        @if (reso.IDReso > 0) {
-            <!-- PULSANTE STAMPA PDF -->
-            <button class="win-btn" @onclick="StampaDocumentoReso" style="background:#cfe2ff; border-color:#0d6efd; color:#084298; font-weight:bold;">
-                🖨️ Stampa PDF
+        <button class="btn-comando-ordine btn-start-verde" @onclick="SalvaTutto">
+            <span>💾</span><span>SALVA</span>
+        </button>
+
+        <button class="btn-comando-ordine" style="background:#fffde7 !important;" @onclick="StampaDocumentoReso">
+            <span>📄</span><span>STAMPA</span>
+        </button>
+
+        @if(reso.IDReso > 0) {
+            <button class="btn-comando-ordine btn-start-rosso" @onclick="EliminaReso">
+                <span>🗑️</span><span>ELIMINA</span>
             </button>
-            
-            <button class="win-btn" @onclick="EliminaReso" style="background:#f8d7da; border-color:#dc3545;">🗑️ Elimina</button>
         }
     </div>
 </div>
@@ -151,6 +220,8 @@
     private string testoNotifica = "";
     private bool mostraMessaggio = false;
     private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
+    private string testoRicerca = "";
+
 
     protected override async Task OnInitializedAsync() {
         using var db = new SqlConnection(conn);
@@ -159,6 +230,21 @@
         if (listaIdResi.Any()) { indiceCorrente = 0; await CaricaReso(listaIdResi[indiceCorrente]); }
     }
 
+    
+    
+    
+    
+    private void EseguiRicerca()
+    {
+        // Qui scriverai la logica per filtrare i resi, per ora la lasciamo pronta
+    }
+
+    private void CercaEnter(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") EseguiRicerca();
+    }
+    
+    
     private async Task CaricaListaID() {
         using var db = new SqlConnection(conn);
         listaIdResi = (await db.QueryAsync<int>("SELECT IDReso FROM Resi ORDER BY DataReso DESC")).ToList();

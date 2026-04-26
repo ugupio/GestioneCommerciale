@@ -131,6 +131,7 @@ public class DettaglioOrdine
     public bool IsConfezione { get; set; } = false; // Stato del Toggle (PZ vs CT)
     public string UmSecondaria { get; set; } = "CT"; // Etichetta (es. CT, PACCO, BOX)
     public decimal QuantitaOriginalePezzi { get; set; } // La nostra "memoria"
+    public bool MostraToggleConfezione { get; set; }
 }
 
 

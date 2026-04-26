@@ -72,6 +72,42 @@
         font-weight: bold;
         font-size: 12px;
     }
+
+    .btn-premium.btn-tall {
+    height: 90px !important;           /* Ancora più basso/compatto */
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 2px !important;               /* Spazio minimo tra icona e testo */
+    cursor: pointer !important;        /* Forza la manina al posto del cursore testo */
+    text-align: center !important;
+    border-radius: 12px !important;
+    transition: all 0.2s ease-in-out !important;
+    background: #ffffff !important;
+    border: 2px solid #ffffff !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+    user-select: none !important;      /* Impedisce la selezione del testo involontaria */
+}
+
+/* EFFETTO NEON E HOVER FORZATO */
+.btn-premium.btn-tall:hover {
+    background: #00d2ff !important;    /* Azzurro neon */
+    color: white !important;
+    transform: scale(1.05);            /* Si ingrandisce leggermente */
+    border-color: #00d2ff !important;
+    box-shadow: 0 0 20px rgba(0, 210, 255, 0.6) !important; /* Effetto bagliore */
+    cursor: pointer !important;
+}
+
+/* Stile per i testi interni */
+.btn-tall span:last-child {
+    font-size: 0.7rem !important;
+    line-height: 1 !important;
+    font-weight: bold;
+    color: inherit; /* Segue il colore del padre (blu o bianco in hover) */
+}
+
 </style>
 
 <div class="win-form">
@@ -79,16 +115,51 @@
 
     <!-- MENU RAPIDO CON PULSANTI ALTI IL DOPPIO -->
     <div class="win-group">
-    <table style="width:100%; table-layout: fixed; border-spacing: 6px; border-collapse: separate;">
+    <table style="width:100%; table-layout: fixed; border-spacing: 10px; border-collapse: separate;">
         <tr>
-            <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuovo-ordine")'>🛒 GESTIONE ORDINI / PREVENTIVI</div></td>
-            <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/anagrafica-clienti")'>👥 GESTIONE CLIENTI</div></td>
-            <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuova-visita")'>📝 GESTIONE VISITE</div></td>
-            <td><div class="win-btn-cell" style="background: #e3f2fd; border-color: #2196f3; color: #0d47a1; font-weight: bold;" @onclick='() => Nav.NavigateTo("/agenda")'>📅 AGENDA / PLANNER</div></td>
-            <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/nuovo-reso")'>📦 GESTIONE RESI</div></td>
-            <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/anagrafica-prodotti")'>📦 GESTIONE PRODOTTI</div></td>
-            <td><div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/gestione-attivita")'>✅ GESTIONE TASK</div></td>
+            <td>
+                <div class="btn-premium btn-tall" @onclick='() => Nav.NavigateTo("/nuovo-ordine")'>
+                    <span style="font-size: 2.5rem;">🛒</span>
+                    <span>ORDINI /<br/>PREVENTIVI</span>
+                </div>
+            </td>
+            <td>
+                <div class="btn-premium btn-tall" @onclick='() => Nav.NavigateTo("/anagrafica-clienti")'>
+                    <span style="font-size: 2.5rem;">👥</span>
+                    <span>GESTIONE<br/>CLIENTI</span>
+                </div>
+            </td>
+            <td>
+                <div class="btn-premium btn-tall" @onclick='() => Nav.NavigateTo("/nuova-visita")'>
+                    <span style="font-size: 2.5rem;">📝</span>
+                    <span>GESTIONE<br/>VISITE</span>
+                </div>
+            </td>
+            <td>
+                <div class="btn-premium btn-tall btn-agenda-speciale" @onclick='() => Nav.NavigateTo("/agenda")'>
+                    <span style="font-size: 1.8rem; pointer-events: none;">📅</span>
+                    <span style="pointer-events: none;">AGENDA /<br/>PLANNER</span>
+                </div>
 
+            </td>
+            <td>
+                <div class="btn-premium btn-tall" @onclick='() => Nav.NavigateTo("/nuovo-reso")'>
+                    <span style="font-size: 2.5rem;">📦</span>
+                    <span>GESTIONE<br/>RESI</span>
+                </div>
+            </td>
+            <td>
+                <div class="btn-premium btn-tall" @onclick='() => Nav.NavigateTo("/anagrafica-prodotti")'>
+                    <span style="font-size: 2.5rem;">⚙️</span>
+                    <span>GESTIONE<br/>PRODOTTI</span>
+                </div>
+            </td>
+            <td>
+                <div class="btn-premium btn-tall" @onclick='() => Nav.NavigateTo("/gestione-attivita")'>
+                    <span style="font-size: 2.5rem;">✅</span>
+                    <span>GESTIONE<br/>TASK</span>
+                </div>
+            </td>
         </tr>
     </table>
 </div>

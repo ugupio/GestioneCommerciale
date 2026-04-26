@@ -21,8 +21,6 @@
     .win-input { border: 1px solid #ccc; padding: 1px 4px; height: 21px; width: 100%; font-size: 11px; }
     .win-input:focus { background: #faffbd; outline: 1px solid #0078d7; }
     .toolbar-container { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px; background: #fdfdfd; border: 1px solid #c0c0c0; margin-bottom: 5px; }
-    .win-btn { background: #e1e1e1; border: 1px solid #adadad; padding: 0 15px; color: black; font-size: 11px; height: 64px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-width: 85px; text-decoration:none; }
-    .win-btn:hover { background: #e5f1fb; border-color: #0078d7; }
     .win-grid { width: 100%; border-collapse: collapse; background: white; font-size: 10.5px; }
     .win-grid th { background: #f0f0f0; border: 1px solid #ccc; padding: 4px; text-align: left; position: sticky; top: 0; z-index: 10; }
     .win-grid td { border: 1px solid #eee; padding: 2px 4px; }
@@ -78,6 +76,52 @@
     border: 1px solid #ccc;
 }
 
+/* --- NUOVO STILE PULSANTI --- */
+.btn-comando-ordine {
+    height: 90px !important;           /* Altezza "Dashboard Style" */
+    min-width: 100px !important;        /* Larghezza minima per farli quadrati */
+    display: inline-flex !important;
+    flex-direction: column !important;  /* Icona sopra, testo sotto */
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    padding: 10px !important;
+    background: #ffffff !important;
+    color: #1e3c72 !important;
+    font-weight: bold !important;
+    border: 2px solid #ffffff !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+    transition: all 0.2s ease-in-out !important;
+    cursor: pointer !important;
+    text-transform: uppercase;
+    font-size: 10px;                   /* Testo compatto */
+    user-select: none !important;
+}
+
+
+/* Effetto Neon (lo stesso) */
+.btn-comando-ordine:hover {
+    background: #00d2ff !important;
+    color: white !important;
+    border-color: #00d2ff !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 0 20px rgba(0, 210, 255, 0.6) !important;
+}
+
+/* Colori iniziali tasti specifici */
+.btn-start-verde { background: #d4edda !important; border-color: #28a745 !important; }
+.btn-start-rosso { background: #f8d7da !important; border-color: #dc3545 !important; color: #721c24 !important; }
+.btn-start-azzurro { background: #e3f2fd !important; border-color: #2196f3 !important; }
+.btn-start-nav { background: #f8f9fa !important; border-color: #dee2e6 !important; }
+
+/* Dimensione Icona (Emoji) */
+.btn-comando-ordine span:first-child {
+    font-size: 2rem !important; 
+    pointer-events: none !important;
+}
+
+
 
 </style>
 
@@ -86,11 +130,19 @@
 
     <!-- TOOLBAR -->
     <div class="toolbar-container">
-        <div style="display:flex; gap:5px;">
-            <button class="win-btn" @onclick='() => Nav.NavigateTo("/")'>🏠 Home</button>
-            <button class="win-btn" @onclick="() => VaiA(Prev)">◀ Prec.</button>
-            <button class="win-btn" @onclick="() => VaiA(Next)">Succ. ▶</button>
-        </div>
+        <!-- BARRA NAVIGAZIONE -->
+<div style="display:flex; gap:10px; margin-bottom: 15px;">
+    <button class="btn-comando-ordine btn-start-nav" @onclick='() => Nav.NavigateTo("/")'>
+        <span>🏠</span> HOME
+    </button>
+    <button class="btn-comando-ordine btn-start-nav" @onclick="() => VaiA(Prev)">
+        <span>◀</span> PREC.
+    </button>
+    <button class="btn-comando-ordine btn-start-nav" @onclick="() => VaiA(Next)">
+         <span>▶</span><span>SUCC.</span>
+    </button>
+</div>
+
 
         <div style="display:flex; gap:20px; align-items:center;">
             <div style="text-align:right;">
@@ -103,17 +155,30 @@
             </div>
         </div>
 
-        <div style="display:flex; gap:5px;">
-            <button class="win-btn" @onclick="() => VaiA(IniziaNuovo)">➕ Nuovo</button>
-            <button class="win-btn" @onclick="Annulla" style="background:#f1f1f1;">✖ Annulla</button>
-            <button class="win-btn" @onclick="SalvaTutto" style="background:#d4edda; border-color:#28a745;">💾 Salva</button>
-            @if (ordine.IDOrdine > 0)
-            {
-                <button class="win-btn" @onclick="EliminaOrdine" style="background:#f8d7da; border-color:#dc3545; color:#721c24;">🗑️ Elimina</button>
-            }
-            <button class="win-btn" style="background:#fff;" @onclick="GeneraIlMioPdf">🖨️ PDF</button>
-            <button class="win-btn" style="background:#e3f2fd;" @onclick="InviaOrdineViaEmail">📧 Invia Email</button>
-        </div>
+        <div style="display:flex; gap:10px; flex-wrap: wrap;">
+    <button class="btn-comando-ordine" @onclick="() => VaiA(IniziaNuovo)">
+        <span>➕</span> NUOVO
+    </button>
+
+    <button class="btn-comando-ordine btn-start-verde" @onclick="SalvaTutto">
+        <span>💾</span> SALVA
+    </button>
+
+    @if (ordine.IDOrdine > 0) {
+        <button class="btn-comando-ordine btn-start-rosso" @onclick="EliminaOrdine">
+            <span>🗑️</span> ELIMINA
+        </button>
+    }
+
+    <button class="btn-comando-ordine" @onclick="GeneraIlMioPdf">
+        <span>🖨️</span> PDF
+    </button>
+
+    <button class="btn-comando-ordine btn-start-azzurro" @onclick="InviaOrdineViaEmail">
+        <span>📧</span> EMAIL
+    </button>
+</div>
+
     </div>
 
     <!-- TESTATA -->
@@ -345,11 +410,12 @@
                @bind:event="oninput" 
                @onchange="@(() => OnQuantitaModificata(r))" />
 
-        @if (r.IsAccessorio && r.PezziPerConfezione > 1)
+        @if (r.IsAccessorio)
         {
             <!-- Toggle compatto sotto l'input -->
-            <div @onclick="() => InvertiUsoConfezione(r)" 
-                 style="cursor:pointer; font-size: 0.65rem; margin-top: 2px; padding: 1px 5px; border-radius: 4px; border: 1px solid @(r.IsConfezione ? "#28a745" : "#ccc"); background-color: @(r.IsConfezione ? "#e8f5e9" : "#f8f9fa"); color: @(r.IsConfezione ? "#1b5e20" : "#6c757d"); min-width: 60px; text-align: center; user-select: none;">
+            <div @onclick="() => InvertiUsoConfezione(r)"
+                @onclick:stopPropagation="true"
+                 style="cursor:pointer; font-size: 0.65rem; margin-top: 2px; padding: 1px 5px;z-index:999; border-radius: 4px; border: 1px solid @(r.IsConfezione ? "#28a745" : "#ccc"); background-color: @(r.IsConfezione ? "#e8f5e9" : "#f8f9fa"); color: @(r.IsConfezione ? "#1b5e20" : "#6c757d"); min-width: 60px; text-align: center; user-select: none;">
                 
                 @if (r.IsConfezione)
                 {
@@ -595,6 +661,7 @@ else
                 await JS.InvokeVoidAsync("alert", "ERRORE GENERAZIONE: " + ex.Message);
             }
         }
+
 }
 
 
@@ -867,6 +934,11 @@ private async Task InviaOrdineViaEmail()
     }
 }
 
+    
+
+
+    
+
 
     private decimal PesoTotale => ordine.Righe.Where(x => !x.IsAccessorio).Sum(x => x.Quantita * x.LunghezzaVerga * x.PesoAlMetro);
 
@@ -876,12 +948,29 @@ private async Task InviaOrdineViaEmail()
     }
 
     private void Ricalcola() {
-        foreach (var r in ordine.Righe) {
-            decimal lordo = r.IsAccessorio ? (r.Quantita * r.PrezzoUnitario) : (r.Quantita * r.LunghezzaVerga * r.PesoAlMetro * r.PrezzoUnitario);
-            r.PrezzoTotaleRiga = lordo * (1 - (r.ScontoRiga / 100));
+    foreach (var r in ordine.Righe) {
+        // --- LOGICA CONFEZIONI ---
+        // Se i pezzi inseriti sono un multiplo esatto dei pezzi per confezione (e > 0)
+        if (r.PezziPerConfezione > 0 && r.Quantita >= r.PezziPerConfezione && (r.Quantita % r.PezziPerConfezione == 0)) 
+        {
+            r.MostraToggleConfezione = true; // Proprietà da usare nell' @if del toggle
         }
-        ordine.TotaleImponibile = ordine.Righe.Sum(x => x.PrezzoTotaleRiga);
+        else 
+        {
+            r.MostraToggleConfezione = false;
+            r.IsConfezione = false; // Se diminuisco la q.tà sotto la soglia, torno a pezzi singoli
+        }
+
+        // --- LOGICA CALCOLO PREZZI ---
+        // Se è una confezione, il calcolo potrebbe differire (es. prezzo a pacco o manteniamo il prezzo unitario?)
+        // Per ora manteniamo la tua logica originale:
+        decimal lordo = r.IsAccessorio ? (r.Quantita * r.PrezzoUnitario) : (r.Quantita * r.LunghezzaVerga * r.PesoAlMetro * r.PrezzoUnitario);
+        r.PrezzoTotaleRiga = lordo * (1 - (r.ScontoRiga / 100));
     }
+    ordine.TotaleImponibile = ordine.Righe.Sum(x => x.PrezzoTotaleRiga);
+    StateHasChanged(); // Forza Blazor a ridisegnare la UI e mostrare i toggle
+}
+
 
     private void AggiungiRiga(bool isAcc) {
     var r = isAcc ? rigaA : rigaP;
@@ -890,6 +979,7 @@ private async Task InviaOrdineViaEmail()
     ordine.Righe.Add(new DettaglioOrdine {
     IDProdotto = r.IDProdotto,          // <--- FONDAMENTALE per il legame
     PezziPerConfezione = r.PezziPerConfezione, // <--- FONDAMENTALE per il Toggle
+    UmSecondaria = string.IsNullOrEmpty(r.UmSecondaria) ? "CT" : r.UmSecondaria, // <--- PRENDE IL DATO DAL DB
     CodiceProdotto = r.CodiceProdotto,
     Descrizione = r.Descrizione,
     UmRiga = r.UmRiga,
@@ -903,7 +993,6 @@ private async Task InviaOrdineViaEmail()
     ColoreInt = r.ColoreInt, 
     ColoreEst = r.ColoreEst, 
     FinituraAccessorio = r.FinituraAccessorio,
-    UmSecondaria = "CT" // Valore di default per il toggle
 });
 
 
@@ -915,6 +1004,50 @@ private async Task InviaOrdineViaEmail()
     else 
         rigaP = new() { IsAccessorio = false, Quantita = 1, LunghezzaVerga = 6.50m };
 }
+
+
+
+private async Task InvertiUsoConfezione(DettaglioOrdine r)
+{
+    // 1. Controllo di sicurezza: se i pezzi sono 0 o 1, il calcolo è inutile
+    if (r.PezziPerConfezione <= 1) 
+    {
+        await JS.InvokeVoidAsync("alert", $"Attenzione: Pezzi per confezione è {r.PezziPerConfezione}. Controlla l'anagrafica del prodotto {r.CodiceProdotto}!");
+        r.IsConfezione = !r.IsConfezione;
+        StateHasChanged();
+        return;
+    }
+
+    r.IsConfezione = !r.IsConfezione;
+
+    if (r.IsConfezione)
+    {
+        r.QuantitaOriginalePezzi = r.Quantita; // Salviamo (es. 20)
+
+        // 2. Calcolo arrotondamento
+        decimal qDaCalcolare = r.Quantita > 0 ? r.Quantita : 1;
+        decimal nConfezioni = Math.Ceiling(qDaCalcolare / (decimal)r.PezziPerConfezione);
+        
+        // Aggiornamento quantità reale
+        r.Quantita = nConfezioni * r.PezziPerConfezione;
+        
+        await JS.InvokeVoidAsync("console.log", $"Confezione attivata: {nConfezioni} colli. Nuova Q.tà: {r.Quantita}");
+    }
+    else
+    {
+        // Ripristino
+        r.Quantita = r.QuantitaOriginalePezzi;
+    }
+
+    AggiornaConteggi(r); // Questo deve ricalcolare r.PrezzoTotaleRiga
+    StateHasChanged(); // Obbligatorio per vedere il cambio nell'input
+}
+
+
+
+
+
+
 
 
     private void RimuoviRiga(DettaglioOrdine r) { ordine.Righe.Remove(r); Ricalcola(); }
@@ -942,15 +1075,16 @@ private async Task InviaOrdineViaEmail()
     
     // AGGIORNATO v2.6: Inclusi i campi per la gestione confezioni e IDProdotto
     string sqlR = @"INSERT INTO Dettaglio_Ordini 
-                    (IDOrdine, IDProdotto, CodiceProdotto, Descrizione, Quantita, UmRiga, 
-                     PrezzoUnitario, ScontoRiga, ColoreInt, ColoreEst, IsAccessorio, 
-                     FinituraAccessorio, LunghezzaVerga, PesoAlMetro, 
-                     PezziPerConfezione, IsConfezione, QuantitaOriginalePezzi) 
-                    VALUES 
-                    (@IDOrdine, @IDProdotto, @CodiceProdotto, @Descrizione, @Quantita, @UmRiga, 
-                     @PrezzoUnitario, @ScontoRiga, @ColoreInt, @ColoreEst, @IsAccessorio, 
-                     @FinituraAccessorio, @LunghezzaVerga, @PesoAlMetro, 
-                     @PezziPerConfezione, @IsConfezione, @QuantitaOriginalePezzi)";
+                (IDOrdine, IDProdotto, CodiceProdotto, Descrizione, Quantita, UmRiga, 
+                 PrezzoUnitario, ScontoRiga, ColoreInt, ColoreEst, IsAccessorio, 
+                 FinituraAccessorio, LunghezzaVerga, PesoAlMetro, 
+                 PezziPerConfezione, IsConfezione, QuantitaOriginalePezzi, UmSecondaria) 
+                VALUES 
+                (@IDOrdine, @IDProdotto, @CodiceProdotto, @Descrizione, @Quantita, @UmRiga, 
+                 @PrezzoUnitario, @ScontoRiga, @ColoreInt, @ColoreEst, @IsAccessorio, 
+                 @FinituraAccessorio, @LunghezzaVerga, @PesoAlMetro, 
+                 @PezziPerConfezione, @IsConfezione, @QuantitaOriginalePezzi, @UmSecondaria)"; 
+
     
     await db.ExecuteAsync(sqlR, r, tx);
 }
@@ -1003,24 +1137,24 @@ private async Task InviaOrdineViaEmail()
     
     // 2. Carica le righe unendo la tabella Prodotti per recuperare i pezzi per confezione
     var sql = @"
-        SELECT d.*, p.PezziPerConfezione 
-        FROM Dettaglio_Ordini d
-        LEFT JOIN Prodotti p ON d.IDProdotto = p.IDProdotto
-        WHERE d.IDOrdine = @id";
-        
-    var righe = await db.QueryAsync<DettaglioOrdine>(sql, new { id });
-    ordine.Righe = righe.ToList();
+    SELECT d.*, p.PezziPerConfezione, p.UMSecondaria 
+    FROM Dettaglio_Ordini d
+    LEFT JOIN Prodotti p ON d.CodiceProdotto = p.CodiceProdotto
+    WHERE d.IDOrdine = @id";
+    
+var righe = await db.QueryAsync<DettaglioOrdine>(sql, new { id });
+ordine.Righe = righe.ToList();
 
-    // 3. Inizializza la "memoria" per il toggle
-    foreach(var r in ordine.Righe) 
-    {
-        r.QuantitaOriginalePezzi = r.Quantita;
+
+// DEBUG MANUALE: Forza un valore se è 1 per testare il toggle
+foreach(var r in ordine.Righe) {
+    if(r.PezziPerConfezione <= 1) {
+        // Se arriviamo qui, la query ha fallito il recupero dei pezzi
+        // Prova a stampare in console per capire quale codice fallisce
+        Console.WriteLine($"ERRORE: Pezzi non caricati per {r.CodiceProdotto}");
     }
-
-    Ricalcola();
-
-    // SCATTA LA FOTO
-    snapshotOrdineOriginale = JsonSerializer.Serialize(ordine);
+}
+StateHasChanged();
 }
 
 
@@ -1257,11 +1391,14 @@ private void ApplicaSogliaConfezione(DettaglioOrdine riga)
 {
     if (riga.PezziPerConfezione > 1)
     {
-        // Esempio: 160 pezzi / 100 per confezione = 1.6 -> Ceiling = 2 -> 2 * 100 = 200
-        decimal nConfezioni = Math.Ceiling(riga.Quantita / riga.PezziPerConfezione);
+        // Se la quantità è 0 o negativa, ipotizziamo che voglia almeno 1 confezione
+        decimal qDaCalcolare = riga.Quantita > 0 ? riga.Quantita : 1;
+
+        decimal nConfezioni = Math.Ceiling(qDaCalcolare / (decimal)riga.PezziPerConfezione);
         riga.Quantita = nConfezioni * riga.PezziPerConfezione;
     }
 }
+
 
 private void OnQuantitaChanged(DettaglioOrdine riga, decimal nuovoValore)
 {
@@ -1297,22 +1434,8 @@ private void OnQuantitaModificata(DettaglioOrdine r)
     AggiornaConteggi(r);
 }
 
-private void InvertiUsoConfezione(DettaglioOrdine r)
-{
-    r.IsConfezione = !r.IsConfezione;
 
-    if (r.IsConfezione)
-    {
-        r.QuantitaOriginalePezzi = r.Quantita; // Backup
-        decimal nConfezioni = Math.Ceiling(r.Quantita / r.PezziPerConfezione);
-        r.Quantita = nConfezioni * r.PezziPerConfezione;
-    }
-    else
-    {
-        r.Quantita = r.QuantitaOriginalePezzi; // Ripristino
-    }
-    AggiornaConteggi(r);
-}
+
 
 
 }

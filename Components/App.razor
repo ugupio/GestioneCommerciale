@@ -36,20 +36,26 @@
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 
     <script>
-        // QUESTA È L'UNICA CHE SERVE PER IL TUO PDF IN BASE64
-        window.downloadFileFromStream = (fileName, base64String) => {
-        const link = document.createElement('a');
-        link.download = fileName;
-        link.href = 'data:application/pdf;base64,' + base64String;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        window.downloadFileFromStream = async (fileName, contentStreamReference) => {
+        const arrayBuffer = await contentStreamReference.arrayBuffer();
+        const blob = new Blob([arrayBuffer]);
+        const url = URL.createObjectURL(blob);
+        const anchorElement = document.createElement('a');
+        anchorElement.href = url;
+        anchorElement.download = fileName ?? '';
+        anchorElement.click();
+        anchorElement.remove();
+        URL.revokeObjectURL(url);
         }
 
+    </script>
+
+    <script>
         window.openInNewTab = (url) => {
         window.open(url, '_blank');
         };
-    </script>
+
+	</script>
 
     <script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
 </body>

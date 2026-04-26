@@ -20,8 +20,6 @@
     .win-label { font-weight: 500; color: #333; padding-right: 5px; white-space: nowrap; text-align: right; font-size: 10.5px; }
     .win-input { border: 1px solid #ccc; padding: 1px 4px; height: 21px; width: 100%; font-size: 11px; }
     .toolbar-container { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px; background: #fdfdfd; border: 1px solid #c0c0c0; margin-bottom: 5px; }
-    .win-btn { background: #e1e1e1; border: 1px solid #adadad; padding: 0 15px; color: black; font-size: 11px; height: 72px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-width: 85px; text-decoration:none; }
-    .win-btn:hover { background: #e5f1fb; border-color: #0078d7; }
     .section-title { font-weight: bold; color: #005a9e; border-bottom: 1px solid #ddd; margin-bottom: 8px; font-size: 10px; text-transform: uppercase; }
     .toast-msg { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 30px; border-radius: 3px; z-index: 9999; box-shadow: 0 5px 15px rgba(0,0,0,0.4); border-left: 5px solid #005a9e; font-size: 13px; }
     .vicini-box { font-size: 10px; border-bottom: 1px solid #eee; padding: 4px 0; display: flex; justify-content: space-between; align-items: center; }
@@ -74,34 +72,147 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
+    /* STILE PREMIUM TALL PER GESTIONE VISITE */
+    .btn-comando-ordine {
+        height: 90px !important;
+        min-width: 90px !important;
+        display: inline-flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 5px !important;
+        padding: 10px !important;
+        background: #ffffff !important;
+        color: #1e3c72 !important;
+        font-weight: bold !important;
+        border: 2px solid #ffffff !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+        transition: all 0.2s ease-in-out !important;
+        cursor: pointer !important;
+        text-transform: uppercase;
+        font-size: 10px !important;
+        user-select: none !important;
+    }
+
+    .btn-comando-ordine:hover {
+        background: #00d2ff !important;
+        color: white !important;
+        border-color: #00d2ff !important;
+        transform: scale(1.05) !important;
+        box-shadow: 0 0 20px rgba(0, 210, 255, 0.6) !important;
+    }
+
+    .btn-comando-ordine span:first-child { font-size: 2rem !important; pointer-events: none !important; }
+    .btn-start-nav { background: #f8f9fa !important; border-color: #dee2e6 !important; }
+    .btn-start-verde { background: #d4edda !important; border-color: #28a745 !important; }
+    .btn-start-rosso { background: #f8d7da !important; border-color: #dc3545 !important; color: #721c24 !important; }
+
+    /* Barra Ricerca */
+    .search-wrapper-premium {
+        display: flex; align-items: center; background: white;
+        border: 2px solid #ffffff; border-radius: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1); height: 90px; overflow: hidden;
+    }
+    .search-input-premium {
+        border: none !important; padding: 0 20px !important; font-size: 16px !important;
+        flex-grow: 1; outline: none !important; height: 100%; color: #1e3c72;
+    }
+    .search-btn-premium {
+        background: #f8f9fa; border: none; width: 70px; height: 100%;
+        cursor: pointer; font-size: 1.5rem; border-left: 1px solid #eee;
+    }
+
+     /* Box per la data in stile Premium */
+    .date-wrapper-premium {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #fff;
+        border: 2px solid #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        height: 90px;
+        padding: 5px 15px;
+        min-width: 160px;
+    }
+    
+    .date-input-premium {
+        border: none !important;
+        outline: none !important;
+        font-size: 14px !important;
+        color: #1e3c72 !important;
+        background: transparent !important;
+        cursor: pointer;
+    }
+    .date-label-premium {
+    font-size: 9px;
+    font-weight: bold;
+    color: #005a9e;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+}
+
 </style>
 
 <div class="win-form">
     <div class="win-header">Gestione Visite Professional - CRM GestAgenti by Riccardo Gucci soft.</div>
 
     <div class="toolbar-container">
-        <div style="display:flex; gap:5px;">
-            <button class="win-btn" @onclick="CheckAndGoHome">🏠 Home</button>
-            <button class="win-btn" @onclick="Prev" disabled="@(indiceCorrente <= 0)">◀ Prec.</button>
-            <button class="win-btn" @onclick="Next" disabled="@(indiceCorrente >= listaIdVisite.Count - 1 || indiceCorrente == -1)">Succ. ▶</button>
+        <div style="display:flex; flex-wrap: nowrap; align-items: stretch; gap:10px; margin-bottom: 20px; width: 100%;">
+    
+    <!-- GRUPPO NAVIGAZIONE -->
+    <div style="display:flex; gap:5px; flex-shrink: 0;">
+        <button class="btn-comando-ordine btn-start-nav" @onclick="CheckAndGoHome">
+            <span>🏠</span><span>HOME</span>
+        </button>
+        <button class="btn-comando-ordine btn-start-nav" @onclick="Prev" disabled="@(indiceCorrente <= 0)">
+            <span>◀</span><span>PREC.</span>
+        </button>
+        <button class="btn-comando-ordine btn-start-nav" @onclick="Next" disabled="@(indiceCorrente >= listaIdVisite.Count - 1 || indiceCorrente == -1)">
+            <span>▶</span><span>SUCC.</span>
+        </button>
+    </div>
+    
+    <!-- BARRA DI RICERCA -->
+    <div style="flex-grow: 1; min-width: 200px;">
+        <div class="search-wrapper-premium">
+            <input type="text" class="search-input-premium" placeholder="Cerca Cliente..." 
+                   @bind="testoRicerca" @bind:event="oninput" @onkeyup="CercaEnter" />
+            <button class="search-btn-premium" @onclick="EseguiRicerca">🔍</button>
         </div>
+    </div>
+
+    <!-- GRUPPO DATA E AZIONI -->
+    <div style="display:flex; gap:8px; flex-shrink: 0;">
         
-        <div style="flex-grow: 1; max-width: 400px; display:flex; gap:0;">
-            <input type="text" class="win-input" style="height:36px; font-size:13px; border-right:none; border-radius: 2px 0 0 2px;" placeholder="Cerca Cliente..." @bind="testoRicerca" @bind:event="oninput" @onkeyup="CercaEnter" />
-            <button style="height:36px; width:40px; background:#e1e1e1; border:1px solid #ccc; cursor:pointer; border-radius: 0 2px 2px 0;" @onclick="EseguiRicerca">🔍</button>
+        <!-- DATA REPORT -->
+        <div class="date-wrapper-premium">
+            <span class="date-label-premium">DATA REPORT</span>
+            <input type="date" class="date-input-premium" @bind="dataReport" />
         </div>
 
-        <div style="display:flex; gap:5px;">
-            <label class="win-label">Data Report:</label>
-            <input type="date" class="win-input" @bind="dataReport" style="width:150px;" />
-            <button class="win-btn" style="background:#fff176;" @onclick="ScaricaReportGiornaliero"> 🖨️ Esporta PDF Giornata  </button>
-            <button class="win-btn" @onclick="Nuovo" style="background:#fff;">📄 Nuova</button>
-            <button class="win-btn" @onclick="Annulla" style="background:#f1f1f1;">✖ Annulla</button>
-            <button class="win-btn" @onclick="Salva" style="background:#d4edda; border-color:#28a745;">💾 Salva</button>
-            @if(v.IDVisita > 0) {
-                <button class="win-btn" @onclick="Elimina" style="background:#f8d7da; border-color:#dc3545; color:#721c24;">🗑 Elimina</button>
-            }
-        </div>
+        <button class="btn-comando-ordine" style="background:#fff176 !important;" @onclick="ScaricaReportGiornaliero">
+            <span>🖨️</span><span>REPORT</span>
+        </button>
+
+        <button class="btn-comando-ordine" @onclick="Nuovo">
+            <span>📄</span><span>NUOVA</span>
+        </button>
+
+        <button class="btn-comando-ordine btn-start-verde" @onclick="Salva">
+            <span>💾</span><span>SALVA</span>
+        </button>
+
+        @if(v.IDVisita > 0) {
+            <button class="btn-comando-ordine btn-start-rosso" @onclick="Elimina">
+                <span>🗑️</span><span>ELIMINA</span>
+            </button>
+        }
+    </div>
+</div>
+
     </div>
 
     <div style="display: flex; gap: 10px;">
