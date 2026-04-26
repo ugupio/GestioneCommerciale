@@ -1,10 +1,6 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 
-
-
-
-
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -15,19 +11,6 @@
     <ImportMap />
     <HeadOutlet @rendermode="InteractiveServer" />
     <link rel="stylesheet" href="_content/Radzen.Blazor/css/material-base.css">
-
-    
-
-
-
-
-
-
-
-
-
-
-
 </head>
 
 <body>
@@ -37,16 +20,21 @@
 
     <script>
         window.downloadFileFromStream = async (fileName, contentStreamReference) => {
+        // Questa riga trasforma lo stream di Blazor in dati leggibili dal browser
         const arrayBuffer = await contentStreamReference.arrayBuffer();
         const blob = new Blob([arrayBuffer]);
         const url = URL.createObjectURL(blob);
+    
         const anchorElement = document.createElement('a');
         anchorElement.href = url;
         anchorElement.download = fileName ?? '';
         anchorElement.click();
+    
+        // Pulizia
         anchorElement.remove();
         URL.revokeObjectURL(url);
         }
+
 
     </script>
 

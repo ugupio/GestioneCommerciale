@@ -210,8 +210,8 @@
 
 @code {
     private Reso reso = new() { DataReso = DateTime.Now, StatoReso = "Aperto" };
-    private RigaReso nuovaRiga = new() { Quantita = 1 };
-    private List<RigaReso> righeReso = new();
+    private DettaglioReso nuovaRiga = new() { Quantita = 1 };
+    private List<DettaglioReso> righeReso = new();
     private List<Cliente> listaClienti = new();
     private List<int> listaIdResi = new();
     private List<Ordine> listaOrdiniCliente = new();
@@ -224,11 +224,23 @@
 
 
     protected override async Task OnInitializedAsync() {
-        using var db = new SqlConnection(conn);
-        listaClienti = (await db.QueryAsync<Cliente>("SELECT IdCliente, RagSociale FROM Clienti ORDER BY RagSociale")).ToList();
-        await CaricaListaID();
-        if (listaIdResi.Any()) { indiceCorrente = 0; await CaricaReso(listaIdResi[indiceCorrente]); }
+    using var db = new SqlConnection(conn);
+    
+    // AGGIORNATA: Ora scarichiamo tutti i campi necessari per l'indirizzo e la P.IVA
+    string sql = @"SELECT IdCliente, RagSociale, Ind_legale, CAP_Legale, 
+                          Citta_Legale, Prov_Legale, PIva 
+                   FROM Clienti 
+                   ORDER BY RagSociale";
+    
+    listaClienti = (await db.QueryAsync<Cliente>(sql)).ToList();
+    
+    await CaricaListaID();
+    if (listaIdResi.Any()) { 
+        indiceCorrente = 0; 
+        await CaricaReso(listaIdResi[indiceCorrente]); 
     }
+}
+
 
     
     
@@ -260,8 +272,16 @@
             reso = loaded;
         }
         dataSolo = reso.DataReso ?? DateTime.Now;
-        var rows = db.Query<RigaReso>("SELECT * FROM Dettaglio_Resi WHERE IDReso = @id", new { id });
-        righeReso = rows?.ToList() ?? new List<RigaReso>();
+        var rows = db.Query<DettaglioReso>("SELECT * FROM Dettaglio_Resi WHERE IDReso = @id", new { id });
+        righeReso = rows?.Select(x => new DettaglioReso 
+{ 
+    Codice = x.Codice, 
+    Descrizione = x.Descrizione, 
+    Quantita = x.Quantita, 
+    Colore = "", // O x.Colore se esisteva
+    StatoBene = "" 
+}).ToList() ?? new List<DettaglioReso>();
+
         // carica ordini per il cliente associato al reso
         await CaricaOrdiniCliente(reso.IDCliente);
     }
@@ -290,8 +310,8 @@
 
     private void AggiungiRiga() {
         if (string.IsNullOrEmpty(nuovaRiga.Codice)) return;
-        righeReso.Add(new RigaReso { Codice = nuovaRiga.Codice, Descrizione = nuovaRiga.Descrizione, Quantita = nuovaRiga.Quantita });
-        nuovaRiga = new RigaReso { Quantita = 1 };
+        righeReso.Add(new DettaglioReso { Codice = nuovaRiga.Codice, Descrizione = nuovaRiga.Descrizione, Quantita = nuovaRiga.Quantita });
+        nuovaRiga = new DettaglioReso { Quantita = 1 };
     }
 
     private async Task SalvaTutto() {
@@ -312,7 +332,7 @@
 
             await db.ExecuteAsync("DELETE FROM Dettaglio_Resi WHERE IDReso = @id", new { id = reso.IDReso }, tx);
             foreach (var r in righeReso) {
-                r.IDReso = reso.IDReso;
+                r.Codice = reso.IDReso.ToString();
                 await db.ExecuteAsync("INSERT INTO Dettaglio_Resi (IDReso, Codice, Descrizione, Quantita) VALUES (@IDReso, @Codice, @Descrizione, @Quantita)", r, tx);
             }
             tx.Commit();
@@ -354,7 +374,20 @@
         var ordineSelezionato = listaOrdiniCliente.FirstOrDefault(o => o.IDOrdine == reso.IDOrdine);
 
         // 2. Popoliamo il modello per la stampa
-        reso.RagSociale = clienteSelezionato?.RagSociale ?? "________________";
+        if (clienteSelezionato != null)
+{
+    reso.RagSociale = clienteSelezionato.RagSociale;
+    reso.Indirizzo = clienteSelezionato.Ind_legale ?? "Indirizzo mancante in DB";
+    reso.CAP = clienteSelezionato.CAP_Legale ?? "";
+    reso.Citta = clienteSelezionato.Citta_Legale ?? "";
+    reso.Provincia = clienteSelezionato.Prov_Legale ?? "";
+    reso.PIva = clienteSelezionato.PIva ?? "";
+}
+        else
+        {
+            reso.RagSociale = "________________";
+        }
+
         reso.Agente = "Gucci"; 
         
         if (ordineSelezionato != null)
@@ -363,21 +396,30 @@
             reso.DataDocumentoVendita = ordineSelezionato.DataOrdine;
         }
 
-        // --- FONDAMENTALE: Passiamo la tua griglia alla classe del PDF ---
-        // Se la tua classe Reso ha una lista di righe, la popoliamo ora
-        reso.Righe = righeReso.Select(x => new DettaglioReso {
-            Descrizione = $"[{x.Codice}] {x.Descrizione}", // Uniamo codice e descrizione come nel PDF originale
-            Quantita = x.Quantita,
-            Colore = "", // Se hai il colore nella tua riga, aggiungilo qui
-            StatoBene = "" 
-        }).ToList();
+        // --- POPOLAMENTO RIGHE (Mapping finale) ---
+reso.Righe = righeReso.Select(x => new DettaglioReso {
+    Codice = x.Codice,
+    Descrizione = $"[{x.Codice}] {x.Descrizione}", // Formato standard per la stampa
+    Quantita = x.Quantita,
+    Colore = x.Colore,
+    StatoBene = x.StatoBene 
+}).ToList();
 
-        // 3. Generazione e Download
+await Notifica($"Test dati: {reso.Indirizzo} - {reso.Citta}");
+
+      
+
+// 3. Generazione e Download (Corretto per Blazor Stream)
         var documento = new ResoDocument(reso);
         byte[] pdfBytes = documento.GeneratePdf();
 
         var fileName = $"Reso_{reso.RagSociale.Replace(" ", "_")}.pdf";
-        await JS.InvokeVoidAsync("downloadFileFromStream", fileName, Convert.ToBase64String(pdfBytes));
+        
+        using var stream = new MemoryStream(pdfBytes);
+        using var streamRef = new DotNetStreamReference(stream);
+        
+        // Questo ora funzionerà senza l'errore arrayBuffer
+        await JS.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
     }
     catch (Exception ex)
     {
@@ -385,8 +427,6 @@
     }
 }
 
-
-}
 
 
 

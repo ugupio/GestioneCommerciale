@@ -91,10 +91,17 @@ public class Reso
     public string Agente { get; set; } = "Gucci";
     public string RifDocumentoVendita { get; set; }
     public DateTime? DataDocumentoVendita { get; set; }
+       
+    public string Indirizzo { get; set; }
+    public string CAP { get; set; }
+    public string Citta { get; set; }
+    public string Provincia { get; set; }
+    public string PIva { get; set; }
+    // ----------------------------
 
-    // Questa conterrà le tue 'righeReso' per la stampa
     public List<DettaglioReso> Righe { get; set; } = new();
 }
+
 
 public class DettaglioReso
 {

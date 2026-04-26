@@ -16,79 +16,125 @@ namespace GestioneCommerciale.Models
             {
                 page.Margin(30);
 
-                // --- 1. HEADER ---
-                page.Header().Row(row => {
-                    row.ConstantItem(100).Image("wwwroot/images/logo-twin.png");
-                    row.RelativeItem().PaddingTop(10).AlignCenter().Column(c => {
-                        c.Item().Text("MODELLO RESO MERCE").FontSize(20).Bold();
+                // --- 1. HEADER (Ripetuto su ogni pagina) ---
+                page.Header().Column(col => {
+                    col.Item().Row(row => {
+                        row.ConstantItem(100).Image("wwwroot/images/logo-twin.png");
+                        row.RelativeItem().AlignCenter().Column(c => {
+                            c.Item().Text("MODELLO RESO MERCE").FontSize(18).ExtraBold();
+                        });
+                        row.ConstantItem(100).Image("wwwroot/images/logo-alq.jpg");
                     });
-                    row.ConstantItem(120).Image("wwwroot/images/logo-alq.jpg");
+
+                    // Sezione Anagrafica (Ora nell'Header per coerenza multi-pagina)
+                    col.Item().PaddingVertical(10).Row(row => {
+                        row.RelativeItem().Column(c => {
+                            c.Item().Text("CLIENTE").FontSize(7).Bold().FontColor("#666666");
+                            c.Item().Text(Modello.RagSociale).FontSize(12).ExtraBold();
+                            c.Item().Text(Modello.Indirizzo ?? "________________").FontSize(9);
+                            c.Item().Text($"{Modello.CAP} {Modello.Citta} ({Modello.Provincia}) - P.IVA: {Modello.PIva}").FontSize(9);
+                        });
+
+                        row.ConstantItem(180).Background("#F9F9F9").Padding(8).Border(0.5f).BorderColor("#DDD").Column(c => {
+                            c.Item().Text("RIF. VENDITA").FontSize(7).Bold().AlignCenter();
+                            c.Item().PaddingTop(2).Text($"Doc. n°: {Modello.RifDocumentoVendita ?? "_______"}").FontSize(10).AlignCenter();
+                            c.Item().Text($"del {Modello.DataDocumentoVendita?.ToShortDateString() ?? "__/__/____"}").FontSize(10).AlignCenter();
+                            c.Item().PaddingTop(4).Text($"Agente: {Modello.Agente}").FontSize(8).AlignCenter();
+                        });
+                    });
+                    col.Item().LineHorizontal(0.5f).LineColor("#CCC");
                 });
 
-                // --- 2. CONTENT ---
-                page.Content().PaddingVertical(10).Column(col => {
-                    // Dati Cliente e Agente
-                    col.Item().PaddingBottom(5).Row(row => {
-                        row.RelativeItem().Text(t => { t.Span("CLIENTE: ").Bold(); t.Span(Modello.RagSociale); });
-                        row.RelativeItem().Text(t => { t.Span("AGENTE: ").Bold(); t.Span(Modello.Agente); });
-                    });
-
-                    // --- NUOVA SEZIONE: RIFERIMENTI VENDITA (Sotto Cliente, Sopra Tabella) ---
-                    col.Item().PaddingBottom(15).Row(row => {
-                        row.RelativeItem().Text(t => {
-                            t.Span("Rif. documento n°: ").Bold();
-                            t.Span(Modello.RifDocumentoVendita ?? "___________").Underline();
-                        });
-                        row.RelativeItem().Text(t => {
-                            t.Span("Data: ").Bold();
-                            t.Span(Modello.DataDocumentoVendita?.ToShortDateString() ?? "__/__/____").Underline();
-                        });
-                    });
-
-                    // 3. TABELLA ARTICOLI
-                    col.Item().Table(table => {
+                // --- 2. CONTENT (Tabella con Griglia Fine) ---
+                page.Content().Column(col => {
+                    col.Item().PaddingTop(10).Table(table => {
                         table.ColumnsDefinition(c => {
                             c.RelativeColumn(4); c.RelativeColumn(1); c.RelativeColumn(1); c.RelativeColumn(2);
                         });
+
                         table.Header(h => {
-                            h.Cell().Element(HeaderStyle).Text("Descrizione del bene");
-                            h.Cell().Element(HeaderStyle).Text("Quantità");
-                            h.Cell().Element(HeaderStyle).Text("Colore");
-                            h.Cell().Element(HeaderStyle).Text("Stato del bene");
+                            h.Cell().Element(FineHeaderStyle).Text("Descrizione del bene");
+                            h.Cell().Element(FineHeaderStyle).Text("Quantità");
+                            h.Cell().Element(FineHeaderStyle).Text("Colore");
+                            h.Cell().Element(FineHeaderStyle).Text("Stato del bene");
                         });
+
+                        // Righe Dati
                         foreach (var r in Modello.Righe)
                         {
-                            table.Cell().Element(CellStyle).Text(r.Descrizione);
-                            table.Cell().Element(CellStyle).AlignCenter().Text(r.Quantita.ToString());
-                            table.Cell().Element(CellStyle).AlignCenter().Text(r.Colore);
-                            table.Cell().Element(CellStyle).Text(r.StatoBene);
+                            table.Cell().Element(FineCellStyle).Text(r.Descrizione);
+                            table.Cell().Element(FineCellStyle).AlignCenter().Text(r.Quantita.ToString());
+                            table.Cell().Element(FineCellStyle).AlignCenter().Text(r.Colore);
+                            table.Cell().Element(FineCellStyle).Text(r.StatoBene);
+                        }
+
+                        // Riempimento (Portato a 21 totali)
+                        for (int i = Modello.Righe.Count; i < 21; i++)
+                        {
+                            table.Cell().Element(FineCellStyle).Text(" ");
+                            table.Cell().Element(FineCellStyle).Text(" ");
+                            table.Cell().Element(FineCellStyle).Text(" ");
+                            table.Cell().Element(FineCellStyle).Text(" ");
                         }
                     });
 
-                    col.Item().PaddingTop(10).Text(t => { t.Span("Motivo del reso: ").Bold(); t.Span(Modello.Motivazione); });
+                    col.Item().PaddingTop(10).Text(t => {
+                        t.Span("Motivo del reso: ").Bold().FontSize(9);
+                        t.Span(Modello.Motivazione).FontSize(9);
+                    });
                 });
 
-                // --- 4. FOOTER (Senza punti di errore) ---
-                page.Footer().Column(f =>
-                {
-                    f.Item().Border(1).Padding(10).Column(c => {
-                        c.Item().Text("DA COMPILARE A CURA ACCETTAZIONE MAGAZZINO").Bold().Underline();
-                        c.Item().PaddingTop(5).Text("ASPETTO DEL MATERIALE:");
-                        c.Item().Text("▢ Imballo adeguato  ▢ Privo imballo  ▢ Incompleto");
-                        c.Item().PaddingTop(10).Text("DESTINAZIONE: ▢ Rottame  ▢ Reso Fornitore  ▢ Scaffale");
-                        c.Item().PaddingTop(25).AlignRight().Column(sig => {
-                            sig.Item().Text("______________________________________").FontSize(10);
-                            sig.Item().AlignRight().PaddingRight(20).Text("Firma del responsabile magazzino").FontSize(8);
+                // --- 3. FOOTER (Sezione Aziendale Impilata) ---
+                page.Footer().Column(f => {
+                    f.Item().Border(0.5f).BorderColor("#CCC").Padding(10).Column(c => {
+                        c.Item().Text("DA COMPILARE A CURA ACCETTAZIONE ALQ GENOVA SRL").FontSize(8).Bold().Underline();
+
+                        c.Item().PaddingTop(8).Row(row => {
+                            // ASPETTO (Verticale)
+                            row.RelativeItem().Column(ca => {
+                                ca.Item().Text("ASPETTO DEL MATERIALE").FontSize(8).Bold();
+                                ca.Spacing(2);
+                                ca.Item().Text("○ Materiale arrivato incartato ed imballato in modo adeguato").FontSize(8);
+                                ca.Item().Text("○ Materiale arrivato privo di imballo, in pessimo stato").FontSize(8);
+                                ca.Item().Text("○ Materiale arrivato non completo (accessori)").FontSize(8);
+                                ca.Item().Text("○ Altro: ___________________________").FontSize(8);
+                            });
+
+                            // DESTINAZIONE (Verticale)
+                            row.RelativeItem().Column(cd => {
+                                cd.Item().Text("DESTINAZIONE MATERIALE IN ALQ GENOVA SRL").FontSize(8).Bold();
+                                cd.Spacing(2);
+                                cd.Item().Text("○ Materiale messo a rottame").FontSize(8);
+                                cd.Item().Text("○ Materiale messo a reso a fornitore").FontSize(8);
+                                cd.Item().Text("○ Materiale in casella/scafale perchè buono e vendibile)").FontSize(8);
+                                cd.Item().Text("○ Altro: ___________________________").FontSize(8);
+                            });
+                        });
+
+                        c.Item().PaddingTop(15).Row(row => {
+                            row.RelativeItem().AlignBottom().Text("Foto allegate: SI – NO").FontSize(8);
+                            row.ConstantItem(200).Column(sig => {
+                                sig.Item().Text("___________________________").FontSize(10).AlignCenter();
+                                sig.Item().Text("Firma responsabile magazzino").FontSize(7).AlignCenter();
+                            });
                         });
                     });
 
-                    f.Item().AlignRight().Text(x => {
-                        x.Span("Pag. ").FontSize(8).FontColor("#999");
-                        x.CurrentPageNumber().FontSize(8).FontColor("#999");
+                    f.Item().AlignRight().PaddingTop(5).Text(x => {
+                        x.Span("Pag. ").FontSize(7).FontColor("#999");
+                        x.CurrentPageNumber().FontSize(7).FontColor("#999");
                     });
                 });
             });
         }
+
+        // Metodi di supporto per la griglia fine
+        IContainer FineHeaderStyle(IContainer container) => container.Border(0.5f).BorderColor("#CCC").Background("#F5F5F5").Padding(5).DefaultTextStyle(x => x.SemiBold().FontSize(9));
+        IContainer FineCellStyle(IContainer container) => container.Border(0.5f).BorderColor("#CCC").Padding(5).DefaultTextStyle(x => x.FontSize(9));
+
+
+
+
 
 
 
