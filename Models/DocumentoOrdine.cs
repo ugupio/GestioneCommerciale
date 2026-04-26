@@ -99,68 +99,81 @@ public class DocumentoOrdine : IDocument
         {
             col.Item().Table(table =>
             {
-                table.ColumnsDefinition(columns =>
+            table.ColumnsDefinition(columns =>
+            {
+                columns.ConstantColumn(25); // Pos.
+                columns.RelativeColumn(3);  // ARTICOLO (Codice + Desc)
+                columns.ConstantColumn(50); // COL. INT.
+                columns.ConstantColumn(50); // COL. EST.
+                columns.ConstantColumn(40); // Q.TÀ
+                columns.ConstantColumn(30); // UM (Reale)
+                columns.ConstantColumn(30); // Sc%
+                columns.RelativeColumn(1);  // FINITURA ACC.
+            });
+
+            table.Header(header =>
+            {
+                header.Cell().Element(CellStyle).AlignCenter().Text("Pos.").FontSize(7).SemiBold();
+                header.Cell().Element(CellStyle).Text("CODICE PRODOTTO / DESCRIZIONE").FontSize(7).SemiBold();
+                header.Cell().Element(CellStyle).AlignCenter().Text("COL.INT.").FontSize(7).SemiBold();
+                header.Cell().Element(CellStyle).AlignCenter().Text("COL.EST.").FontSize(7).SemiBold();
+                header.Cell().Element(CellStyle).AlignCenter().Text("Q.TÀ").FontSize(7).SemiBold();
+                header.Cell().Element(CellStyle).AlignCenter().Text("UM").FontSize(7).SemiBold();
+                header.Cell().Element(CellStyle).AlignCenter().Text("Sc%").FontSize(7).SemiBold();
+                header.Cell().Element(CellStyle).Text("FINITURA ACC.").FontSize(7).SemiBold();
+            });
+
+            // Ciclo fisso di 17 righe per mantenere il layout costante
+            for (int i = 1; i <= 17; i++)
+            {
+                var r = Ordine.Righe.ElementAtOrDefault(i - 1);
+
+                table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(i.ToString()).FontSize(8);
+
+                // CELLA ARTICOLO: Codice + Descrizione (+ Info Lunghezza o Confezione)
+                table.Cell().Element(CellStyle).MinHeight(30).Text(txt =>
                 {
-                    columns.ConstantColumn(25); // Pos.
-                    columns.RelativeColumn(3);  // ARTICOLO (Codice + Desc)
-                    columns.ConstantColumn(50); // COL. INT.
-                    columns.ConstantColumn(50); // COL. EST.
-                    columns.ConstantColumn(40); // Q.TÀ
-                    columns.ConstantColumn(30); // UM (Reale)
-                    columns.ConstantColumn(30); // Sc%
-                    columns.RelativeColumn(1);  // FINITURA ACC.
-                });
-
-                table.Header(header =>
+                if (r != null)
                 {
-                    header.Cell().Element(CellStyle).AlignCenter().Text("Pos.").FontSize(7).SemiBold();
-                    header.Cell().Element(CellStyle).Text("CODICE PRODOTTO / DESCRIZIONE").FontSize(7).SemiBold();
-                    header.Cell().Element(CellStyle).AlignCenter().Text("COL.INT.").FontSize(7).SemiBold();
-                    header.Cell().Element(CellStyle).AlignCenter().Text("COL.EST.").FontSize(7).SemiBold();
-                    header.Cell().Element(CellStyle).AlignCenter().Text("Q.TÀ").FontSize(7).SemiBold();
-                    header.Cell().Element(CellStyle).AlignCenter().Text("UM").FontSize(7).SemiBold();
-                    header.Cell().Element(CellStyle).AlignCenter().Text("Sc%").FontSize(7).SemiBold();
-                    header.Cell().Element(CellStyle).Text("FINITURA ACC.").FontSize(7).SemiBold();
-                });
+                    // 1. CODICE (Blu)
+                    txt.Span(r.CodiceProdotto).SemiBold().FontSize(8).FontColor(Colors.Blue.Medium);
+                    txt.EmptyLine();
 
-                // Ciclo fisso di 17 righe per mantenere il layout costante
-                for (int i = 1; i <= 17; i++)
-                {
-                    var r = Ordine.Righe.ElementAtOrDefault(i - 1);
-
-                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(i.ToString()).FontSize(8);
-
-                    // CELLA ARTICOLO: Codice + Descrizione (+ Info Lunghezza o Confezione)
-                    table.Cell().Element(CellStyle).MinHeight(30).Text(txt =>
+                    // 2. DESCRIZIONE + LUNGHEZZA (se BR)
+                    string descrizioneInfo = r.Descrizione;
+                    if (r.UmRiga == "BR" && r.LunghezzaVerga > 0)
                     {
-                        if (r != null)
-                        {
-                            txt.Span(r.CodiceProdotto).SemiBold().FontSize(8).FontColor(Colors.Blue.Medium);
-                            txt.EmptyLine();
+                        descrizioneInfo += $" (Verga L: {r.LunghezzaVerga:N2} mt)";
+                    }
+                    txt.Span(descrizioneInfo).FontSize(7);
 
-                            string descrizioneInfo = r.Descrizione;
+                    // --- 3. FINITURA (per Accessori) o COLORI (per Profili) ---
+                    if (r.IsAccessorio && !string.IsNullOrEmpty(r.FinituraAccessorio))
+                    {
+                        txt.EmptyLine();
+                        txt.Span($"Finitura: {r.FinituraAccessorio}").FontSize(6).Italic().FontColor(Colors.Grey.Medium);
+                    }
+                    else if (!string.IsNullOrEmpty(r.ColoreInt) || !string.IsNullOrEmpty(r.ColoreEst))
+                    {
+                        txt.EmptyLine();
+                        txt.Span($"Colori: Int. {r.ColoreInt} / Est. {r.ColoreEst}").FontSize(6).FontColor(Colors.Grey.Medium);
+                    }
 
-                            // Se è una barra, aggiungiamo l'info della lunghezza
-                            if (r.UmRiga == "BR" && r.LunghezzaVerga > 0)
-                            {
-                                descrizioneInfo += $" (Verga L: {r.LunghezzaVerga:N2} mt)";
-                            }
+                    // --- 4. NOTA CONFEZIONE ---
+                    if (r.IsConfezione)
+                    {
+                        txt.EmptyLine();
+                            // Forza il cast a decimal per evitare la divisione intera
+                            int nColli = (int)Math.Ceiling((decimal)r.Quantita / (r.PezziPerConfezione > 0 ? r.PezziPerConfezione : 1));
 
-                            txt.Span(descrizioneInfo).FontSize(7);
-
-                            // --- AGGIUNTA NOTA CONFEZIONE ---
-                            if (r.IsConfezione)
-                            {
-                                txt.EmptyLine();
-                                // Calcoliamo il numero di colli per dare un riferimento extra al magazzino
-                                int nColli = (int)Math.Ceiling(r.Quantita / (decimal)r.PezziPerConfezione);
-                                txt.Span($"📦 CONFEZIONE INTERA ({nColli} {r.UmSecondaria})")
+                            txt.Span($"📦 CONFEZIONE INTERA - N° Colli : {nColli}")
                                    .FontSize(7)
-                                   .Italic()
+                                   .SemiBold() // Meglio SemiBold che Italic per risaltare
                                    .FontColor(Colors.Green.Medium);
                             }
                         }
                     });
+
 
 
                     table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r?.ColoreInt ?? "").FontSize(8);

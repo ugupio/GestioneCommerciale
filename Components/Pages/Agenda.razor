@@ -29,24 +29,44 @@
     }
 
     /* 3. TASTI HOME/AGGIORNA: Stile Dashboard ma con contrasto elevato */
+        /* AGGIORNAMENTO PER PULSANTI ALTI IN AGENDA */
     .win-btn-cell {
+        height: 90px !important;           /* Altezza uniforme a 90px */
+        width: 110px !important;
+        min-width: 100px !important;
+        flex-shrink: 0 !important;
+        display: inline-flex !important;
+        flex-direction: column !important;  /* Icona sopra, testo sotto */
+        justify-content: center !important;
+        align-items: center !important;
+        gap: 5px !important;
         background: #ffffff !important;
         color: #1e3c72 !important;
         font-weight: bold !important;
         border: 2px solid #ffffff !important;
-        border-radius: 12px;
-        padding: 10px;
+        border-radius: 12px !important;
         box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
         transition: all 0.3s ease;
         text-transform: uppercase;
         font-size: 0.85rem;
+        cursor: pointer !important;
     }
 
+    /* Effetto Neon Azzurro */
     .win-btn-cell:hover {
-        background: #00d2ff !important; /* Azzurro neon al passaggio */
+        background: #00d2ff !important;
         color: white !important;
         transform: scale(1.05);
         border-color: #00d2ff !important;
+        box-shadow: 0 0 20px rgba(0, 210, 255, 0.6) !important;
+    }
+
+    /* Emoji grande */
+    .win-btn-cell span:first-child {
+        font-size: 2rem !important;
+        pointer-events: none !important;
+    }
+
     }
 
     /* 4. SCHEDULER: Effetto "Galleggiamento" sul blu */
@@ -70,30 +90,28 @@
 
 
 <div class="agenda-wrapper">
-    <div class="agenda-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 20px;">
+    <div class="agenda-header" style="display:flex; align-items: center; margin-bottom: 20px;">
     
-    <!-- Pulsante HOME identico alla Dashboard -->
-    <div style="width: 250px;"> <!-- Larghezza fissa per somigliare alla cella della tabella -->
-        <div class="win-btn-cell" 
-             style="cursor: pointer; text-align: center;" 
-             @onclick='() => Nav.NavigateTo("/")'>
-             🏠 TORNA ALLA HOME
+    <!-- CONTENITORE PULSANTI: Li tiene vicini tra loro -->
+    <div style="display:flex; gap:10px; flex-shrink: 0;">
+        <div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/")'>
+            <span>🏠</span>
+            <span>HOME</span>
+        </div>
+
+        <div class="win-btn-cell" @onclick="CaricaDatiAgenda">
+            <span>🔄</span>
+            <span>AGGIORNA</span>
         </div>
     </div>
 
     <!-- Titolo Centrale -->
     <h2 style="font-weight: 800; color: #2f3542; margin: 0; flex-grow: 1; text-align: center;">
-        📅 AGENDA GUCCI RICCARDO
+        📅 AGENDA Promemoria e Visite
     </h2>
 
-    <!-- Pulsante AGGIORNA (anche questo in stile Dashboard per coerenza) -->
-    <div style="width: 250px;">
-        <div class="win-btn-cell" 
-             style="cursor: pointer; text-align: center; background: #f8f9fa; color: #333;" 
-             @onclick="CaricaDatiAgenda">
-             🔄 AGGIORNA DATI
-        </div>
-    </div>
+    
+    
 </div>
 
 

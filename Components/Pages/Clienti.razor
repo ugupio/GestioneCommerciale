@@ -101,6 +101,67 @@
         background: #f8f9fa; border: none; width: 70px; height: 100%;
         cursor: pointer; font-size: 1.5rem; border-left: 1px solid #eee;
     }   
+
+    /* Contenitore riga: allinea etichetta e input */
+    .form-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 4px; /* Spazio compatto tra le righe */
+        gap: 10px;
+    }
+
+    /* Etichetta fissa: IL SEGRETO PER L'ALLINEAMENTO */
+    .lbl-fixed {
+        width: 100px; /* Tutte le etichette larghe uguali */
+        text-align: right;
+        font-weight: bold;
+        color: #005a9e;
+        font-size: 10.5px;
+        flex-shrink: 0;
+    }
+
+    /* Input che riempie lo spazio */
+    .input-flex {
+        flex-grow: 1;
+    }
+
+    /* Sotto-gruppi per mettere più campi sulla stessa riga */
+    .form-col {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex: 1;
+    }
+
+	.win-row-compact {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 3px; /* Spazio strettissimo tra le righe */
+    }
+    .lbl-fixed {
+        width: 75px; /* Etichette ancora più strette */
+        text-align: right;
+        font-weight: bold;
+        color: #005a9e;
+        font-size: 10.5px;
+        flex-shrink: 0;
+    }
+    /* Classi per larghezze fisse dei campi corti */
+    .w-cap { width: 55px !important; flex-grow: 0 !important; }
+    .w-prov { width: 35px !important; flex-grow: 0 !important; }
+    .w-piva { width: 120px !important; flex-grow: 0 !important; }
+    .w-sconto { width: 60px !important; flex-grow: 0 !important; }
+
+    .w-tel { width: 100px !important; flex-grow: 0 !important; }
+    .w-gps { width: 90px !important; flex-shrink: 0 !important; }
+    .w-fiscale { width: 140px !important; flex-shrink: 0 !important; }
+    .w-email { flex-grow: 1.5 !important; } /* Email ha spazio ma non infinito */
+    .win-check-label { font-size: 10.5px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+    .w-abi { width: 50px !important; flex-grow: 0 !important; }
+    .w-sdi { width: 70px !important; flex-grow: 0 !important; }
+    .w-iban { flex-grow: 2 !important; }
+    .w-prev { width: 85px !important; flex-grow: 0 !important; color: #005a9e; font-weight: bold; }
 </style>
 
 <div class="win-form">
@@ -139,110 +200,109 @@
 </div>
 </div>
 
-    <!-- SEZIONE 1: ANAGRAFICA E SCONTI -->
     <div class="win-group">
-        <div class="section-title">Dati Anagrafici e Politiche Sconti</div>
-        <table style="width:100%; border-spacing: 4px; table-layout: fixed;">
-            <tr>
-                <td style="width:8%" class="win-label">Rag. Soc.:</td>
-                <td style="width:30%"><input type="text" class="win-input fw-bold" @bind="c.RagSociale" /></td>
-                <td style="width:8%" class="win-label">Referente:</td>
-                <td style="width:20%"><input type="text" class="win-input" @bind="c.Referente" /></td>
-                <td style="width:8%" class="win-label">P.IVA:</td>
-                <td style="width:12%"><input type="text" class="win-input" @bind="c.PIva" /></td>
-                <td style="width:8%" class="win-label text-primary">Sc. Prof %:</td>
-                <td><input type="number" step="0.01" class="win-input text-end fw-bold" @bind="c.ScontoProfili" /></td>
-            </tr>
-            <tr>
-                <td class="win-label">Indirizzo:</td>
-                <td><input type="text" class="win-input" @bind="c.Ind_legale" /></td>
-                <td class="win-label">Città:</td>
-                <td><input type="text" class="win-input" @bind="c.Citta_Legale" /></td>
-                <td class="win-label">CAP / Prov:</td>
-                <td>
-                    <div class="d-flex gap-1">
-                        <input type="text" class="win-input" style="width:60%" @bind="c.CAP_Legale" />
-                        <input type="text" class="win-input" style="width:40%" @bind="c.Prov_Legale" />
-                    </div>
-                </td>
-                <td class="win-label text-primary">Sc. Acc %:</td>
-                <td><input type="number" step="0.01" class="win-input text-end fw-bold" @bind="c.ScontoAccessori" /></td>
-            </tr>
-        </table>
+    <div class="section-title">Dati Anagrafici e Politiche Sconti</div>
+    
+    <!-- RIGA 1: Ragione Sociale, Referente e P.IVA -->
+    <div class="win-row-compact">
+        <label class="lbl-fixed">Rag. Soc.:</label>
+        <input type="text" class="win-input fw-bold" style="flex-grow: 2;" @bind="c.RagSociale" />
+        
+        <label class="lbl-fixed" style="width: 60px;">Ref.:</label>
+        <input type="text" class="win-input" style="flex-grow: 1;" @bind="c.Referente" />
+                        
+        <label class="lbl-fixed" style="width: 70px; color: #d63384;">Sc. Prof %:</label>
+        <input type="number" class="win-input w-sconto text-end fw-bold" @bind="c.ScontoProfili" />
     </div>
+
+    <!-- RIGA 2: Indirizzo, Città, CAP, Prov e Sconto Acc -->
+    <div class="win-row-compact">
+        <label class="lbl-fixed">Indirizzo:</label>
+        <input type="text" class="win-input" style="flex-grow: 2;" @bind="c.Ind_legale" />
+        
+        <label class="lbl-fixed" style="width: 60px;">Città:</label>
+        <input type="text" class="win-input" style="flex-grow: 1;" @bind="c.Citta_Legale" />
+        
+        <label class="lbl-fixed" style="width: 30px;">CAP:</label>
+        <input type="text" class="win-input w-cap" maxlength="5" @bind="c.CAP_Legale" />
+        
+        <label class="lbl-fixed" style="width: 15px;">Pr:</label>
+        <input type="text" class="win-input w-prov" maxlength="2" @bind="c.Prov_Legale" />
+        
+        <label class="lbl-fixed" style="width: 70px; color: #d63384;">Sc. Acc %:</label>
+        <input type="number" class="win-input w-sconto text-end fw-bold" @bind="c.ScontoAccessori" />
+    </div>
+</div>
+
+
 
     <!-- SEZIONE 2: CONTATTI E GPS -->
     <div class="win-group">
-        <div class="section-title">Contatti, Opzioni e Coordinate GPS</div>
-        <table style="width:100%; border-spacing: 4px; table-layout: fixed;">
-            <tr>
-                <td style="width:8%" class="win-label">Email:</td>
-                <td style="width:30%"><input type="text" class="win-input" @bind="c.Email" /></td>
-                <td style="width:8%" class="win-label">Tel / Fax:</td>
-                <td style="width:20%">
-                    <div class="d-flex gap-1">
-                        <input type="text" class="win-input" placeholder="Tel" @bind="c.Telefono" />
-                        <input type="text" class="win-input" placeholder="Fax" @bind="c.Fax" />
-                    </div>
-                </td>
-                <td style="width:8%" class="win-label">Cellulari:</td>
-                <td style="width:26%">
-                    <div class="d-flex gap-1">
-                        <input type="text" class="win-input" placeholder="Cell 1" @bind="c.Cel1" />
-                        <input type="text" class="win-input" placeholder="Cell 2" @bind="c.Cel2" />
-                    </div>
-                </td>
-            </tr>
-            <tr>
-                <td class="win-label">Annotazioni:</td>
-                <td colspan="3"><input type="text" class="win-input" @bind="c.Annotazioni" /></td>
-                <td class="win-label text-danger">GPS (Lat/Lon):</td>
-                <td>
-                    <div class="d-flex gap-1">
-                        <input type="text" class="win-input fw-bold" placeholder="Lat" @bind="displayLat" />
-                        <input type="text" class="win-input fw-bold" placeholder="Lon" @bind="displayLon" />
-                    </div>
-                </td>
-            </tr>
-            <tr>
-                <td class="win-label">Opzioni:</td>
-                <td colspan="3">
-                    <label class="me-3"><input type="checkbox" @bind="c.Carrello" /> Carrello</label>
-                    <label class="me-3"><input type="checkbox" @bind="c.ScaricoAgevole" /> Scarico Agevole</label>
-                    <span class="win-label">Prev. Annuo:</span>
-                    <input type="number" class="win-input" style="width:100px; display:inline-block;" @bind="c.PrevisioneAnnuo" />
-                </td>
-                <td class="win-label">Cod. Fiscale:</td>
-                <td><input type="text" class="win-input" @bind="c.CodFiscale" /></td>
-            </tr>
-        </table>
+    <div class="section-title">Contatti, Dati Fiscali e Coordinate Bancarie</div>
+    
+    <!-- RIGA 1: Email, Tel, Fax, P.IVA e Cod. Fiscale -->
+    <div class="win-row-compact">
+        <label class="lbl-fixed">Email:</label>
+        <input type="text" class="win-input w-email" @bind="c.Email" />
+        <label class="lbl-fixed" style="width: 30px;">Tel:</label>
+        <input type="text" class="win-input w-tel" @bind="c.Telefono" />
+        <label class="lbl-fixed" style="width: 30px;">Fax:</label>
+        <input type="text" class="win-input w-tel" @bind="c.Fax" />
+        <label class="lbl-fixed" style="width: 40px;">P.IVA:</label>
+        <input type="text" class="win-input w-piva" @bind="c.PIva" />
+        <label class="lbl-fixed" style="width: 40px;">C.F.:</label>
+        <input type="text" class="win-input w-fiscale" @bind="c.CodFiscale" />
     </div>
 
-    <!-- SEZIONE 3: BANCA -->
-    <div class="win-group">
-        <div class="section-title">Dati Bancari, Fiscali e Commerciali</div>
-        <table style="width:100%; border-spacing: 4px; table-layout: fixed;">
-            <tr>
-                <td style="width:8%" class="win-label">Banca:</td>
-                <td style="width:25%"><input type="text" class="win-input" @bind="c.Banca" /></td>
-                <td style="width:8%" class="win-label">Agenzia:</td>
-                <td style="width:15%"><input type="text" class="win-input" @bind="c.Agenzia" /></td>
-                <td style="width:5%" class="win-label">ABI:</td>
-                <td style="width:8%"><input type="text" class="win-input" @bind="c.ABI" /></td>
-                <td style="width:5%" class="win-label">CAB:</td>
-                <td style="width:8%"><input type="text" class="win-input" @bind="c.CAB" /></td>
-                <td style="width:5%" class="win-label">SDI:</td>
-                <td><input type="text" class="win-input" @bind="c.SDI" /></td>
-            </tr>
-            <tr>
-                <td class="win-label">IBAN:</td>
-                <td colspan="3"><input type="text" class="win-input" @bind="c.IBAN" /></td>
-                <td class="win-label">Pag. Prop:</td>
-                <td colspan="2"><input type="text" class="win-input" @bind="c.PagProposto" /></td>
-                <td class="win-label">Pag. Acc:</td>
-                <td colspan="2"><input type="text" class="win-input" @bind="c.PagAccettato" /></td>
-            </tr>
-        </table>
+    <!-- RIGA 2: Cellulari, GPS e Opzioni -->
+    <div class="win-row-compact">
+        <label class="lbl-fixed">Cell 1:</label>
+        <input type="text" class="win-input w-tel" @bind="c.Cel1" />
+        <label class="lbl-fixed" style="width: 40px;">Cell 2:</label>
+        <input type="text" class="win-input w-tel" @bind="c.Cel2" />
+        <label class="lbl-fixed" style="width: 60px; color: #dc3545;">Lat:</label>
+        <input type="text" class="win-input w-gps text-center" @bind="displayLat" />
+        <label class="lbl-fixed" style="width: 30px; color: #dc3545;">Lon:</label>
+        <input type="text" class="win-input w-gps text-center" @bind="displayLon" />
+        <div style="display: flex; gap: 15px; margin-left: 20px; border-left: 1px solid #ccc; padding-left: 15px;">
+            <label class="win-check-label"><input type="checkbox" @bind="c.Carrello" /> Carrello</label>
+            <label class="win-check-label"><input type="checkbox" @bind="c.ScaricoAgevole" /> Scarico</label>
+        </div>
+    </div>
+
+    <!-- RIGA 3: Banca, Agenzia, ABI, CAB, SDI e Previsione Annua -->
+    <div class="win-row-compact" style="border-top: 1px dashed #ddd; padding-top: 4px; margin-top: 4px;">
+        <label class="lbl-fixed">Banca:</label>
+        <input type="text" class="win-input" style="flex-grow: 1.5;" @bind="c.Banca" />
+        <label class="lbl-fixed" style="width: 50px;">Agenzia:</label>
+        <input type="text" class="win-input" style="flex-grow: 1;" @bind="c.Agenzia" />
+        <label class="lbl-fixed" style="width: 30px;">ABI:</label>
+        <input type="text" class="win-input w-abi" @bind="c.ABI" />
+        <label class="lbl-fixed" style="width: 30px;">CAB:</label>
+        <input type="text" class="win-input w-abi" @bind="c.CAB" />
+        <label class="lbl-fixed" style="width: 30px;">SDI:</label>
+        <input type="text" class="win-input w-sdi" @bind="c.SDI" />
+        <label class="lbl-fixed" style="width: 65px; color: #28a745;">Prev. Ann. €:</label>
+        <input type="number" class="win-input w-prev text-end" @bind="c.PrevisioneAnnuo" />
+    </div>
+
+    <!-- RIGA 4: IBAN e Pagamenti -->
+    <div class="win-row-compact">
+        <label class="lbl-fixed">IBAN:</label>
+        <input type="text" class="win-input w-iban" @bind="c.IBAN" />
+        <label class="lbl-fixed" style="width: 60px;">Pag. Prop:</label>
+        <input type="text" class="win-input" style="flex-grow: 1;" @bind="c.PagProposto" />
+        <label class="lbl-fixed" style="width: 60px;">Pag. Acc:</label>
+        <input type="text" class="win-input" style="flex-grow: 1;" @bind="c.PagAccettato" />
+    </div>
+
+    <!-- RIGA 5: Annotazioni -->
+    <div class="win-row-compact">
+        <label class="lbl-fixed">Annotazioni:</label>
+        <input type="text" class="win-input" @bind="c.Annotazioni" />
+    </div>
+
+
         <!-- AREA DETTAGLI CORRELATI -->
 <div class="win-tabs">
     <div class="win-tab @(activeTab == "ordini" ? "active" : "")" @onclick='() => activeTab = "ordini"'>🛒 ORDINI</div>

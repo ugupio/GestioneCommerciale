@@ -121,6 +121,11 @@
     pointer-events: none !important;
 }
 
+/* Variante grigio chiaro per tasto Annulla */
+.btn-start-nav { 
+    background: #f8f9fa !important; 
+    border-color: #dee2e6 !important; 
+}
 
 
 </style>
@@ -159,6 +164,11 @@
     <button class="btn-comando-ordine" @onclick="() => VaiA(IniziaNuovo)">
         <span>➕</span> NUOVO
     </button>
+
+    <button class="btn-comando-ordine btn-start-nav" @onclick="Annulla">
+    <span>✖</span>
+    <span>ANNULLA</span>
+</button>
 
     <button class="btn-comando-ordine btn-start-verde" @onclick="SalvaTutto">
         <span>💾</span> SALVA
@@ -375,20 +385,42 @@
         <!-- 2. CODICE -->
         <td style="font-weight:bold; color: #005a9e; padding-left: 5px;">@r.CodiceProdotto</td>
 
-        <!-- 3. DESCRIZIONE -->
         <td>
-            <input class="input-grid fw-bold" @bind="r.Descrizione" style="width:100%; border:none; background:transparent;" />
-            <div style="font-size: 0.8em; color: #757575; display: flex; gap: 8px; margin-top: 2px;">
-                <div style="display: flex; align-items: center;">
-                    <span style="margin-right: 3px;">INT:</span>
-                    <input @bind="r.ColoreInt" class="input-grid" style="width: 80px; border: none; background: transparent; color: #757575; border-bottom: 1px dotted #ccc;" />
-                </div>
-                <div style="display: flex; align-items: center;">
-                    <span style="margin-right: 3px;">EST:</span>
-                    <input @bind="r.ColoreEst" class="input-grid" style="width: 80px; border: none; background: transparent; color: #757575; border-bottom: 1px dotted #ccc;" />
-                </div>
+    <input class="input-grid fw-bold" @bind="r.Descrizione" style="width:100%; border:none; background:transparent;" />
+    
+    <div style="font-size: 0.8em; color: #757575; display: flex; gap: 12px; margin-top: 2px; align-items: center;">
+        
+        <!-- Mostra Colori solo se NON è un accessorio (o se preferisci vederli sempre, togli l'if) -->
+        @if (!r.IsAccessorio)
+        {
+            <div style="display: flex; align-items: center;">
+                <span style="margin-right: 3px; font-weight: bold;">INT:</span>
+                <input @bind="r.ColoreInt" class="input-grid" style="width: 70px; border: none; background: transparent; color: #757575; border-bottom: 1px dotted #ccc;" />
             </div>
-        </td>
+            <div style="display: flex; align-items: center;">
+                <span style="margin-right: 3px; font-weight: bold;">EST:</span>
+                <input @bind="r.ColoreEst" class="input-grid" style="width: 70px; border: none; background: transparent; color: #757575; border-bottom: 1px dotted #ccc;" />
+            </div>
+        }
+
+        <!-- Mostra FINITURA solo se è un accessorio -->
+        @if (r.IsAccessorio)
+        {
+            <div style="display: flex; align-items: center; color: #555;">
+                <span style="margin-right: 3px; font-weight: bold;">🎨 FINITURA:</span>
+                <input @bind="r.FinituraAccessorio" class="input-grid" style="width: 150px; border: none; background: transparent; color: #555; border-bottom: 1px dotted #ccc; font-style: italic;" />
+            </div>
+        }
+
+        <!-- Se c'è la confezione attiva, aggiungiamo un badge anche qui -->
+        @if (r.IsConfezione)
+        {
+            <span style="color: #28a745; font-weight: bold; font-size: 0.9em;">
+                📦 CONF. (@r.UmSecondaria)
+            </span>
+        }
+    </div>
+</td>
 
         <!-- 4. UM -->
         <td class="text-center">
@@ -605,19 +637,31 @@ else
     private string testoNotifica = "";
     private bool mostraMessaggio = false;
     private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
-    private string snapshotOriginale = "";
-    private bool IsDirty() => snapshotOriginale != JsonSerializer.Serialize(ordine); // Metodo IsDirty che controlla l'intero oggetto ordine (incluse le righe)
+    private string snapshotOrdineOriginale = "";
+    private bool caricamentoCompletato = false;
+    private bool SonoPresentiModifiche()
+{
+    if (!caricamentoCompletato || string.IsNullOrEmpty(snapshotOrdineOriginale)) return false;
+    return snapshotOrdineOriginale != JsonSerializer.Serialize(ordine);
+}
     private bool mostraTastoNuovoOrdine = false;
     private bool mostraTastoNuovoProfilo = false;
     private bool visualizzaPopupProdotto = false;
     private Prodotti nuovoProdottoListino = new();
     private string snapshotInizialeRiga = "";
-    private string snapshotOrdineOriginale = "";
     private bool mostraTastoNuovoAccessorio = false;
     private bool codiceDuplicatoOrdine = false;
     private List<Attivita> taskPendenti = new();
     List<Attivita> tuttiITaskAperti = new();
     [Parameter] public int id { get; set; }
+    private string snapshotOriginale = "";
+    private void SalvaStatoIniziale()
+{
+    // Scattiamo la foto allo stato attuale dell'ordine
+    snapshotOriginale = JsonSerializer.Serialize(ordine);
+    caricamentoCompletato = true;
+}
+
 
 
     @code {
@@ -633,22 +677,30 @@ else
 
                 // CARICAMENTO DATI COMPLETI DAL DATABASE
                 Cliente clienteCompleto;
-                using (var db = new SqlConnection(conn))
-                {
-                    // Usiamo SELECT * per essere sicuri di prendere Ind_legale, CAP_Legale, Citta_Legale e Cel1
-                    clienteCompleto = await db.QueryFirstOrDefaultAsync<Cliente>(
-                        "SELECT * FROM Clienti WHERE IDCliente = @id", new { id = ordine.IDCliente });
-                }
+using (var db = new SqlConnection(conn))
+{
+    // 1. Carica il cliente (come già facevi)
+    clienteCompleto = await db.QueryFirstOrDefaultAsync<Cliente>(
+        "SELECT * FROM Clienti WHERE IDCliente = @id", new { id = ordine.IDCliente });
 
-                // Se non lo trova nel DB (caso raro), usiamo quello della lista o uno di backup
-                if (clienteCompleto == null) 
-                {
-                    clienteCompleto = listaClienti.FirstOrDefault(c => c.IdCliente == ordine.IDCliente) 
-                                      ?? new Cliente { RagSociale = "Cliente da definire" };
-                }
+    // 2. AGGIORNAMENTO DATI CONFEZIONI PER LE RIGHE
+    foreach (var riga in ordine.Righe)
+    {
+        // Recuperiamo i dati freschi dall'anagrafica prodotti per ogni riga
+        var datiProdotto = await db.QueryFirstOrDefaultAsync<dynamic>(
+            "SELECT PezziPerConfezione, UmSecondaria FROM Prodotti WHERE CodiceProdotto = @cod", 
+            new { cod = riga.CodiceProdotto });
 
-                // Creiamo il documento con i dati COMPLETI
-                var documento = new DocumentoOrdine(ordine, clienteCompleto); 
+        if (datiProdotto != null)
+        {
+            riga.PezziPerConfezione = datiProdotto.PezziPerConfezione ?? 1;
+            riga.UmSecondaria = datiProdotto.UmSecondaria ?? "CT";
+        }
+    }
+}
+
+// Ora il documento avrà le righe con i PezziPerConfezione corretti
+var documento = new DocumentoOrdine(ordine, clienteCompleto); 
                 byte[] pdfBytes = documento.GeneratePdf();
 
                 // Download
@@ -662,6 +714,11 @@ else
             }
         }
 
+}
+private void AggiornaSnapshot()
+{
+    snapshotOrdineOriginale = JsonSerializer.Serialize(ordine);
+    caricamentoCompletato = true;
 }
 
 
@@ -1145,7 +1202,7 @@ private async Task InvertiUsoConfezione(DettaglioOrdine r)
 var righe = await db.QueryAsync<DettaglioOrdine>(sql, new { id });
 ordine.Righe = righe.ToList();
 
-
+snapshotOrdineOriginale = JsonSerializer.Serialize(ordine); // Scatta la foto subito dopo il caricamento
 // DEBUG MANUALE: Forza un valore se è 1 per testare il toggle
 foreach(var r in ordine.Righe) {
     if(r.PezziPerConfezione <= 1) {
@@ -1154,6 +1211,7 @@ foreach(var r in ordine.Righe) {
         Console.WriteLine($"ERRORE: Pezzi non caricati per {r.CodiceProdotto}");
     }
 }
+SalvaStatoIniziale(); // Aggiorna lo snapshot dopo il caricamento
 StateHasChanged();
 }
 
@@ -1180,6 +1238,7 @@ StateHasChanged();
     snapshotOrdineOriginale = JsonSerializer.Serialize(ordine);
     
     await Task.Yield();
+    SalvaStatoIniziale(); // Aggiorna lo snapshot dopo aver inizializzato il nuovo ordine
     StateHasChanged();
 }
 
@@ -1187,14 +1246,24 @@ StateHasChanged();
     
     private async Task VaiA(Func<Task> azioneSpostamento)
 {
+    // Se lo snapshot è vuoto, significa che non abbiamo ancora una "foto" valida: lascia passare
+    if (string.IsNullOrEmpty(snapshotOrdineOriginale))
+    {
+        await azioneSpostamento();
+        return;
+    }
+
     var snapshotAttuale = JsonSerializer.Serialize(ordine);
+
     if (snapshotAttuale != snapshotOrdineOriginale)
     {
-        bool conferma = await JS.InvokeAsync<bool>("confirm", "Ci sono modifiche non salvate. Vuoi uscire?");
+        bool conferma = await JS.InvokeAsync<bool>("confirm", "⚠️ Ci sono modifiche non salvate. Vuoi uscire senza salvare?");
         if (!conferma) return;
     }
+
     await azioneSpostamento();
 }
+
 
     private async Task SalvaNuovoProdotto()
 {
@@ -1329,22 +1398,18 @@ private async Task AggiornaDatiDaArchivio(DettaglioOrdine riga)
 
     if (snapshotAttuale != snapshotOrdineOriginale)
     {
-        if (!await JS.InvokeAsync<bool>("confirm", "Ci sono modifiche non salvate. Ripristinare i dati originali?")) 
+        if (!await JS.InvokeAsync<bool>("confirm", "⚠️ Ripristinare i dati originali? Le modifiche andranno perse.")) 
             return;
     }
 
-    // --- PULIZIA TASK ---
-    // Svuotiamo la lista così il box giallo sparisce istantaneamente
     taskPendenti = new(); 
 
     if (ordine.IDOrdine == 0) 
     { 
-        if (listaIdOrdini != null && listaIdOrdini.Any()) 
+        if (listaIdOrdini?.Any() == true) 
         {
             indiceCorrente = 0; 
             await CaricaOrdine(listaIdOrdini[indiceCorrente]);
-            
-            // Dopo aver caricato l'ordine precedente, ricarichiamo i task di quel cliente
             await CaricaTaskDelCliente(); 
         }
         else 
@@ -1354,13 +1419,17 @@ private async Task AggiornaDatiDaArchivio(DettaglioOrdine riga)
     }
     else 
     {
-        // Se ripristiniamo un ordine esistente, ricarichiamo i suoi task
         await CaricaOrdine(ordine.IDOrdine);
         await CaricaTaskDelCliente();
     }
     
+    // FORZA LO SNAPSHOT QUI se non lo fai già dentro CaricaOrdine
+    snapshotOrdineOriginale = JsonSerializer.Serialize(ordine);
+    
+    await Notifica("🔄 Dati ripristinati");
     StateHasChanged();
 }
+
 
 private void CalcolaTotaleOrdine()
 {

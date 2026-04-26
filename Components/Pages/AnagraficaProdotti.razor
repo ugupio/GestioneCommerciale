@@ -801,7 +801,7 @@ private async Task EseguiRicercaRadar()
         FROM Dettaglio_Ordini D
         JOIN Ordini O ON D.IDOrdine = O.IDOrdine
         JOIN Clienti C ON O.IDCliente = C.IdCliente
-        WHERE LTRIM(RTRIM(D.CodiceArticolo)) = LTRIM(RTRIM(@Codice))
+        WHERE LTRIM(RTRIM(D.CodiceProdotto)) = LTRIM(RTRIM(@Codice))
         ORDER BY O.DataOrdine DESC";
 
     var result = await db.QueryAsync(sql, new { Codice = prodottoSelezionatoRadar.CodiceProdotto });
