@@ -149,16 +149,19 @@
 </div>
 
 
-        <div style="display:flex; gap:20px; align-items:center;">
-            <div style="text-align:right;">
-                <span style="color: #666; font-size: 9px; display: block;">PESO TOTALE:</span>
-                <span style="font-size: 14px; font-weight: bold; color: #005a9e;">@PesoTotale.ToString("N2") Kg</span>
-            </div>
-            <div style="background: #eef5fb; border: 1px solid #b8d9f5; padding: 4px 15px; min-width: 200px; text-align:right;">
-                <span style="color: #005a9e; font-size: 9px; font-weight: bold; display: block;">TOTALE IMPONIBILE:</span>
-                <span style="font-size: 18px; font-weight: bold; color: #28a745;">@ordine.TotaleImponibile.ToString("C2")</span>
-            </div>
-        </div>
+        <div style="background: #eef5fb; border: 1px solid #b8d9f5; padding: 6px 12px; width: 150px; text-align:right; border-radius: 8px; display: inline-block; line-height: 1.2;">
+    <!-- SEZIONE IMPONIBILE -->
+    <span style="color: #005a9e; font-size: 8px; font-weight: bold; display: block; text-transform: uppercase;">Totale Imponibile</span>
+    <span style="font-size: 16px; font-weight: bold; color: #28a745; display: block; margin-bottom: 4px;">@ordine.TotaleImponibile.ToString("C2")</span>
+
+    <!-- DIVISORE -->
+    <div style="border-top: 1px solid #b8d9f5; margin: 4px 0;"></div>
+
+    <!-- SEZIONE PESO -->
+    <span style="color: #005a9e; font-size: 8px; font-weight: bold; display: block; text-transform: uppercase;">Peso Totale</span>
+    <span style="font-size: 14px; font-weight: bold; color: #444; display: block;">@PesoTotale.ToString("N2") Kg</span>
+</div>
+
 
         <div style="display:flex; gap:10px; flex-wrap: wrap;">
     <button class="btn-comando-ordine" @onclick="() => VaiA(IniziaNuovo)">

@@ -333,7 +333,19 @@
             await db.ExecuteAsync("DELETE FROM Dettaglio_Resi WHERE IDReso = @id", new { id = reso.IDReso }, tx);
             foreach (var r in righeReso) {
                 r.Codice = reso.IDReso.ToString();
-                await db.ExecuteAsync("INSERT INTO Dettaglio_Resi (IDReso, Codice, Descrizione, Quantita) VALUES (@IDReso, @Codice, @Descrizione, @Quantita)", r, tx);
+                foreach (var riga in righeReso) 
+{
+    // Eseguiamo direttamente la query passando i dati corretti
+    await db.ExecuteAsync(@"INSERT INTO Dettaglio_Resi (IDReso, Codice, Descrizione, Quantita) 
+                            VALUES (@IDReso, @Codice, @Descrizione, @Quantita)", 
+                            new { 
+                                IDReso = reso.IDReso, 
+                                r.Codice, 
+                                r.Descrizione, 
+                                r.Quantita 
+                            }, tx);
+}
+;
             }
             tx.Commit();
             await Notifica("✅ Reso salvato con successo!");
@@ -405,7 +417,7 @@ reso.Righe = righeReso.Select(x => new DettaglioReso {
     StatoBene = x.StatoBene 
 }).ToList();
 
-await Notifica($"Test dati: {reso.Indirizzo} - {reso.Citta}");
+
 
       
 

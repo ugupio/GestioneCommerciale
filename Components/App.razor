@@ -6,11 +6,79 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <ResourcePreloader />
-    <link rel="stylesheet" href="@Assets["app.css"]" />
-    <link rel="stylesheet" href="@Assets["GestioneCommerciale.styles.css"]" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="stylesheet" href="GestioneCommerciale.styles.css" />
     <ImportMap />
     <HeadOutlet @rendermode="InteractiveServer" />
     <link rel="stylesheet" href="_content/Radzen.Blazor/css/material-base.css">
+
+    <style>
+    /* IL CONTAINER UNIFICATO */
+    .toolbar-premium {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        gap: 10px;
+        overflow-x: auto;
+        padding: 10px 5px 15px 5px;
+        scrollbar-width: thin;
+    }
+
+    /* IL PULSANTE UNICO (Ex btn-premium-tall + btn-agenda) */
+    .btn-premium {
+        flex: 0 0 125px; /* Larghezza fissa ideale: ne stanno 3-4 su smartphone, molti su desktop */
+        height: 95px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center;
+        border-radius: 14px !important;
+        border: 1px solid #eee !important;
+        background-color: white !important;
+        transition: all 0.25s ease-in-out;
+        cursor: pointer !important;
+        color: #444;
+        text-decoration: none !important;
+    }
+
+    /* ICONA GRANDE */
+    .btn-premium i {
+        font-size: 1.9rem !important;
+        margin-bottom: 6px;
+        transition: transform 0.2s ease;
+    }
+
+    /* TESTO SOTTO CON ELLIPSIS */
+    .btn-premium span {
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-transform: uppercase; /* Mantiene lo stile professionale Agenda */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 95%;
+        display: block;
+    }
+
+    /* EFFETTO NEON INTEGRATO (Hover e Focus) */
+    .btn-premium:hover, .btn-premium:focus {
+        background-color: #f0fdff !important;
+        border-color: #00fbff !important;
+        box-shadow: 0 0 18px rgba(0, 251, 255, 0.5);
+        transform: translateY(-3px);
+        color: #00bcd4 !important;
+        outline: none;
+    }
+
+    .btn-premium:hover i {
+        transform: scale(1.1); /* L'icona si ingrandisce leggermente */
+    }
+
+    /* SCROLLBAR AZZURRA */
+    .toolbar-premium::-webkit-scrollbar { height: 5px; }
+    .toolbar-premium::-webkit-scrollbar-thumb { background: #00fbff; border-radius: 10px; }
+</style>
+
 </head>
 
 <body>

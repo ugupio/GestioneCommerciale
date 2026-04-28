@@ -36,6 +36,8 @@ public class Cliente
     public float? Lon { get; set; } // Da Longitudine a Lon
     public int? GiorniDallUltimoOrdine { get; set; }
     public double DistanzaKM { get; set; }
+    public int IdZona { get; set; }
+    public int FrequenzaVisitaGg { get; set; }
 }
 
 public class Prodotti
@@ -195,13 +197,43 @@ public class PerformanceData
 
 public class ElementoAgenda
 {
+    public int IdAgenda { get; set; } // Identificativo sul DB
+    public int? IdCliente { get; set; } // Per sapere da chi stiamo andando
     public DateTime Data { get; set; }
     public DateTime DataFine { get; set; }
     public string Titolo { get; set; }
-    public string Tipo { get; set; }
+    public string Tipo { get; set; } // Potresti usarlo per distinguere "Visita Programmata" da "Extra"
     public string Dettaglio { get; set; }
     public int PrioritaOLevel { get; set; }
     public bool IsChiuso { get; set; }
+
+    // Questo rimane utile per legare l'oggetto UI al record DB
     public object OriginalObject { get; set; }
+}
+
+// In class.cs o Models.cs
+
+public class TappaGiro
+{
+    public int IdCliente { get; set; }
+    public string RagSociale { get; set; }
+    public string Citta { get; set; }
+    public DateTime OrarioArrivo { get; set; }
+    public DateTime OrarioPartenza { get; set; }
+    public double KmDaPuntoPrecedente { get; set; }
+}
+
+public class NominatimResult
+{
+    public string Lat { get; set; }
+    public string Lon { get; set; }
+    public string Display_Name { get; set; }
+}
+
+public class Zona
+{
+    public int IdZona { get; set; }
+    public string NomeZona { get; set; }
+    public string Descrizione { get; set; }
 }
 
