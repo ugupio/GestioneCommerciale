@@ -175,14 +175,14 @@
         </button>
     </div>
     
-    <!-- BARRA DI RICERCA -->
+    <!-- BARRA DI RICERCA 
     <div style="flex-grow: 1; min-width: 200px;">
         <div class="search-wrapper-premium">
             <input type="text" class="search-input-premium" placeholder="Cerca Cliente..." 
                    @bind="testoRicerca" @bind:event="oninput" @onkeyup="CercaEnter" />
             <button class="search-btn-premium" @onclick="EseguiRicerca">🔍</button>
         </div>
-    </div>
+    </div> -->
 
     <!-- GRUPPO DATA E AZIONI -->
     <div style="display:flex; gap:8px; flex-shrink: 0;">
@@ -196,6 +196,8 @@
         <button class="btn-comando-ordine" style="background:#fff176 !important;" @onclick="ScaricaReportGiornaliero">
             <span>🖨️</span><span>REPORT</span>
         </button>
+
+        <button class="btn-comando-ordine" @onclick='() => Nav.NavigateTo("/pianificatore")'> <span>📅</span>  <span>PIANIFICA</span>  </button>
 
         <button class="btn-comando-ordine" @onclick="Nuovo">
             <span>📄</span><span>NUOVA</span>

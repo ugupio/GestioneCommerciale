@@ -1,0 +1,473 @@
+﻿@page "/pianificatore"
+@rendermode InteractiveServer
+@using Microsoft.Data.SqlClient
+@using Dapper
+@using GestioneCommerciale.Models
+@using System.Data
+@inject NavigationManager Nav
+@inject IConfiguration Config
+@using GestioneCommerciale.Services
+@inject PianificatoreService PlannerService
+@inject IJSRuntime JSRuntime
+
+
+
+<style>
+    .tappa-card {
+        background: white;
+        border-left: 5px solid #00fbff;
+        margin-bottom: 10px;
+        padding: 12px;
+        border-radius: 8px;
+        display: flex;
+        gap: 20px;
+        box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .tappa-ora {
+        font-weight: bold;
+        color: #1e3c72;
+        font-size: 1.2rem;
+        min-width: 60px;
+    }
+
+    .timeline-container { border-left: 3px solid #dee2e6; padding-left: 20px; position: relative; }
+    .tappa-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        border: 1px solid #eee;
+        transition: transform 0.2s;
+    }
+    .tappa-card:hover { transform: translateX(5px); border-color: #00fbff; }
+    .tappa-ora {
+        font-size: 1.3rem;
+        font-weight: 800;
+        color: #1e3c72;
+        min-width: 80px;
+        border-right: 2px solid #00fbff;
+        margin-right: 15px;
+    }
+    .tappa-info strong { font-size: 1rem; color: #333; }
+    .modal-backdrop.show { opacity: 0.7; background-color: #000; }
+
+    .btn-comando-ordine {
+        height: 90px !important;
+        min-width: 95px !important;
+        display: inline-flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 5px !important;
+        padding: 10px !important;
+        background: #ffffff !important;
+        color: #1e3c72 !important;
+        font-weight: bold !important;
+        border: 2px solid #ffffff !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+        transition: all 0.2s ease-in-out !important;
+        cursor: pointer !important;
+        text-transform: uppercase;
+        font-size: 10px !important;
+        user-select: none !important;
+    }
+
+    .btn-comando-ordine:hover {
+        background: #00d2ff !important;
+        color: white !important;
+        border-color: #00d2ff !important;
+        transform: scale(1.05) !important;
+        box-shadow: 0 0 20px rgba(0, 210, 255, 0.6) !important;
+    }
+
+    .btn-comando-ordine span:first-child { font-size: 2rem !important; pointer-events: none !important; }
+    .btn-start-nav { background: #f8f9fa !important; border-color: #dee2e6 !important; }
+    .btn-start-verde { background: #d4edda !important; border-color: #28a745 !important; }
+    .btn-start-rosso { background: #f8d7da !important; border-color: #dc3545 !important; color: #721c24 !important; }
+
+    /* Bottoni piccoli per le righe della tabella */
+.btn-action-mini {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 14px;
+}
+.btn-action-mini:hover {
+    background: #eef5fb;
+    border-color: #00bcd4;
+    transform: translateY(-2px);
+}
+
+/* Stile input dentro il popup */
+.modal-body .win-input {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 13px;
+}
+.modal-body .win-input:focus {
+    border-color: #1e3c72;
+    outline: none;
+    background: #fff;
+}
+
+
+</style>
+
+
+<div class="toolbar-premium" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+    
+    <!-- SINISTRA: Pulsanti Azione -->
+    <div style="display: flex; gap: 10px;">
+        <button class="btn-comando-ordine" @onclick='(() => Nav.NavigateTo("/"))'>
+            <span>🏠</span><span>HOME</span>
+        </button>
+        <button class="btn-comando-ordine btn-start-verde" @onclick="(() => CalcolaGiro())">
+            <span>⚙️</span><span>CALCOLA</span>
+        </button>
+        <button class="btn-comando-ordine btn-start-azzurro" @onclick="(() => ApriGestioneZone())">
+            <span>🗺️</span><span>ZONE</span>
+        </button>
+        <button class="btn-comando-ordine" @onclick="SalvaAgenda">
+            <span>💾</span><span>SALVA</span>
+        </button>
+    </div>
+
+    <!-- DESTRA: Setup Partenza Compatto -->
+    <div style="display: flex; align-items: center; gap: 15px; background: white; padding: 5px 15px; border-radius: 12px; border: 1px solid #ddd; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
+        
+        <div style="display: flex; flex-direction: column;">
+    <label style="font-size: 9px; font-weight: bold; color: #1e3c72; margin-bottom: 2px;">
+        PARTENZA DA: 
+        <span @onclick="SalvaComePredefinito" style="cursor:pointer; margin-left:5px; font-size: 10px;" title="Salva come predefinito">📌</span>
+    </label>
+    <input type="text" @bind="IndirizzoPartenza" 
+           style="border: none; border-bottom: 1px solid #ccc; font-size: 12px; width: 220px; outline: none;" 
+           placeholder="Via Capri 17, Piombino..." />
+</div>
+
+
+        <div style="display: flex; flex-direction: column;">
+            <label style="font-size: 9px; font-weight: bold; color: #1e3c72; margin-bottom: 2px;">ZONA:</label>
+            <select @bind="IdZonaSelezionata" style="border: none; background: transparent; font-size: 12px; font-weight: bold; cursor: pointer; outline: none;">
+                <option value="0">Scegli zona...</option>
+                @foreach (var z in ListeZone) {
+                    <option value="@z.IdZona">@z.NomeZona</option>
+                }
+            </select>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 5px; border-left: 1px solid #ddd; padding-left: 10px;">
+            <input type="checkbox" @bind="IsRientroPranzo" id="pPranzoSmall" />
+            <label for="pPranzoSmall" style="font-size: 9px; font-weight: bold; cursor: pointer; margin:0;">RIENTRO<br>PRANZO</label>
+        </div>
+    </div>
+</div>
+
+
+    <!-- COLONNA RISULTATO (La Timeline) -->
+    <div class="container-fluid mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            @if (GiroProposto.Any()) {
+                <div class="timeline-container">
+                    @foreach (var tappa in GiroProposto) {
+                        <div class="tappa-card">
+                            <div class="tappa-ora">@tappa.OrarioArrivo.ToString("HH:mm")</div>
+                            <div class="tappa-info">
+                                <strong>@tappa.RagSociale</strong>
+                                <div style="font-size: 0.85rem; color: #666;">
+                                    📍 @tappa.Citta • 🛣️ @tappa.KmDaPuntoPrecedente.ToString("N1") km
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            } else {
+                <div style="text-align: center; margin-top: 100px; color: #aaa;">
+                    <span style="font-size: 4rem; display: block;">🗺️</span>
+                    <h5>Configura la partenza e seleziona una zona per iniziare</h5>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+
+@if (showZoneModal)
+{
+    <!-- 1. Sfondo oscurato (Backdrop) -->
+    <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 9998;" @onclick="() => showZoneModal = false"></div>
+
+    <!-- 2. Contenitore Popup centrato -->
+    <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; width: 90%; max-width: 800px; background: white; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); overflow: hidden;">
+        
+        <!-- Testata -->
+        <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <h5 style="margin: 0; font-weight: bold;">🗺️ GESTIONE ZONE OPERATIVE</h5>
+            <button style="background: transparent; border: none; color: white; font-size: 24px; cursor: pointer;" @onclick="() => showZoneModal = false">&times;</button>
+        </div>
+
+        <!-- Corpo con tabella -->
+        <div style="padding: 20px; max-height: 60vh; overflow-y: auto; background: #fdfdfd;">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr style="font-size: 11px; text-transform: uppercase; color: #666; background: #f1f4f9;">
+                        <th>Nome Zona</th>
+                        <th>Descrizione</th>
+                        <th style="width: 120px; text-align: right;">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var z in ListeZone)
+                    {
+                        <tr>
+                            <td><input type="text" class="win-input" @bind="z.NomeZona" style="width: 100%;" /></td>
+                            <td><input type="text" class="win-input" @bind="z.Descrizione" style="width: 100%;" /></td>
+                            <td style="text-align: right;">
+                                <button class="btn btn-sm btn-outline-success" @onclick="() => SalvaZona(z)" style="margin-right: 5px;">💾</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => EliminaZona(z)">🗑️</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #f1f4f9; padding: 15px 25px; display: flex; justify-content: flex-end; gap: 10px;">
+            <button class="btn-comando-ordine btn-start-verde" style="height: 50px; min-width: 140px;" @onclick="NuovaZona">
+                <span>➕</span><span>AGGIUNGI</span>
+            </button>
+            <button class="btn-comando-ordine" style="height: 50px; min-width: 140px;" @onclick="() => showZoneModal = false">
+                <span>✖</span><span>CHIUDI</span>
+            </button>
+        </div>
+    </div>
+}
+
+
+
+
+
+
+@code {
+    private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
+    
+    private string IndirizzoPartenza = "";
+    private double LatPartenza, LonPartenza;
+    private bool IsRientroPranzo = true;
+    private int IdZonaSelezionata;
+    
+    private List<TappaGiro> GiroProposto = new();
+    private List<Zona> ListeZone = new();
+
+    protected override async Task OnInitializedAsync()
+{
+    await CaricaZone();
+    
+    // Recupera l'indirizzo salvato in precedenza
+    var salvato = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "indirizzo_partenza");
+    if (!string.IsNullOrWhiteSpace(salvato))
+    {
+        IndirizzoPartenza = salvato;
+    }
+}
+
+// Nuovo metodo per salvare l'indirizzo
+private async Task SalvaComePredefinito()
+{
+    if (!string.IsNullOrWhiteSpace(IndirizzoPartenza))
+    {
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "indirizzo_partenza", IndirizzoPartenza);
+        await JSRuntime.InvokeVoidAsync("alert", "Indirizzo salvato come predefinito! 🏠");
+    }
+}
+
+    private async Task CaricaZone()
+    {
+        using IDbConnection db = new SqlConnection(conn);
+        var sql = "SELECT IdZona, NomeZona, Descrizione FROM Zone ORDER BY NomeZona";
+        ListeZone = (await db.QueryAsync<Zona>(sql)).ToList();
+    }
+
+    private async Task CalcolaGiro()
+{
+    // 1. LOG DI PARTENZA (Lo vedrai nella finestra Output di VS)
+    System.Diagnostics.Debug.WriteLine("Inizio CalcolaGiro...");
+
+    try 
+    {
+        // 2. CONTROLLO DATI MINIMI
+        if (IdZonaSelezionata == 0) {
+             await JSRuntime.InvokeVoidAsync("alert", "Seleziona prima una Zona!");
+             return;
+        }
+
+        // 3. RECUPERO COORDINATE (Usiamo il service)
+        // Se si pianta qui, il problema è la connessione all'API di LocationIQ
+        // var coords = await PlannerService.GeocodificaIndirizzo(IndirizzoPartenza);
+        
+        // if (coords == null) {
+          //  await JSRuntime.InvokeVoidAsync("alert", "Indirizzo non trovato. Controlla la connessione!");
+          //  return;
+       // }
+
+        LatPartenza = 42.93797;
+        LonPartenza = 10.51930;
+
+        // 4. CARICAMENTO CLIENTI (SQL DIRETTO)
+        using (var db = new Microsoft.Data.SqlClient.SqlConnection(conn))
+        {
+            var sql = @"
+                SELECT c.* 
+                FROM Clienti c
+                OUTER APPLY (
+                    SELECT TOP 1 DataVisita 
+                    FROM Visite v 
+                    WHERE v.IdCliente = c.IdCliente 
+                    ORDER BY DataVisita DESC
+                ) lastV
+                WHERE c.IdZona = @IdZona 
+                  AND c.Lat IS NOT NULL 
+                  AND (
+                       lastV.DataVisita IS NULL 
+                       OR DATEDIFF(day, lastV.DataVisita, GETDATE()) >= ISNULL(c.FrequenzaVisitaGg, 0)
+                  )";
+            var clienti = (await db.QueryAsync<Cliente>(sql, new { IdZona = IdZonaSelezionata })).ToList();
+
+            if (clienti != null && clienti.Any())
+            {
+                // 5. CALCOLO LOGICA (PianificatoreService)
+                GiroProposto = PlannerService.CalcolaGiroOttimizzato(clienti, LatPartenza, LonPartenza, IsRientroPranzo, 20);
+            }
+            else 
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Nessun cliente con coordinate trovato in questa zona!");
+            }
+        }
+        
+        // 6. AGGIORNA INTERFACCIA
+        StateHasChanged();
+    }
+    catch (Exception ex)
+    {
+        // Se c'è un errore C#, lo catturiamo qui invece di far crashare la pagina
+        System.Diagnostics.Debug.WriteLine($"CRASH: {ex.Message}");
+        await JSRuntime.InvokeVoidAsync("alert", "Errore tecnico: " + ex.Message);
+    }
+}
+
+
+
+
+    private async Task SalvaAgenda()
+{
+    if (GiroProposto == null || !GiroProposto.Any())
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Nessun giro calcolato da salvare!");
+        return;
+    }
+
+    try
+    {
+        using (var db = new Microsoft.Data.SqlClient.SqlConnection(conn))
+        {
+            // 1. Puliamo eventuali giri già salvati per oggi (opzionale, basato sulla data)
+            // string sqlDelete = "DELETE FROM Agenda WHERE CAST(DataInizio AS DATE) = CAST(GETDATE() AS DATE)";
+            // await db.ExecuteAsync(sqlDelete);
+
+            // 2. Inseriamo le nuove tappe
+            string sqlInsert = @"
+                INSERT INTO Agenda (IdCliente, DataInizio, DataFine, Titolo, Tipo, Dettaglio, IsChiuso, Priorita)
+                VALUES (@IdCliente, @DataInizio, @DataFine, @Titolo, 'VISITA', @Dettaglio, 0, 1)";
+
+            foreach (var tappa in GiroProposto)
+            {
+                await db.ExecuteAsync(sqlInsert, new
+                {
+                    IdCliente = tappa.IdCliente,
+                    DataInizio = tappa.OrarioArrivo,
+                    DataFine = tappa.OrarioPartenza,
+                    Titolo = $"Visita: {tappa.RagSociale}",
+                    Dettaglio = $"Giro pianificato. KM previsti: {tappa.KmDaPuntoPrecedente:N1}"
+                });
+            }
+        }
+
+        await JSRuntime.InvokeVoidAsync("alert", "Agenda salvata con successo! Il Direttore può ora visualizzarla.");
+    }
+    catch (Exception ex)
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Errore nel salvataggio: " + ex.Message);
+    }
+}
+
+
+    
+    private List<Zona> zoneInModifica = new();
+
+    
+
+    
+
+    private bool showZoneModal = false;
+
+    
+
+    private void NuovaZona()
+    {
+        ListeZone.Add(new Zona { NomeZona = "NUOVA ZONA", Descrizione = "" });
+    }
+
+    private async Task SalvaZona(Zona z)
+    {
+        try
+        {
+            using IDbConnection db = new SqlConnection(conn);
+            if (z.IdZona == 0)
+            {
+                string sql = "INSERT INTO Zone (NomeZona, Descrizione) VALUES (@NomeZona, @Descrizione); SELECT CAST(SCOPE_IDENTITY() as int)";
+                z.IdZona = await db.QuerySingleAsync<int>(sql, z);
+            }
+            else
+            {
+                string sql = "UPDATE Zone SET NomeZona = @NomeZona, Descrizione = @Descrizione WHERE IdZona = @IdZona";
+                await db.ExecuteAsync(sql, z);
+            }
+            await JSRuntime.InvokeVoidAsync("alert", "Zona salvata con successo!");
+        }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", "Errore: " + ex.Message); }
+    }
+
+    private async Task EliminaZona(Zona z)
+    {
+        if (z.IdZona == 0) { ListeZone.Remove(z); return; }
+
+        bool confirm = await JSRuntime.InvokeAsync<bool>("confirm", $"Eliminare definitivamente la zona {z.NomeZona}?");
+        if (confirm)
+        {
+            using IDbConnection db = new SqlConnection(conn);
+            await db.ExecuteAsync("DELETE FROM Zone WHERE IdZona = @IdZona", new { z.IdZona });
+            ListeZone.Remove(z);
+        }
+    }
+
+    private async Task ApriGestioneZone() 
+{
+    await CaricaZone(); // Forza il refresh dei dati dal DB prima di mostrare il popup
+    showZoneModal = true;
+}
+
+    
+
+}
+

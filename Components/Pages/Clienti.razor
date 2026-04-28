@@ -301,6 +301,20 @@
         <label class="lbl-fixed">Annotazioni:</label>
         <input type="text" class="win-input" @bind="c.Annotazioni" />
     </div>
+    <!-- RIGA 6: Logica Commerciale (Zona e Frequenza) -->
+        <div class="win-row-compact">
+            <label class="lbl-fixed">Zona Operativa:</label>
+            <select class="win-input" @bind="c.IdZona" style="flex: 2; height: 24px; padding: 0 5px;">
+            <option value="0">-- SELEZIONA ZONA --</option>
+                @foreach (var z in ListeZone) {
+                    <option value="@z.IdZona">@z.NomeZona</option>
+                }
+            </select>
+
+    <label class="lbl-fixed" style="margin-left: 20px;">Frequenza (gg):</label>
+    <input type="number" class="win-input" @bind="c.FrequenzaVisitaGg" style="flex: 1;" />
+</div>
+
 
 
         <!-- AREA DETTAGLI CORRELATI -->
@@ -392,25 +406,33 @@
     private List<dynamic> listaResiCliente = new();
     private List<dynamic> listaVisiteCliente = new();
     private decimal totaleOrdiniCliente;
+    private List<Zona> ListeZone = new();
 
 
 
 
     protected override async Task OnInitializedAsync()
+{
+    // 1. Carica prima di tutto le zone (servono per i menu a tendina)
+    using (IDbConnection db = new SqlConnection(conn))
     {
-        await RinfrescaListaID();
-
-        if (listaIdClienti.Any())
-        {
-            indiceCorrente = 0;
-            // Questo metodo internamente caricherà anche i tab!
-            await CaricaCliente(listaIdClienti[indiceCorrente]);
-        }
-        else
-        {
-            ResetNuovo();
-        }
+        ListeZone = (await db.QueryAsync<Zona>("SELECT IdZona, NomeZona FROM Zone ORDER BY NomeZona")).ToList();
     }
+
+    // 2. Prosegue con la logica esistente dei clienti
+    await RinfrescaListaID();
+
+    if (listaIdClienti.Any())
+    {
+        indiceCorrente = 0;
+        await CaricaCliente(listaIdClienti[indiceCorrente]);
+    }
+    else
+    {
+        ResetNuovo();
+    }
+}
+
 
     
     
@@ -466,13 +488,13 @@
                            CAP_Legale, Prov_Legale, Telefono, Fax, Email, Cel1, Cel2, PIva, CodFiscale, 
                            SDI, Banca, Agenzia, ABI, CAB, IBAN, PagProposto, PagAccettato, 
                            InfoCommerciali, PrevisioneAnnuo, Carrello, ScaricoAgevole, 
-                           Annotazioni, ScontoProfili, ScontoAccessori, Lat, Lon) 
+                           Annotazioni, ScontoProfili, ScontoAccessori, Lat, Lon, IdZona, FrequenzaVisitaGg) 
                            OUTPUT INSERTED.IdCliente 
                            VALUES (@RagSociale, @Referente, @Ind_legale, @Citta_Legale, 
                            @CAP_Legale, @Prov_Legale, @Telefono, @Fax, @Email, @Cel1, @Cel2, @PIva, @CodFiscale, 
                            @SDI, @Banca, @Agenzia, @ABI, @CAB, @IBAN, @PagProposto, @PagAccettato, 
                            @InfoCommerciali, @PrevisioneAnnuo, @Carrello, @ScaricoAgevole, 
-                           @Annotazioni, @ScontoProfili, @ScontoAccessori, @Lat, @Lon)";
+                           @Annotazioni, @ScontoProfili, @ScontoAccessori, @Lat, @Lon, @IdZona, @FrequenzaVisitaGg)";
             
             c.IdCliente = await db.QuerySingleAsync<int>(sql, c);
             await RinfrescaListaID();
@@ -488,7 +510,7 @@
                            InfoCommerciali=@InfoCommerciali, PrevisioneAnnuo=@PrevisioneAnnuo, 
                            Carrello=@Carrello, ScaricoAgevole=@ScaricoAgevole, 
                            Annotazioni=@Annotazioni, ScontoProfili=@ScontoProfili, 
-                           ScontoAccessori=@ScontoAccessori, Lat=@Lat, Lon=@Lon 
+                           ScontoAccessori=@ScontoAccessori, Lat=@Lat, Lon=@Lon, IdZona=@IdZona, FrequenzaVisitaGg=@FrequenzaVisitaGg
                            WHERE IdCliente=@IdCliente";
             
             await db.ExecuteAsync(sql, c);
