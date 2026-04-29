@@ -139,38 +139,68 @@
         <button class="btn-comando-ordine" @onclick="SalvaAgenda">
             <span>💾</span><span>SALVA</span>
         </button>
+        <div class="form-group mb-0">
+            <label class="small fw-bold">GIORNO PIANIFICAZIONE:</label>
+            <input type="date" 
+       class="form-control" 
+       value="@DataPianificazione.ToString("yyyy-MM-dd")" 
+       @onchange="@((ChangeEventArgs e) => DataPianificazione = DateTime.Parse(e.Value.ToString()))" 
+       min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+
+        </div>
     </div>
 
-    <!-- DESTRA: Setup Partenza Compatto -->
-    <div style="display: flex; align-items: center; gap: 15px; background: white; padding: 5px 15px; border-radius: 12px; border: 1px solid #ddd; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
-        
-        <div style="display: flex; flex-direction: column;">
-    <label style="font-size: 9px; font-weight: bold; color: #1e3c72; margin-bottom: 2px;">
-        PARTENZA DA: 
-        <span @onclick="SalvaComePredefinito" style="cursor:pointer; margin-left:5px; font-size: 10px;" title="Salva come predefinito">📌</span>
-    </label>
-    <input type="text" @bind="IndirizzoPartenza" 
-           style="border: none; border-bottom: 1px solid #ccc; font-size: 12px; width: 220px; outline: none;" 
-           placeholder="Via Capri 17, Piombino..." />
+    <!-- DESTRA: Setup Partenza e Orari -->
+<div style="display: flex; align-items: center; gap: 15px; background: white; padding: 5px 15px; border-radius: 12px; border: 1px solid #ddd; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
+    
+    <!-- Input Indirizzo (Esistente) -->
+    <div style="display: flex; flex-direction: column;">
+        <label style="font-size: 9px; font-weight: bold; color: #1e3c72; margin-bottom: 2px;">
+            PARTENZA DA: 
+            <span @onclick="SalvaComePredefinito" style="cursor:pointer; margin-left:5px; font-size: 10px;" title="Salva come predefinito">📌</span>
+        </label>
+        <input type="text" @bind="IndirizzoPartenza" 
+               style="border: none; border-bottom: 1px solid #ccc; font-size: 12px; width: 220px; outline: none;" 
+               placeholder="Via Capri 17, Piombino..." />
+    </div>
+
+    <!-- NUOVO: Orario Inizio (CORRETTO) -->
+<div style="display: flex; flex-direction: column; border-left: 1px solid #ddd; padding-left: 10px;">
+    <label style="font-size: 9px; font-weight: bold; color: #1e3c72; margin-bottom: 2px;">PARTENZA:</label>
+    <input type="time" 
+           value="@OrarioPartenzaPrevisto.ToString(@"hh\:mm")" 
+           @onchange="@((ChangeEventArgs e) => OrarioPartenzaPrevisto = TimeSpan.Parse(e.Value?.ToString() ?? "08:30"))"
+           style="border: none; font-size: 12px; font-weight: bold; outline: none; background: transparent;" />
+</div>
+
+<!-- NUOVO: Orario Fine (CORRETTO) -->
+<div style="display: flex; flex-direction: column; border-left: 1px solid #ddd; padding-left: 10px;">
+    <label style="font-size: 9px; font-weight: bold; color: #1e3c72; margin-bottom: 2px;">RIENTRO:</label>
+    <input type="time" 
+           value="@OrarioRientroMassimo.ToString(@"hh\:mm")" 
+           @onchange="@((ChangeEventArgs e) => OrarioRientroMassimo = TimeSpan.Parse(e.Value?.ToString() ?? "18:00"))"
+           style="border: none; font-size: 12px; font-weight: bold; outline: none; background: transparent;" />
 </div>
 
 
-        <div style="display: flex; flex-direction: column;">
-            <label style="font-size: 9px; font-weight: bold; color: #1e3c72; margin-bottom: 2px;">ZONA:</label>
-            <select @bind="IdZonaSelezionata" style="border: none; background: transparent; font-size: 12px; font-weight: bold; cursor: pointer; outline: none;">
-                <option value="0">Scegli zona...</option>
-                @foreach (var z in ListeZone) {
-                    <option value="@z.IdZona">@z.NomeZona</option>
-                }
-            </select>
-        </div>
+    <!-- Zona e Rientro Pranzo (Esistenti) -->
+    <div style="display: flex; flex-direction: column; border-left: 1px solid #ddd; padding-left: 10px;">
+        <label style="font-size: 9px; font-weight: bold; color: #1e3c72; margin-bottom: 2px;">ZONA:</label>
+        <select @bind="IdZonaSelezionata" style="border: none; background: transparent; font-size: 12px; font-weight: bold; cursor: pointer; outline: none;">
+            <option value="0">Scegli zona...</option>
+            @foreach (var z in ListeZone) {
+                <option value="@z.IdZona">@z.NomeZona</option>
+            }
+        </select>
+    </div>
 
-        <div style="display: flex; align-items: center; gap: 5px; border-left: 1px solid #ddd; padding-left: 10px;">
-            <input type="checkbox" @bind="IsRientroPranzo" id="pPranzoSmall" />
-            <label for="pPranzoSmall" style="font-size: 9px; font-weight: bold; cursor: pointer; margin:0;">RIENTRO<br>PRANZO</label>
-        </div>
+    <div style="display: flex; align-items: center; gap: 5px; border-left: 1px solid #ddd; padding-left: 10px;">
+        <input type="checkbox" @bind="IsRientroPranzo" id="pPranzoSmall" />
+        <label for="pPranzoSmall" style="font-size: 9px; font-weight: bold; cursor: pointer; margin:0;">RIENTRO<br>PRANZO</label>
     </div>
 </div>
+</div>
+
 
 
     <!-- COLONNA RISULTATO (La Timeline) -->
@@ -261,14 +291,43 @@
 
 @code {
     private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
-    
     private string IndirizzoPartenza = "";
     private double LatPartenza, LonPartenza;
     private bool IsRientroPranzo = true;
     private int IdZonaSelezionata;
-    
     private List<TappaGiro> GiroProposto = new();
     private List<Zona> ListeZone = new();
+    // 1. Variabili "Reali" (Quelle che usa l'algoritmo)
+    private DateTime DataPianificazione { get; set; } = DateTime.Today.AddDays(1);
+    private TimeSpan OrarioPartenzaPrevisto { get; set; } = new TimeSpan(8, 30, 0);
+    private TimeSpan OrarioRientroMassimo { get; set; } = new TimeSpan(18, 0, 0);
+
+    // 2. Proprietà "Ponte" (Quelle che servono all'HTML per non dare errore CS1503)
+    
+    // Per il calendario
+    private string DataPianificazioneString {
+        get => DataPianificazione.ToString("yyyy-MM-dd");
+        set { if (DateTime.TryParse(value, out var d)) DataPianificazione = d; }
+    }
+
+    // Per l'orario di inizio
+    private string OraPartenzaString {
+        get => OrarioPartenzaPrevisto.ToString(@"hh\:mm");
+        set { if (TimeSpan.TryParse(value, out var ts)) OrarioPartenzaPrevisto = ts; }
+    }
+
+    // Per l'orario di rientro
+    private string OraRientroString {
+        get => OrarioRientroMassimo.ToString(@"hh\:mm");
+        set { if (TimeSpan.TryParse(value, out var ts)) OrarioRientroMassimo = ts; }
+    }
+
+
+
+
+
+
+
 
     protected override async Task OnInitializedAsync()
 {
@@ -347,7 +406,15 @@ private async Task SalvaComePredefinito()
             if (clienti != null && clienti.Any())
             {
                 // 5. CALCOLO LOGICA (PianificatoreService)
-                GiroProposto = PlannerService.CalcolaGiroOttimizzato(clienti, LatPartenza, LonPartenza, IsRientroPranzo, 20);
+                GiroProposto = PlannerService.CalcolaGiroOttimizzato(
+                clienti, 
+                LatPartenza, 
+                LonPartenza, 
+                IsRientroPranzo, 
+                20, // durata visita
+                OrarioPartenzaPrevisto, // <--- NUOVO PARAMETRO
+                OrarioRientroMassimo    // <--- NUOVO PARAMETRO
+);
             }
             else 
             {
@@ -381,35 +448,35 @@ private async Task SalvaComePredefinito()
     {
         using (var db = new Microsoft.Data.SqlClient.SqlConnection(conn))
         {
-            // 1. Puliamo eventuali giri già salvati per oggi (opzionale, basato sulla data)
-            // string sqlDelete = "DELETE FROM Agenda WHERE CAST(DataInizio AS DATE) = CAST(GETDATE() AS DATE)";
-            // await db.ExecuteAsync(sqlDelete);
-
-            // 2. Inseriamo le nuove tappe
             string sqlInsert = @"
                 INSERT INTO Agenda (IdCliente, DataInizio, DataFine, Titolo, Tipo, Dettaglio, IsChiuso, Priorita)
                 VALUES (@IdCliente, @DataInizio, @DataFine, @Titolo, 'VISITA', @Dettaglio, 0, 1)";
 
             foreach (var tappa in GiroProposto)
             {
+                // Uniamo la data scelta dall'utente con l'orario calcolato dall'algoritmo
+                DateTime inizioPianificato = DataPianificazione.Date.Add(tappa.OrarioArrivo.TimeOfDay);
+                DateTime finePianificata = DataPianificazione.Date.Add(tappa.OrarioPartenza.TimeOfDay);
+
                 await db.ExecuteAsync(sqlInsert, new
                 {
                     IdCliente = tappa.IdCliente,
-                    DataInizio = tappa.OrarioArrivo,
-                    DataFine = tappa.OrarioPartenza,
+                    DataInizio = inizioPianificato,
+                    DataFine = finePianificata,
                     Titolo = $"Visita: {tappa.RagSociale}",
-                    Dettaglio = $"Giro pianificato. KM previsti: {tappa.KmDaPuntoPrecedente:N1}"
+                    Dettaglio = $"Giro ottimizzato. KM previsti: {tappa.KmDaPuntoPrecedente:N1}"
                 });
             }
         }
 
-        await JSRuntime.InvokeVoidAsync("alert", "Agenda salvata con successo! Il Direttore può ora visualizzarla.");
+        await JSRuntime.InvokeVoidAsync("alert", $"Agenda per il {DataPianificazione:dd/MM/yyyy} salvata correttamente!");
     }
     catch (Exception ex)
     {
         await JSRuntime.InvokeVoidAsync("alert", "Errore nel salvataggio: " + ex.Message);
     }
 }
+
 
 
     

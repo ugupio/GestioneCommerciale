@@ -1,0 +1,101 @@
+﻿@using Radzen
+@using Radzen.Blazor
+@using GestioneCommerciale.Models
+@inject DialogService DialogService
+
+<div class="popup-premium-container" style="background: #ffffff; min-width: 650px;">
+    <!-- HEADER -->
+    <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 15px 20px; color: white; margin: -1rem -1rem 15px -1rem; display:flex; align-items:center; gap:15px;">
+        <span style="font-size: 2rem;">🤝</span>
+        <div>
+            <h5 style="margin:0; font-weight:800; text-transform: uppercase;">Report Visita</h5>
+            <p style="margin:0; font-size: 12px; opacity: 0.8;">Cliente: <strong>@Titolo</strong></p>
+        </div>
+    </div>
+
+    <div class="container-fluid p-3">
+        <div class="row g-3">
+            @if (VisitaModello.IDCliente <= 0)
+            {
+                <label style="font-size: 10px; font-weight: bold; color: #d63031; text-transform: uppercase; margin-bottom: 4px; display: block;">⚠️ Associa Cliente reale:</label>
+                <RadzenDropDown TValue="int" @bind-Value="VisitaModello.IDCliente"
+                                Data="@ListaClienti" TextProperty="RagSociale" ValueProperty="IdCliente"
+                                AllowFiltering="true" Placeholder="Cerca cliente..."
+                                style="width: 100%; border-radius: 8px;" />
+            }
+            else
+            {
+                <div style="display:flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <label style="font-size: 10px; font-weight: bold; color: #1e3c72; text-transform: uppercase; display: block;">🏢 Cliente Selezionato:</label>
+                        <span class="fw-bold text-primary">@GetNomeCliente(VisitaModello.IDCliente)</span>
+                    </div>
+                    @if (Titolo.Contains("manuale") || Titolo.Contains("Task")) @* Permetti il cambio solo se era un inserimento manuale *@
+                    {
+                        <button class="btn btn-sm btn-link" style="font-size: 10px;" @onclick="() => VisitaModello.IDCliente = 0">Cambia</button>
+                    }
+                </div>
+            }
+
+            <div class="col-md-6">
+                <label class="small fw-bold">👤 REFERENTE</label>
+                <input class="form-control form-control-sm bg-light" @bind="VisitaModello.ReferenteIncontrato" />
+            </div>
+            <div class="col-md-6">
+                <label class="small fw-bold">📊 ESITO</label>
+                <select class="form-select form-select-sm bg-light" @bind="VisitaModello.StatoVisita">
+                    <option value="CONCLUSA">✅ Conclusa</option>
+                    <option value="NEGATIVA">❌ Negativa</option>
+                </select>
+            </div>
+
+            <div class="col-md-8">
+                <label class="small fw-bold">🎯 MOTIVAZIONE</label>
+                <input class="form-control form-control-sm bg-light" @bind="VisitaModello.Motivazione" />
+            </div>
+            <div class="col-md-4">
+                <label class="small fw-bold">🔥 FEELING (1-5)</label>
+                <input type="number" min="1" max="5" class="form-control form-control-sm bg-light" @bind="VisitaModello.TemperaturaCliente" />
+            </div>
+
+            <div class="col-12">
+                <label class="small fw-bold">📝 RELAZIONE DETTAGLIATA</label>
+                <textarea class="form-control bg-light" @bind="VisitaModello.NoteEsito" style="height: 200px; width:100%; resize:none;"></textarea>
+            </div>
+
+            <div class="col-md-6">
+                <div class="form-check form-switch p-2 bg-light rounded shadow-sm">
+                    <input class="form-check-input ms-1" type="checkbox" @bind="VisitaModello.RichiedeSeguito" id="swS" />
+                    <label class="form-check-label ms-2 small fw-bold" for="swS">RICHIEDE SEGUITO</label>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="small fw-bold">📅 PROSSIMO CONTATTO</label>
+                <input type="date" class="form-control form-control-sm bg-light"
+                       value="@VisitaModello.DataProssimoContatto?.ToString("yyyy-MM-dd")"
+                       @onchange="@((ChangeEventArgs e) => VisitaModello.DataProssimoContatto = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString()))" />
+            </div>
+        </div>
+    </div>
+
+    <div style="display:flex; justify-content: space-between; padding: 15px; border-top: 1px solid #eee; background: #f8f9fa;">
+        <button type="button" class="btn btn-outline-danger btn-sm" @onclick="Elimina">🗑️ ELIMINA</button>
+        <div style="display:flex; gap: 10px;">
+            <button type="button" class="btn btn-link btn-sm text-muted" @onclick="Annulla">ANNULLA</button>
+            <button type="button" class="btn btn-success btn-sm px-4" disabled="@(VisitaModello.IDCliente <= 0)" @onclick="Salva">SALVA 💾</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public Visita VisitaModello { get; set; }
+    [Parameter] public List<Cliente> ListaClienti { get; set; }
+    [Parameter] public string Titolo { get; set; }
+
+    // Riduciamo il rischio Null iniezione diretta invece che Cascading
+    void Salva() => DialogService.Close(true);
+    void Annulla() => DialogService.Close(false);
+    void Elimina() => DialogService.Close("delete");
+    string GetNomeCliente(int id) => ListaClienti?.FirstOrDefault(c => c.IdCliente == id)?.RagSociale ?? "Cliente selezionato";
+
+}

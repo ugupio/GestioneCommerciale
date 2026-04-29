@@ -7,6 +7,8 @@
 @using Microsoft.Data.SqlClient
 @using Dapper
 @inject DialogService DialogService
+@rendermode InteractiveServer
+
 
 
 
@@ -83,6 +85,19 @@
         color: #1e3c72 !important;
         font-weight: bold !important;
     }
+
+    /* Colora il fondo della colonna di oggi nelle viste Giorno e Settimana */
+.rz-slot-today {
+    background-color: rgba(255, 243, 205, 0.5) !important; /* Giallo pastello */
+    border-left: 2px solid #ffa502 !important;
+    border-right: 2px solid #ffa502 !important;
+}
+
+/* Evidenzia il numero del giorno nell'intestazione */
+.rz-scheduler-nav .rz-state-highlight {
+    background: #ffa502 !important;
+    color: white !important;
+}
 </style>
 
 
@@ -107,7 +122,7 @@
 
     <!-- Titolo Centrale -->
     <h2 style="font-weight: 800; color: #2f3542; margin: 0; flex-grow: 1; text-align: center;">
-        📅 AGENDA Promemoria e Visite
+        📅 AGENDA, TASK, VISITE
     </h2>
 
     
@@ -118,24 +133,46 @@
 
     <div class="card shadow-lg p-3" style="border-radius: 20px; border: none; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px);">
     <RadzenScheduler @ref="scheduler" 
-                     style="height: 700px;" 
-                     TValue="ElementoAgenda"
-                     Data="@ListaAgenda" 
-                     StartProperty="Data" 
-                     EndProperty="DataFine"
-                     TextProperty="Titolo" 
-                     SelectedIndex="2"
-                     AppointmentRender="@OnAppointmentRender"
-                     AppointmentSelect="@(new EventCallback<SchedulerAppointmentSelectEventArgs<ElementoAgenda>>(this, (SchedulerAppointmentSelectEventArgs<ElementoAgenda> args) => OnAppointmentSelect(args)))"
-                     AppointmentMove="@OnAppointmentMove"
-                     SlotSelect="@( (SchedulerSlotSelectEventArgs args) => OnSlotSelect(args) )">
+                 style="height: 700px;" 
+                 TValue="ElementoAgenda"
+                 Data="@ListaAgenda" 
+                 StartProperty="Data" 
+                 EndProperty="DataFine"
+                 TextProperty="Titolo" 
+                 SelectedIndex="2"
+                 AppointmentRender="@OnAppointmentRender"
+                 AppointmentSelect="@((SchedulerAppointmentSelectEventArgs<ElementoAgenda> args) => OnAppointmentSelect(args))"
+                 AppointmentMove="@(args => OnAppointmentMove(args))"
+                 SlotSelect="@(args => OnSlotSelect(args))"
+                 SlotRender="@OnSlotRender"
+                 > 
 
+    <Template Context="item">
+        <div style="display:flex; align-items:center; gap:5px; overflow:hidden; white-space:nowrap;">
+            <span style="font-size: 1.1rem;">@(item.Tipo == "VISITA" ? "🚗" : "📝")</span>
+            <b style="text-overflow:ellipsis; overflow:hidden;">@item.Titolo</b>
+        </div>
+    </Template>
+    
+    <ChildContent>
+        <RadzenDayView Text="Giorno" 
+                       TimeFormat="HH:mm" 
+                       StartTime="@TimeSpan.FromHours(8)" 
+                       EndTime="@TimeSpan.FromHours(19)" />
 
-        <RadzenDayView Text="Giorno" />
-        <RadzenWeekView Text="Settimana" />
+        <RadzenWeekView Text="Settimana" 
+                        TimeFormat="HH:mm" 
+                        StartTime="@TimeSpan.FromHours(8)" 
+                        EndTime="@TimeSpan.FromHours(19)" />
         <RadzenMonthView Text="Mese" />
         <RadzenYearView Text="Anno" />
-    </RadzenScheduler>
+    </ChildContent>
+
+                
+
+</RadzenScheduler>
+
+
 
 </div>
 
@@ -148,75 +185,108 @@
     private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
     private List<ElementoAgenda> ListaAgenda = new List<ElementoAgenda>();
     RadzenScheduler<ElementoAgenda> scheduler;
+    private List<Cliente> ListaClienti { get; set; } = new();
+    private Visita nuovaVisita { get; set; } = new();
+
 
 
 
     protected override async Task OnInitializedAsync()
+{
+    // Carichiamo i clienti per il DropDown del popup manuale
+    using (var db = new SqlConnection(conn))
     {
-        await CaricaDatiAgenda();
+        ListaClienti = (await db.QueryAsync<Cliente>("SELECT IdCliente, RagSociale FROM Clienti ORDER BY RagSociale")).ToList();
     }
+
+    await CaricaDatiAgenda();
+}
+
 
     private async Task CaricaDatiAgenda()
+{
+    using var db = new SqlConnection(conn);
+    
+    // 1. QUERY DA TUTTE LE FONTI
+    // Storico visite fatte
+    var sqlVisite = "SELECT v.*, c.RagSociale FROM Visite v LEFT JOIN Clienti c ON v.IDCliente = c.IdCliente";
+    // Task ufficio
+    var sqlAttivita = "SELECT a.*, c.RagSociale FROM Attivita a LEFT JOIN Clienti c ON a.IDClienteAttivita = c.IdCliente WHERE a.Completata = 0";
+    // Programmazione (SOLO QUELLA DA FARE, altrimenti raddoppia con lo storico)
+    var sqlAgenda = "SELECT g.*, c.RagSociale FROM Agenda g LEFT JOIN Clienti c ON g.IdCliente = c.IdCliente WHERE g.IsChiuso = 0";
+
+    var visiteEseguite = await db.QueryAsync<dynamic>(sqlVisite);
+    var attivitaTask = await db.QueryAsync<dynamic>(sqlAttivita);
+    var agendaPianificata = await db.QueryAsync<dynamic>(sqlAgenda);
+
+    ListaAgenda.Clear();
+
+    // 2. MAPPING STORICO (Quello che hai appena salvato finisce qui)
+    foreach (var v in visiteEseguite)
     {
-        using var db = new SqlConnection(conn);
-        
-        var sqlVisite = @"SELECT v.*, c.RagSociale as NomeRiferimento FROM Visite v 
-                          LEFT JOIN Clienti c ON v.IDCliente = c.IdCliente";
-        var visite = await db.QueryAsync<dynamic>(sqlVisite);
-
-        var sqlAttivita = @"SELECT a.*, c.RagSociale as NomeRiferimento FROM Attivita a 
-                            LEFT JOIN Clienti c ON a.IDClienteAttivita = c.IdCliente WHERE a.Completata = 0";
-        var attivita = await db.QueryAsync<dynamic>(sqlAttivita);
-
-        ListaAgenda.Clear();
-
-        foreach (var v in visite)
-        {
-            DateTime inizio = v.DataVisita ?? DateTime.Now;
-            ListaAgenda.Add(new ElementoAgenda
-            {
-                Data = inizio,
-                DataFine = inizio.AddHours(1), // Durata stimata visita
-                Titolo = "🤝 " + (v.NomeRiferimento ?? "Cliente Sconosciuto"),
-                Tipo = "VISITA",
-                Dettaglio = v.Motivazione,
-                PrioritaOLevel = v.TemperaturaCliente,
-                OriginalObject = v
-            });
-        }
-
-        foreach (var a in attivita)
-        {
-            ListaAgenda.Add(new ElementoAgenda
-            {
-                Data = a.DataScadenza,
-                DataFine = a.DataScadenza.AddMinutes(30),
-                Titolo = "📌 " + (string.IsNullOrEmpty(a.NomeRiferimento) ? a.Descrizione : a.NomeRiferimento),
-                Tipo = "TASK",
-                Dettaglio = a.Descrizione,
-                PrioritaOLevel = a.Priorita,
-                OriginalObject = a
-            });
-        }
-        
-        if (scheduler != null) await scheduler.Reload();
+        ListaAgenda.Add(new ElementoAgenda {
+            Data = v.DataVisita ?? DateTime.Now,
+            DataFine = (v.DataVisita ?? DateTime.Now).AddHours(1),
+            Titolo = "✅ " + (v.RagSociale ?? "Visita Eseguita"),
+            Tipo = "VISITA",
+            IsChiuso = true, // Questo lo farà apparire GRIGIO e BARRATO
+            Dettaglio = v.NoteEsito
+        });
     }
+
+    // 3. MAPPING TASK
+    foreach (var a in attivitaTask)
+    {
+        ListaAgenda.Add(new ElementoAgenda {
+            Data = a.DataScadenza,
+            DataFine = a.DataScadenza.AddMinutes(30),
+            Titolo = "📝 Task: " + (string.IsNullOrEmpty(a.RagSociale) ? a.Descrizione : a.RagSociale),
+            Tipo = "TASK",
+            IsChiuso = false
+        });
+    }
+
+    // 4. MAPPING AGENDA (Le auto "🚗" da fare)
+    foreach (var g in agendaPianificata)
+    {
+        ListaAgenda.Add(new ElementoAgenda {
+            IdAgenda = g.IdAgenda,
+            IdCliente = g.IdCliente,
+            Data = g.DataInizio,
+            DataFine = g.DataFine,
+            Titolo = "🚗 " + (g.RagSociale ?? g.Titolo),
+            Tipo = g.Tipo ?? "VISITA",
+            IsChiuso = false,
+            Dettaglio = g.Dettaglio
+        });
+    }
+    
+    if (scheduler != null) await scheduler.Reload();
+}
+
+
+
 
     void OnAppointmentRender(SchedulerAppointmentRenderEventArgs<ElementoAgenda> args)
+{
+    // Stile base
+    args.Attributes["style"] = "border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 0.85rem;";
+
+    // Se è CHIUSA (indipendentemente se viene da Visite o da Agenda)
+    if (args.Data.IsChiuso)
     {
-        // Colori professionali
-        if (args.Data.Tipo == "VISITA")
-        {
-            args.Attributes["style"] = args.Data.PrioritaOLevel == 3
-                ? "background: #ff4757; color: white;" // Caldo: Rosso
-                : "background: #1e90ff; color: white;"; // Normale: Blu
-        }
-        else
-        {
-            args.Attributes["style"] = "background: #ffa502; color: black;"; // Task: Arancio
-        }
-        args.Attributes["style"] += "border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);";
+        args.Attributes["style"] += "background: #e0e0e0; color: #888; text-decoration: line-through; opacity: 0.7; border-left: 4px solid #bbb;";
     }
+    else // Se è ancora DA FARE
+    {
+        if (args.Data.Tipo == "VISITA")
+            args.Attributes["style"] += "background: #1e90ff; color: white; border-left: 4px solid #0652DD;";
+        else
+            args.Attributes["style"] += "background: #ffa502; color: black; border-left: 4px solid #e17055;";
+    }
+}
+
+
 
     private string GetTermometro(int temp) => temp switch { 1 => "❄️", 2 => "☁️", 3 => "🔥", _ => "⚪" };
 
@@ -261,13 +331,77 @@
     var item = args.Data;
     if (item == null) return;
 
-    await DialogService.OpenAsync(item.Titolo, ds =>
-        @<div class="p-2">
-            @* ... tutto il tuo codice HTML del popup ... *@
-            <button class="btn btn-outline-secondary" @onclick="() => ds.Close()">Chiudi</button>
-        </div>, 
-        new DialogOptions() { Width = "550px", Style = "border-radius: 18px;" });
+    // 1. Se è una VISITA ed è già CHIUSA, mostriamo solo un avviso informativo
+    if (item.IsChiuso) 
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Questa visita è già stata completata e registrata nello storico.");
+        return;
+    }
+
+    // 2. Se è un TASK (Ufficio), decidiamo cosa fare (per ora lo blocchiamo o apriamo un altro popup)
+    if (item.Tipo == "TASK")
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Gestione Task in arrivo...");
+        return;
+    }
+
+    // 3. Se arriviamo qui, è una VISITA da fare (IdAgenda > 0 e IsChiuso = false)
+    nuovaVisita = new Visita { 
+        IDCliente = item.IdCliente ?? 0, 
+        DataVisita = item.Data, 
+        StatoVisita = "CONCLUSA",
+        TemperaturaCliente = 2 
+    };
+
+    // Procedi con l'apertura del Dialog...
+    // Apriamo il componente separato
+var result = await DialogService.OpenAsync<DialogRegistraVisita>(item.Titolo, 
+    new Dictionary<string, object> { 
+        { "VisitaModello", nuovaVisita }, 
+        { "ListaClienti", ListaClienti },
+        { "Titolo", item.Titolo } 
+    }, 
+    new DialogOptions() { Width = "700px", Style = "border-radius: 20px; padding:0;" });
+
 }
+
+
+
+
+
+
+
+private async Task EliminaAppuntamento(ElementoAgenda appuntamento)
+{
+    // Chiediamo conferma per sicurezza
+    bool conferma = await DialogService.Confirm("Sei sicuro di voler eliminare questa tappa dall'agenda?", "Conferma Eliminazione", 
+        new ConfirmOptions() { OkButtonText = "Sì, elimina", CancelButtonText = "No, annulla" }) ?? false;
+
+    if (conferma)
+    {
+        try
+        {
+            using (var db = new Microsoft.Data.SqlClient.SqlConnection(conn))
+            {
+                // Rimuoviamo il record dalla tabella Agenda
+                string sql = "DELETE FROM Agenda WHERE IdAgenda = @Id";
+                await db.ExecuteAsync(sql, new { Id = appuntamento.IdAgenda });
+            }
+
+            // Rimuoviamo l'elemento dalla lista locale e rinfreschiamo lo scheduler
+            ListaAgenda.Remove(appuntamento);
+            await scheduler.Reload();
+            
+            // Snackbar o notifica di successo (opzionale)
+            System.Diagnostics.Debug.WriteLine("Tappa eliminata con successo.");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Errore durante l'eliminazione: " + ex.Message);
+        }
+    }
+}
+
 
 async Task OnAppointmentMove(SchedulerAppointmentMoveEventArgs args)
 {
@@ -341,5 +475,92 @@ private async Task NuovoTaskRapido(DateTime data)
     await Notifica("✅ Task creato correttamente!");
 }
 
+
+private async Task SalvaChiusuraCiclo(ElementoAgenda appuntamento, Visita v)
+{
+    try
+    {
+        using (var db = new Microsoft.Data.SqlClient.SqlConnection(conn))
+        {
+            await db.OpenAsync();
+            
+            // 1. INSERIMENTO VISITA
+            string sqlVisita = @"
+                INSERT INTO Visite (IDCliente, DataVisita, StatoVisita, Motivazione, ReferenteIncontrato, NoteEsito, TemperaturaCliente, RichiedeSeguito, DataProssimoContatto) 
+                VALUES (@IDCliente, @DataVisita, @StatoVisita, @Motivazione, @ReferenteIncontrato, @NoteEsito, @TemperaturaCliente, @RichiedeSeguito, @DataProssimoContatto)";
+            
+            await db.ExecuteAsync(sqlVisita, v);
+
+            // 2. AGGIORNAMENTO CLIENTE
+            await db.ExecuteAsync("UPDATE Clienti SET DataUltimaVisita = @Data WHERE IdCliente = @IdC",
+                                  new { Data = v.DataVisita, IdC = v.IDCliente });
+
+            // 3. CHIUSURA IN AGENDA
+            await db.ExecuteAsync("UPDATE Agenda SET IsChiuso = 1 WHERE IdAgenda = @IdA",
+                                  new { IdA = appuntamento.IdAgenda });
+        }
+
+        // Se arriviamo qui, ha funzionato tutto
+        appuntamento.IsChiuso = true;
+        await CaricaDatiAgenda(); // Ricarichiamo i dati per riflettere la visita appena registrata
+        if (scheduler != null) await scheduler.Reload();
+        
+        await JSRuntime.InvokeVoidAsync("alert", "✅ Salvataggio completato!");
+    }
+    catch (Exception ex)
+    {
+        // Se c'è un errore, ORA dobbiamo vederlo per forza
+        await JSRuntime.InvokeVoidAsync("alert", "❌ ERRORE: " + ex.Message);
+        System.Diagnostics.Debug.WriteLine(ex.ToString());
+    }
+}
+
+
+
+
+private async Task RegistraEseguita(ElementoAgenda appuntamento, Visita v)
+{
+    using (var db = new Microsoft.Data.SqlClient.SqlConnection(conn))
+    {
+        await db.OpenAsync();
+        using (var trans = db.BeginTransaction())
+        {
+            try {
+                // 1. Inserimento Visita con tutti i tuoi campi
+                string sqlVisita = @"
+                    INSERT INTO Visite (IDCliente, DataVisita, StatoVisita, ReferenteIncontrato, NoteEsito, TemperaturaCliente, RichiedeSeguito) 
+                    VALUES (@IDCliente, @DataVisita, @StatoVisita, @ReferenteIncontrato, @NoteEsito, @TemperaturaCliente, @RichiedeSeguito)";
+                
+                await db.ExecuteAsync(sqlVisita, v, trans);
+
+                // 2. Aggiornamento Anagrafica (Data Ultima Visita)
+                await db.ExecuteAsync("UPDATE Clienti SET DataUltimaVisita = @Data WHERE IdCliente = @IDCliente", 
+                                      new { Data = v.DataVisita, IDCliente = v.IDCliente }, trans);
+
+                // 3. Update Agenda
+                await db.ExecuteAsync("UPDATE Agenda SET IsChiuso = 1 WHERE IdAgenda = @IdA", 
+                                      new { IdA = appuntamento.IdAgenda }, trans);
+
+                trans.Commit();
+                appuntamento.IsChiuso = true;
+                await scheduler.Reload();
+            }
+            catch (Exception ex) {
+                trans.Rollback();
+                await JSRuntime.InvokeVoidAsync("alert", "Errore: " + ex.Message);
+            }
+        }
+    }
+}
+
+void OnSlotRender(SchedulerSlotRenderEventArgs args)
+{
+    // Verifica se lo slot che il componente sta disegnando è oggi
+    if (args.Start.Date == DateTime.Today)
+    {
+        // Applichiamo uno sfondo dorato chiaro e un bordo distintivo
+        args.Attributes["style"] = "background: rgba(255, 193, 7, 0.15); border: 1px solid #ffc107 !important;";
+    }
+}
 
 }

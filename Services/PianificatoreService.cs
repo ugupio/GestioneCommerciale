@@ -47,16 +47,26 @@ namespace GestioneCommerciale.Services
             return null;
         }
 
-        public List<TappaGiro> CalcolaGiroOttimizzato(List<Cliente> clientiZona, double homeLat, double homeLon, bool rientroAPranzo, int durataVisitaMinuti)
+        public List<TappaGiro> CalcolaGiroOttimizzato(
+    List<Cliente> clientiZona,
+    double homeLat,
+    double homeLon,
+    bool rientroAPranzo,
+    int durataVisitaMinuti,
+    TimeSpan oraInizio,   // <--- NUOVO
+    TimeSpan oraRientro   // <--- NUOVO
+)
         {
             var agenda = new List<TappaGiro>();
-            DateTime orarioAttuale = DateTime.Today.AddHours(8).AddMinutes(30);
+
+            // Usiamo oraInizio invece di 8:30 fisso
+            DateTime orarioAttuale = DateTime.Today.Add(oraInizio);
+
             double latAttuale = homeLat;
             double lonAttuale = homeLon;
 
             var rimanenti = clientiZona.Where(c => c.Lat.HasValue && c.Lon.HasValue).ToList();
 
-            // Iniziamo dal più lontano da casa
             var prossimo = rimanenti
                 .OrderByDescending(c => CalcolaDistanzaKM(homeLat, homeLon, (double)c.Lat, (double)c.Lon))
                 .FirstOrDefault();
@@ -66,7 +76,6 @@ namespace GestioneCommerciale.Services
                 double cLat = (double)prossimo.Lat;
                 double cLon = (double)prossimo.Lon;
 
-                // 1. CALCOLO VIAGGIO
                 double dist = CalcolaDistanzaKM(latAttuale, lonAttuale, cLat, cLon);
                 int minutiViaggio = (int)(dist * 0.9);
                 if (minutiViaggio < 5 && dist > 0.1) minutiViaggio = 5;
@@ -74,47 +83,38 @@ namespace GestioneCommerciale.Services
                 DateTime arrivoPrevisto = orarioAttuale.AddMinutes(minutiViaggio);
                 DateTime fineVisitaPrevista = arrivoPrevisto.AddMinutes(durataVisitaMinuti);
 
-                // 2. LOGICA PAUSA PRANZO (Inizio tra le 12 e le 14 o fine oltre le 12)
+                // LOGICA PAUSA PRANZO
                 if (fineVisitaPrevista.Hour >= 12 && fineVisitaPrevista.Hour < 14 || (fineVisitaPrevista.Hour == 12 && fineVisitaPrevista.Minute > 0))
                 {
-                    // Reset alle 14:00
                     DateTime ripartenzaPomeriggio = DateTime.Today.AddHours(14);
-
                     if (rientroAPranzo)
                     {
-                        // Ti riporto a Piombino
                         latAttuale = homeLat;
                         lonAttuale = homeLon;
-
-                        // Ricalcolo il viaggio partendo da casa verso il cliente che era "in sospeso"
-                        double distDaCasa = CalcolaDistanzaKM(homeLat, homeLon, cLat, cLon);
-                        dist = distDaCasa;
+                        dist = CalcolaDistanzaKM(homeLat, homeLon, cLat, cLon);
                         arrivoPrevisto = ripartenzaPomeriggio.AddMinutes((int)(dist * 0.9));
                         fineVisitaPrevista = arrivoPrevisto.AddMinutes(durataVisitaMinuti);
                     }
                     else
                     {
-                        // Pausa sul posto: inizi alle 14:00
                         arrivoPrevisto = ripartenzaPomeriggio;
                         fineVisitaPrevista = arrivoPrevisto.AddMinutes(durataVisitaMinuti);
                     }
                 }
 
-                // 3. CALCOLO RIENTRO A CASA (Muro invalicabile delle 18:00)
+                // CALCOLO RIENTRO A CASA DINAMICO
                 double distPerTornareACasa = CalcolaDistanzaKM(cLat, cLon, homeLat, homeLon);
-                int minutiRitorno = (int)(distPerTornareACasa * 0.9); // Tempo stimato per tornare a Piombino
-
-                // Calcoliamo l'orario in cui saresti effettivamente a casa dopo la visita
+                int minutiRitorno = (int)(distPerTornareACasa * 0.9);
                 DateTime orarioRientroACasa = fineVisitaPrevista.AddMinutes(minutiRitorno);
 
-                // Se la visita finisce dopo le 18:00 OPPURE se arrivi a casa dopo le 18:00, questa tappa salta
-                if (fineVisitaPrevista.Hour >= 18 || orarioRientroACasa.Hour >= 18 && (orarioRientroACasa.Minute > 0 || orarioRientroACasa.Hour > 18))
+                // MURO INVALICABILE: Usiamo oraRientro invece di 18:00 fisso
+                DateTime limiteRientro = DateTime.Today.Add(oraRientro);
+
+                if (fineVisitaPrevista > limiteRientro || orarioRientroACasa > limiteRientro)
                 {
-                    // Questo cliente non può essere visitato oggi se vuoi essere a casa per le 18:00
                     break;
                 }
 
-                // 4. AGGIUNGI TAPPA
                 agenda.Add(new TappaGiro
                 {
                     IdCliente = prossimo.IdCliente,
@@ -125,19 +125,18 @@ namespace GestioneCommerciale.Services
                     KmDaPuntoPrecedente = dist
                 });
 
-                // 5. AGGIORNA STATO
                 orarioAttuale = fineVisitaPrevista;
                 latAttuale = cLat;
                 lonAttuale = cLon;
                 rimanenti.Remove(prossimo);
 
-                // CERCA IL PIÙ VICINO ALLA POSIZIONE ATTUALE
                 prossimo = rimanenti
                     .OrderBy(c => CalcolaDistanzaKM(latAttuale, lonAttuale, (double)c.Lat, (double)c.Lon))
                     .FirstOrDefault();
             }
             return agenda;
         }
+
 
 
         // Formula Haversine precisa per i KM reali
