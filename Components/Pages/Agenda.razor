@@ -405,35 +405,30 @@ private async Task EliminaAppuntamento(ElementoAgenda appuntamento)
 
 async Task OnAppointmentMove(SchedulerAppointmentMoveEventArgs args)
 {
-    // 1. Recuperiamo l'oggetto corretto
     var item = args.Appointment.Data as ElementoAgenda;
     if (item == null) return;
 
-    // 2. Aggiorniamo le date locali (Radzen usa Start e End come proprietà dell'evento)
-    // Se la tua versione non ha .Start, usa args.Appointment.Start + args.TimeSpan
     DateTime nuovaDataInizio = args.Appointment.Start + args.TimeSpan;
-    
     item.Data = nuovaDataInizio;
-    item.DataFine = nuovaDataInizio.AddHours(1); // Manteniamo la durata di un'ora
+    item.DataFine = nuovaDataInizio.AddHours(1);
 
     using var db = new SqlConnection(conn);
 
     if (item.Tipo == "VISITA")
     {
-        var v = item.OriginalObject as dynamic;
+        // Usa l'ID salvato direttamente in ElementoAgenda invece di OriginalObject
         await db.ExecuteAsync("UPDATE Visite SET DataVisita = @NuovaData WHERE IDVisita = @id", 
-            new { NuovaData = nuovaDataInizio, id = (int)v.IDVisita });
+            new { NuovaData = nuovaDataInizio, id = item.IdAgenda }); // Assicurati che IdAgenda sia l'ID corretto
     }
     else
     {
-        var a = item.OriginalObject as dynamic;
         await db.ExecuteAsync("UPDATE Attivita SET DataScadenza = @NuovaData WHERE IDAttivita = @id", 
-            new { NuovaData = nuovaDataInizio, id = (int)a.IDAttivita });
+            new { NuovaData = nuovaDataInizio, id = item.IdAgenda });
     }
 
-    // Ricarichiamo lo scheduler per riflettere il cambio
     await scheduler.Reload();
 }
+
 
 async Task OnSlotSelect(SchedulerSlotSelectEventArgs args)
 {

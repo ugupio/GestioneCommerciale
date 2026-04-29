@@ -7,11 +7,13 @@ public class DocumentoOrdine : IDocument
 {
     public Ordine Ordine { get; }
     public Cliente Cliente { get; }
+    public string Filtro { get; }
 
-    public DocumentoOrdine(Ordine ordine, Cliente cliente)
+    public DocumentoOrdine(Ordine ordine, Cliente cliente, string filtro = "TUTTO")
     {
         Ordine = ordine;
         Cliente = cliente;
+        Filtro = filtro;
     }
 
     public void Compose(IDocumentContainer container)
@@ -95,135 +97,137 @@ public class DocumentoOrdine : IDocument
 
     void ComposeContent(IContainer container)
     {
+        // 1. LOGICA DI CONTROLLO
+        bool isStampaAccessori = Filtro == "ACCESSORI";
+        bool isStampaProfili = Filtro == "PROFILI";
+        bool mostraEconomica = string.Equals(Ordine.StatoOrdine, "Preventivo", StringComparison.OrdinalIgnoreCase)
+                               || isStampaAccessori
+                               || isStampaProfili;
+
         container.Column(col =>
         {
             col.Item().Table(table =>
             {
-            table.ColumnsDefinition(columns =>
-            {
-                columns.ConstantColumn(25); // Pos.
-                columns.RelativeColumn(3);  // ARTICOLO (Codice + Desc)
-                columns.ConstantColumn(50); // COL. INT.
-                columns.ConstantColumn(50); // COL. EST.
-                columns.ConstantColumn(40); // Q.TÀ
-                columns.ConstantColumn(30); // UM (Reale)
-                columns.ConstantColumn(30); // Sc%
-                columns.RelativeColumn(1);  // FINITURA ACC.
-            });
-
-            table.Header(header =>
-            {
-                header.Cell().Element(CellStyle).AlignCenter().Text("Pos.").FontSize(7).SemiBold();
-                header.Cell().Element(CellStyle).Text("CODICE PRODOTTO / DESCRIZIONE").FontSize(7).SemiBold();
-                header.Cell().Element(CellStyle).AlignCenter().Text("COL.INT.").FontSize(7).SemiBold();
-                header.Cell().Element(CellStyle).AlignCenter().Text("COL.EST.").FontSize(7).SemiBold();
-                header.Cell().Element(CellStyle).AlignCenter().Text("Q.TÀ").FontSize(7).SemiBold();
-                header.Cell().Element(CellStyle).AlignCenter().Text("UM").FontSize(7).SemiBold();
-                header.Cell().Element(CellStyle).AlignCenter().Text("Sc%").FontSize(7).SemiBold();
-                header.Cell().Element(CellStyle).Text("FINITURA ACC.").FontSize(7).SemiBold();
-            });
-
-            // Ciclo fisso di 17 righe per mantenere il layout costante
-            for (int i = 1; i <= 17; i++)
-            {
-                var r = Ordine.Righe.ElementAtOrDefault(i - 1);
-
-                table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(i.ToString()).FontSize(8);
-
-                // CELLA ARTICOLO: Codice + Descrizione (+ Info Lunghezza o Confezione)
-                table.Cell().Element(CellStyle).MinHeight(30).Text(txt =>
+                // 2. COLONNE
+                table.ColumnsDefinition(columns =>
                 {
-                if (r != null)
+                    columns.ConstantColumn(25); // Pos.
+                    columns.RelativeColumn(3);  // ARTICOLO
+                    if (!isStampaAccessori) { columns.ConstantColumn(45); columns.ConstantColumn(45); }
+                    columns.ConstantColumn(35); // Q.TÀ
+                    columns.ConstantColumn(25); // UM
+                    if (mostraEconomica) { columns.ConstantColumn(60); columns.ConstantColumn(30); columns.ConstantColumn(70); }
+                    else { columns.ConstantColumn(30); }
+                    if (!isStampaProfili) { columns.RelativeColumn(1); }
+                });
+
+                // 3. HEADER
+                table.Header(header => {
+                    header.Cell().Element(CellStyle).AlignCenter().Text("Pos.").FontSize(7).SemiBold();
+                    header.Cell().Element(CellStyle).Text("ARTICOLO").FontSize(7).SemiBold();
+                    if (!isStampaAccessori)
+                    {
+                        header.Cell().Element(CellStyle).AlignCenter().Text("INT.").FontSize(7).SemiBold();
+                        header.Cell().Element(CellStyle).AlignCenter().Text("EST.").FontSize(7).SemiBold();
+                    }
+                    header.Cell().Element(CellStyle).AlignCenter().Text("Q.TÀ").FontSize(7).SemiBold();
+                    header.Cell().Element(CellStyle).AlignCenter().Text("UM").FontSize(7).SemiBold();
+                    if (mostraEconomica)
+                    {
+                        header.Cell().Element(CellStyle).AlignCenter().Text("PREZZO").FontSize(7).SemiBold();
+                        header.Cell().Element(CellStyle).AlignCenter().Text("SC%").FontSize(7).SemiBold();
+                        header.Cell().Element(CellStyle).AlignCenter().Text("TOTALE").FontSize(7).SemiBold();
+                    }
+                    else
+                    {
+                        header.Cell().Element(CellStyle).AlignCenter().Text("SC%").FontSize(7).SemiBold();
+                    }
+                    if (!isStampaProfili) { header.Cell().Element(CellStyle).Text("FINITURA").FontSize(7).SemiBold(); }
+                });
+
+                // 4. CICLO RIGHE CON CALCOLO MATEMATICO ESPLICITO
+                decimal totaleDocumentoFiltrato = 0;
+
+                foreach (var r in Ordine.Righe)
                 {
-                    // 1. CODICE (Blu)
-                    txt.Span(r.CodiceProdotto).SemiBold().FontSize(8).FontColor(Colors.Blue.Medium);
-                    txt.EmptyLine();
-
-                    // 2. DESCRIZIONE + LUNGHEZZA (se BR)
-                    string descrizioneInfo = r.Descrizione;
-                    if (r.UmRiga == "BR" && r.LunghezzaVerga > 0)
+                    // --- CALCOLO MATEMATICO SECONDO TUA FORMULA ---
+                    decimal totaleRigaCalcolato = 0;
+                    if (!r.IsAccessorio)
                     {
-                        descrizioneInfo += $" (Verga L: {r.LunghezzaVerga:N2} mt)";
+                        // Peso/ml * Lunghezza * Barre = KG RIGA
+                        decimal kgRiga = r.PesoAlMetro * r.LunghezzaVerga * r.Quantita;
+                        // KG RIGA * Prezzo * Sconto
+                        totaleRigaCalcolato = kgRiga * r.PrezzoUnitario * (1 - (r.ScontoRiga / 100));
                     }
-                    txt.Span(descrizioneInfo).FontSize(7);
-
-                    // --- 3. FINITURA (per Accessori) o COLORI (per Profili) ---
-                    if (r.IsAccessorio && !string.IsNullOrEmpty(r.FinituraAccessorio))
+                    else
                     {
-                        txt.EmptyLine();
-                        txt.Span($"Finitura: {r.FinituraAccessorio}").FontSize(6).Italic().FontColor(Colors.Grey.Medium);
-                    }
-                    else if (!string.IsNullOrEmpty(r.ColoreInt) || !string.IsNullOrEmpty(r.ColoreEst))
-                    {
-                        txt.EmptyLine();
-                        txt.Span($"Colori: Int. {r.ColoreInt} / Est. {r.ColoreEst}").FontSize(6).FontColor(Colors.Grey.Medium);
+                        // Quantità * Prezzo * Sconto
+                        totaleRigaCalcolato = r.Quantita * r.PrezzoUnitario * (1 - (r.ScontoRiga / 100));
                     }
 
-                    // --- 4. NOTA CONFEZIONE ---
-                    if (r.IsConfezione)
-                    {
-                        txt.EmptyLine();
-                            // Forza il cast a decimal per evitare la divisione intera
-                            int nColli = (int)Math.Ceiling((decimal)r.Quantita / (r.PezziPerConfezione > 0 ? r.PezziPerConfezione : 1));
+                    totaleDocumentoFiltrato += totaleRigaCalcolato;
 
-                            txt.Span($"📦 CONFEZIONE INTERA - N° Colli : {nColli}")
-                                   .FontSize(7)
-                                   .SemiBold() // Meglio SemiBold che Italic per risaltare
-                                   .FontColor(Colors.Green.Medium);
-                            }
-                        }
-                    });
-
-
-
-                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r?.ColoreInt ?? "").FontSize(8);
-                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r?.ColoreEst ?? "").FontSize(8);
-                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r != null ? r.Quantita.ToString() : "").FontSize(8);
-
-                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(txt =>
-                    {
-                        if (r != null)
+                    // --- STAMPA RIGA ---
+                    table.Cell().Element(CellStyle).AlignCenter().Text(r.IDRigaOrdine.ToString()).FontSize(7);
+                    table.Cell().Element(CellStyle).Text(txt => {
+                        txt.Span($"{r.CodiceProdotto} - ").SemiBold().FontSize(8).FontColor(Colors.Blue.Medium);
+                        txt.Span(r.Descrizione).FontSize(7);
+                        if (!r.IsAccessorio && mostraEconomica)
                         {
-                            // Se il toggle è attivo, usa UmSecondaria, altrimenti UmRiga
-                            string umDaMostrare = (r.IsConfezione && !string.IsNullOrEmpty(r.UmSecondaria))
-                                                   ? r.UmSecondaria
-                                                   : r.UmRiga;
-
-                            txt.Span(umDaMostrare).FontSize(7);
+                            decimal metriTot = r.Quantita * r.LunghezzaVerga;
+                            decimal pesoTot = metriTot * r.PesoAlMetro;
+                            txt.EmptyLine();
+                            txt.Span($"{r.Quantita:N0} pz x {r.LunghezzaVerga:N2} mt = {metriTot:N2} ml | Peso Tot: {pesoTot:N2} Kg").FontSize(6).Italic().FontColor(Colors.Grey.Medium);
                         }
                     });
 
+                    if (!isStampaAccessori)
+                    {
+                        table.Cell().Element(CellStyle).AlignCenter().Text(r.ColoreInt).FontSize(7);
+                        table.Cell().Element(CellStyle).AlignCenter().Text(r.ColoreEst).FontSize(7);
+                    }
 
-                    // Sconto Intero
-                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r != null && r.ScontoRiga > 0 ? $"{(int)Math.Round(r.ScontoRiga)}%" : "").FontSize(8);
+                    table.Cell().Element(CellStyle).AlignCenter().Text(r.Quantita.ToString("N0")).FontSize(7);
+                    table.Cell().Element(CellStyle).AlignCenter().Text(r.IsConfezione ? r.UmSecondaria : r.UmRiga).FontSize(7);
 
-                    table.Cell().Element(CellStyle).MinHeight(30).Text(r?.IsAccessorio == true ? r.FinituraAccessorio : "").FontSize(7);
+                    if (mostraEconomica)
+                    {
+                        table.Cell().Element(CellStyle).AlignCenter().Text($"{r.PrezzoUnitario:C2} {(r.IsAccessorio ? "/pz" : "/Kg")}").FontSize(7);
+                        table.Cell().Element(CellStyle).AlignCenter().Text(r.ScontoRiga > 0 ? $"{(int)r.ScontoRiga}%" : "-").FontSize(7);
+                        table.Cell().Element(CellStyle).AlignRight().Text(totaleRigaCalcolato.ToString("C2")).FontSize(7).SemiBold();
+                    }
+                    else
+                    {
+                        table.Cell().Element(CellStyle).AlignCenter().Text(r.ScontoRiga > 0 ? $"{(int)r.ScontoRiga}%" : "").FontSize(7);
+                    }
+
+                    if (!isStampaProfili)
+                    {
+                        table.Cell().Element(CellStyle).Text(r.IsAccessorio ? r.FinituraAccessorio : "").FontSize(7);
+                    }
                 }
-            });
 
-            // Blocco finale (Condizioni e Note)
-            col.Item().PaddingTop(10).Row(row =>
-            {
-                row.RelativeItem(2).Border(0.25f).Padding(5).Column(c => {
-                    c.Item().Text("CONDIZIONI DI VENDITA").FontSize(8).SemiBold();
-
-                    // Peso Totale Ordine 
-                    decimal pesoTotale = Ordine.Righe.Sum(x => x.Quantita * x.PesoAlMetro * (x.LunghezzaVerga > 0 ? x.LunghezzaVerga : 1));
-                    c.Item().Text($"Peso Totale: {pesoTotale:N2} Kg").FontSize(8);
-
-                    c.Item().PaddingTop(10).Text(txt => {
-                        txt.Span("Concordate con: ").FontSize(8);
-                        txt.Span(string.IsNullOrEmpty(Ordine.ConcordatoCon) ? "____________________" : Ordine.ConcordatoCon).FontSize(8).SemiBold();
+                // 5. FOOTER CON IL NUOVO TOTALE CALCOLATO
+                if (mostraEconomica)
+                {
+                    col.Item().AlignRight().PaddingTop(10).Table(t => {
+                        t.ColumnsDefinition(c => { c.ConstantColumn(120); c.ConstantColumn(90); });
+                        t.Cell().Text("TOTALE IMPONIBILE:").FontSize(10).SemiBold();
+                        t.Cell().AlignRight().BorderTop(1).PaddingTop(2).Text(totaleDocumentoFiltrato.ToString("C2")).FontSize(11).Bold();
+                        t.Cell().ColumnSpan(2).AlignRight().Text("Iva Esclusa").FontSize(7).Italic();
                     });
-                });
-
-                row.RelativeItem(3).PaddingLeft(10).Border(0.25f).Padding(5).Column(c => {
-                    c.Item().Text("NOTE ORDINE").FontSize(8).SemiBold();
-                    c.Item().PaddingTop(2).Text(Ordine.NoteOrdine ?? "").FontSize(7);
-                });
+                }
             });
         });
     }
+
+
+
+
+
+
+
+
 
 
 

@@ -1,16 +1,15 @@
-﻿@page "/nuovo-ordine/{id:int}"
-@page "/nuovo-ordine"
-@rendermode InteractiveServer
-@using Microsoft.Data.SqlClient
-@using Dapper
-@using GestioneCommerciale.Models
-@using System.Globalization
+﻿@page "/nuovo-ordine"
+@page "/nuovo-ordine/{id:int}"
+
+@using Microsoft.AspNetCore.Components.Web
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @using System.Text.Json
 @using QuestPDF.Fluent
-@using MailKit.Net.Smtp
 @using MimeKit
+@using MailKit.Net.Smtp
+@using MailKit.Security
+@using System.Globalization
 
 
 <style>
@@ -183,9 +182,19 @@
         </button>
     }
 
-    <button class="btn-comando-ordine" @onclick="GeneraIlMioPdf">
-        <span>🖨️</span> PDF
+    <div class="btn-group shadow-sm">
+    <button class="btn-comando-ordine @(ordine.StatoOrdine == "Preventivo" ? "btn-info" : "btn-primary")" 
+            @onclick='() => GeneraIlMioPdf("TUTTO")'>
+        <span>📄</span> Stampa @ordine.StatoOrdine
     </button>
+    <button class="btn-comando-ordine btn-outline-secondary" @onclick='() => GeneraIlMioPdf("PROFILI")'>
+        <span>📏</span> Solo Profili
+    </button>
+    <button class="btn-comando-ordine btn-outline-secondary" @onclick='() => GeneraIlMioPdf("ACCESSORI")'>
+        <span>📦</span> Solo Accessori
+    </button>
+</div>
+
 
     <button class="btn-comando-ordine btn-start-azzurro" @onclick="InviaOrdineViaEmail">
         <span>📧</span> EMAIL
@@ -644,10 +653,10 @@ else
     private string snapshotOrdineOriginale = "";
     private bool caricamentoCompletato = false;
     private bool SonoPresentiModifiche()
-{
-    if (!caricamentoCompletato || string.IsNullOrEmpty(snapshotOrdineOriginale)) return false;
-    return snapshotOrdineOriginale != JsonSerializer.Serialize(ordine);
-}
+    {
+        if (!caricamentoCompletato || string.IsNullOrEmpty(snapshotOrdineOriginale)) return false;
+        return snapshotOrdineOriginale != JsonSerializer.Serialize(ordine);
+    }
     private bool mostraTastoNuovoOrdine = false;
     private bool mostraTastoNuovoProfilo = false;
     private bool visualizzaPopupProdotto = false;
@@ -660,65 +669,79 @@ else
     [Parameter] public int id { get; set; }
     private string snapshotOriginale = "";
     private void SalvaStatoIniziale()
-{
-    // Scattiamo la foto allo stato attuale dell'ordine
-    snapshotOriginale = JsonSerializer.Serialize(ordine);
-    caricamentoCompletato = true;
-}
+    {
+        // Scattiamo la foto allo stato attuale dell'ordine
+        snapshotOriginale = JsonSerializer.Serialize(ordine);
+        caricamentoCompletato = true;
+    }
 
 
 
     @code {
-        private async Task GeneraIlMioPdf()
-        {
-            try 
-            {
-                if (ordine.IDCliente == 0) 
-                {
-                    await JS.InvokeVoidAsync("alert", "Selezionare un cliente prima di generare il PDF.");
-                    return;
-                }
 
-                // CARICAMENTO DATI COMPLETI DAL DATABASE
-                Cliente clienteCompleto;
-using (var db = new SqlConnection(conn))
+
+
+        private async Task GeneraIlMioPdf(string filtro = "TUTTO")
 {
-    // 1. Carica il cliente (come già facevi)
-    clienteCompleto = await db.QueryFirstOrDefaultAsync<Cliente>(
-        "SELECT * FROM Clienti WHERE IDCliente = @id", new { id = ordine.IDCliente });
-
-    // 2. AGGIORNAMENTO DATI CONFEZIONI PER LE RIGHE
-    foreach (var riga in ordine.Righe)
+    try 
     {
-        // Recuperiamo i dati freschi dall'anagrafica prodotti per ogni riga
-        var datiProdotto = await db.QueryFirstOrDefaultAsync<dynamic>(
-            "SELECT PezziPerConfezione, UmSecondaria FROM Prodotti WHERE CodiceProdotto = @cod", 
-            new { cod = riga.CodiceProdotto });
-
-        if (datiProdotto != null)
-        {
-            riga.PezziPerConfezione = datiProdotto.PezziPerConfezione ?? 1;
-            riga.UmSecondaria = datiProdotto.UmSecondaria ?? "CT";
+        if (ordine.IDCliente == 0) {
+            await JS.InvokeVoidAsync("alert", "Selezionare un cliente.");
+            return;
         }
+
+        // 1. Refresh dati confezioni (tuo codice esistente)
+        Cliente clienteCompleto;
+        using (var db = new SqlConnection(conn)) {
+            clienteCompleto = await db.QueryFirstOrDefaultAsync<Cliente>(
+                "SELECT * FROM Clienti WHERE IDCliente = @id", new { id = ordine.IDCliente });
+
+            foreach (var riga in ordine.Righe) {
+                var datiProdotto = await db.QueryFirstOrDefaultAsync<dynamic>(
+                    "SELECT PezziPerConfezione, UmSecondaria FROM Prodotti WHERE CodiceProdotto = @cod", 
+                    new { cod = riga.CodiceProdotto });
+                if (datiProdotto != null) {
+                    riga.PezziPerConfezione = datiProdotto.PezziPerConfezione ?? 1;
+                    riga.UmSecondaria = datiProdotto.UmSecondaria ?? "CT";
+                }
+            }
+        }
+
+        // 2. Creazione copia filtrata per la stampa
+        var ordinePerStampa = new Ordine { 
+            NumeroDocumento = ordine.NumeroDocumento,
+            DataOrdine = ordine.DataOrdine,
+            IDCliente = ordine.IDCliente,
+            StatoOrdine = ordine.StatoOrdine, // Fondamentale per il layout
+            TotaleImponibile = ordine.TotaleImponibile // Assicurati che sia calcolato
+        };
+
+        ordinePerStampa.Righe = filtro switch {
+            "PROFILI" => ordine.Righe.Where(r => !r.IsAccessorio).ToList(),
+            "ACCESSORI" => ordine.Righe.Where(r => r.IsAccessorio).ToList(),
+            _ => ordine.Righe.ToList()
+        };
+
+        if (!ordinePerStampa.Righe.Any()) {
+            await JS.InvokeVoidAsync("alert", "Nessun elemento trovato per questo filtro.");
+            return;
+        }
+
+        // 3. Generazione Documento
+        // Passiamo 'ordine.Stato' al costruttore per decidere se mostrare i prezzi
+        var documento = new DocumentoOrdine(ordinePerStampa, clienteCompleto); 
+        byte[] pdfBytes = documento.GeneratePdf();
+
+        string nomeFile = $"{ordine.StatoOrdine}_{filtro}_{ordine.NumeroDocumento}.pdf";
+        using var stream = new MemoryStream(pdfBytes);
+        using var streamRef = new DotNetStreamReference(stream);
+        await JS.InvokeVoidAsync("downloadFileFromStream", nomeFile, streamRef);
+    }
+    catch (Exception ex) {
+        await JS.InvokeVoidAsync("alert", "ERRORE: " + ex.Message);
     }
 }
 
-// Ora il documento avrà le righe con i PezziPerConfezione corretti
-var documento = new DocumentoOrdine(ordine, clienteCompleto); 
-                byte[] pdfBytes = documento.GeneratePdf();
-
-                // Download
-                using var stream = new MemoryStream(pdfBytes);
-                using var streamRef = new DotNetStreamReference(stream);
-                await JS.InvokeVoidAsync("downloadFileFromStream", $"Ordine_{ordine.NumeroDocumento}.pdf", streamRef);
-            }
-            catch (Exception ex)
-            {
-                await JS.InvokeVoidAsync("alert", "ERRORE GENERAZIONE: " + ex.Message);
-            }
-        }
-
-}
 private void AggiornaSnapshot()
 {
     snapshotOrdineOriginale = JsonSerializer.Serialize(ordine);
@@ -1509,6 +1532,6 @@ private void OnQuantitaModificata(DettaglioOrdine r)
 
 
 
-
+}
 
 }

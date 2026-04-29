@@ -126,79 +126,82 @@
 <div class="toolbar-premium" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
     
     <!-- SINISTRA: Pulsanti Azione -->
-    <div style="display: flex; gap: 10px;">
-        <button class="btn-comando-ordine" @onclick='(() => Nav.NavigateTo("/"))'>
-            <span>🏠</span><span>HOME</span>
-        </button>
-        <button class="btn-comando-ordine btn-start-verde" @onclick="(() => CalcolaGiro())">
-            <span>⚙️</span><span>CALCOLA</span>
-        </button>
-        <button class="btn-comando-ordine btn-start-azzurro" @onclick="(() => ApriGestioneZone())">
-            <span>🗺️</span><span>ZONE</span>
-        </button>
-        <button class="btn-comando-ordine" @onclick="SalvaAgenda">
-            <span>💾</span><span>SALVA</span>
-        </button>
-        <div class="form-group mb-0">
-            <label class="small fw-bold">GIORNO PIANIFICAZIONE:</label>
-            <input type="date" 
-       class="form-control" 
-       value="@DataPianificazione.ToString("yyyy-MM-dd")" 
-       @onchange="@((ChangeEventArgs e) => DataPianificazione = DateTime.Parse(e.Value.ToString()))" 
-       min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+<div style="display: flex; align-items: center; gap: 10px;">
+    <button class="btn-comando-ordine" @onclick='(() => Nav.NavigateTo("/"))' style="height: 52px;">
+        <span>🏠</span><span>HOME</span>
+    </button>
+    <button class="btn-comando-ordine btn-start-verde" @onclick="(() => CalcolaGiro())" style="height: 52px;">
+        <span>⚙️</span><span>CALCOLA</span>
+    </button>
+    <button class="btn-comando-ordine btn-start-azzurro" @onclick="(() => ApriGestioneZone())" style="height: 52px;">
+        <span>🗺️</span><span>ZONE</span>
+    </button>
+    <button class="btn-comando-ordine" @onclick="SalvaAgenda" style="height: 52px;">
+        <span>💾</span><span>SALVA</span>
+    </button>
 
+    <!-- Giorno Pianificazione: Label sopra e Input sotto -->
+    <div style="display: flex; flex-direction: column; justify-content: center; height: 52px;">
+        <label style="font-size: 10px; font-weight: bold; color: #1e3c72; margin-bottom: 2px; text-transform: uppercase;">Giorno Pianificazione:</label>
+        <input type="date" 
+               class="form-control" 
+               style="font-size: 12px; height: 28px; padding: 2px 15px; width: 140px; border-radius: 6px;"
+               value="@DataPianificazione.ToString("yyyy-MM-dd")" 
+               @onchange="@((ChangeEventArgs e) => DataPianificazione = DateTime.Parse(e.Value.ToString()))" 
+               min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+    </div>
+</div>
+
+
+    <!-- DESTRA: Setup Partenza e Orari -->
+<div style="display: flex; align-items: center; gap: 15px; background: white; padding: 5px 5px; border-radius: 6px; border: 1px solid #ccc; height: 75px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+    
+    <!-- GRUPPO 1: DOVE (Indirizzo e Zona) -->
+    <div style="display: flex; flex-direction: column; justify-content: center; gap: 2px;">
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <label style="font-size: 8px; font-weight: bold; color: #1e3c72; width: 65px; margin:0; line-height:1;">PARTENZA DA:</label>
+            <input type="text" @bind="IndirizzoPartenza" 
+                   style="border: none; border-bottom: 1px solid #eee; font-size: 11px; width: 220px; outline: none; padding: 0;" 
+                   placeholder="Via Capri 17, Piombino..." />
+            <span @onclick="SalvaComePredefinito" style="cursor:pointer; font-size: 10px;" title="Salva predefinito">📌</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <label style="font-size: 8px; font-weight: bold; color: #1e3c72; width: 65px; margin:0; line-height:1;">ZONA:</label>
+            <select @bind="IdZonaSelezionata" style="border: none; background: transparent; font-size: 11px; font-weight: bold; cursor: pointer; outline: none; padding: 0; width: 220px;">
+                <option value="0">Scegli zona...</option>
+                @foreach (var z in ListeZone) {
+                    <option value="@z.IdZona">@z.NomeZona</option>
+                }
+            </select>
         </div>
     </div>
 
-    <!-- DESTRA: Setup Partenza e Orari -->
-<div style="display: flex; align-items: center; gap: 15px; background: white; padding: 5px 15px; border-radius: 12px; border: 1px solid #ddd; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
-    
-    <!-- Input Indirizzo (Esistente) -->
-    <div style="display: flex; flex-direction: column;">
-        <label style="font-size: 9px; font-weight: bold; color: #1e3c72; margin-bottom: 2px;">
-            PARTENZA DA: 
-            <span @onclick="SalvaComePredefinito" style="cursor:pointer; margin-left:5px; font-size: 10px;" title="Salva come predefinito">📌</span>
-        </label>
-        <input type="text" @bind="IndirizzoPartenza" 
-               style="border: none; border-bottom: 1px solid #ccc; font-size: 12px; width: 220px; outline: none;" 
-               placeholder="Via Capri 17, Piombino..." />
+    <!-- GRUPPO 2: QUANDO (Orari allargati per visibilità) -->
+    <div style="display: flex; flex-direction: column; justify-content: center; border-left: 1px solid #ddd; padding-left: 15px; gap: 2px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <label style="font-size: 8px; font-weight: bold; color: #1e3c72; width: 40px; margin:0; line-height:1;">PARTENZA:</label>
+            <input type="time" 
+                   value="@OrarioPartenzaPrevisto.ToString(@"hh\:mm")" 
+                   @onchange="@((ChangeEventArgs e) => OrarioPartenzaPrevisto = TimeSpan.Parse(e.Value?.ToString() ?? "08:30"))"
+                   style="border: 1px solid #eee; border-radius:3px; font-size: 12px; font-weight: bold; background: #f9f9f9; width: 85px; padding: 0 2px;" />
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <label style="font-size: 8px; font-weight: bold; color: #1e3c72; width: 40px; margin:0; line-height:1;">RIENTRO:</label>
+            <input type="time" 
+                   value="@OrarioRientroMassimo.ToString(@"hh\:mm")" 
+                   @onchange="@((ChangeEventArgs e) => OrarioRientroMassimo = TimeSpan.Parse(e.Value?.ToString() ?? "18:00"))"
+                   style="border: 1px solid #eee; border-radius:3px; font-size: 12px; font-weight: bold; background: #f9f9f9; width: 85px; padding: 0 2px;" />
+        </div>
     </div>
 
-    <!-- NUOVO: Orario Inizio (CORRETTO) -->
-<div style="display: flex; flex-direction: column; border-left: 1px solid #ddd; padding-left: 10px;">
-    <label style="font-size: 9px; font-weight: bold; color: #1e3c72; margin-bottom: 2px;">PARTENZA:</label>
-    <input type="time" 
-           value="@OrarioPartenzaPrevisto.ToString(@"hh\:mm")" 
-           @onchange="@((ChangeEventArgs e) => OrarioPartenzaPrevisto = TimeSpan.Parse(e.Value?.ToString() ?? "08:30"))"
-           style="border: none; font-size: 12px; font-weight: bold; outline: none; background: transparent;" />
-</div>
-
-<!-- NUOVO: Orario Fine (CORRETTO) -->
-<div style="display: flex; flex-direction: column; border-left: 1px solid #ddd; padding-left: 10px;">
-    <label style="font-size: 9px; font-weight: bold; color: #1e3c72; margin-bottom: 2px;">RIENTRO:</label>
-    <input type="time" 
-           value="@OrarioRientroMassimo.ToString(@"hh\:mm")" 
-           @onchange="@((ChangeEventArgs e) => OrarioRientroMassimo = TimeSpan.Parse(e.Value?.ToString() ?? "18:00"))"
-           style="border: none; font-size: 12px; font-weight: bold; outline: none; background: transparent;" />
-</div>
-
-
-    <!-- Zona e Rientro Pranzo (Esistenti) -->
-    <div style="display: flex; flex-direction: column; border-left: 1px solid #ddd; padding-left: 10px;">
-        <label style="font-size: 9px; font-weight: bold; color: #1e3c72; margin-bottom: 2px;">ZONA:</label>
-        <select @bind="IdZonaSelezionata" style="border: none; background: transparent; font-size: 12px; font-weight: bold; cursor: pointer; outline: none;">
-            <option value="0">Scegli zona...</option>
-            @foreach (var z in ListeZone) {
-                <option value="@z.IdZona">@z.NomeZona</option>
-            }
-        </select>
-    </div>
-
-    <div style="display: flex; align-items: center; gap: 5px; border-left: 1px solid #ddd; padding-left: 10px;">
-        <input type="checkbox" @bind="IsRientroPranzo" id="pPranzoSmall" />
-        <label for="pPranzoSmall" style="font-size: 9px; font-weight: bold; cursor: pointer; margin:0;">RIENTRO<br>PRANZO</label>
+    <!-- RIENTRO PRANZO -->
+    <div style="display: flex; align-items: center; gap: 8px; border-left: 1px solid #ddd; padding-left: 10px;">
+        <input type="checkbox" @bind="IsRientroPranzo" id="pPranzoSmall" style="width: 16px; height: 16px; cursor: pointer;" />
+        <label for="pPranzoSmall" style="font-size: 8px; font-weight: bold; cursor: pointer; line-height: 1; margin:0;">RIENTRO<br>PRANZO</label>
     </div>
 </div>
+
+
 </div>
 
 
