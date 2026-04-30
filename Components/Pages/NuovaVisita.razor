@@ -425,32 +425,38 @@
 {
     try 
     {
-        // 1. Recuperiamo le visite della data selezionata dal DB
-        using var db = new Microsoft.Data.SqlClient.SqlConnection(conn);
-        var sql = @"SELECT v.*, c.RagSociale FROM Visite v 
-                    JOIN Clienti c ON v.IDCliente = c.IdCliente 
-                    WHERE CAST(v.DataVisita AS DATE) = @data";
-        
-        var dataRicerca = dataReport;
-        var record = (await db.QueryAsync(sql, new { data = dataRicerca })).ToList();
-
-        if (!record.Any()) {
-            await JS.InvokeVoidAsync("alert", "Nessuna visita trovata per questa data.");
+        // Controllo preventivo: evita chiamate al DB se la data è nulla
+        if (dataReport == default) {
+            await JS.InvokeVoidAsync("alert", "Seleziona una data valida.");
             return;
         }
 
-        // 2. Generiamo il PDF
-        var doc = new DocumentoReportVisite(dataRicerca, record);
+        using var db = new Microsoft.Data.SqlClient.SqlConnection(conn);
+        // Usiamo un alias chiaro e filtriamo per data "pura"
+        var sql = @"SELECT v.*, c.RagSociale 
+                    FROM Visite v 
+                    INNER JOIN Clienti c ON v.IDCliente = c.IdCliente 
+                    WHERE CAST(v.DataVisita AS DATE) = CAST(@data AS DATE)";
+        
+        // Specifichiamo il tipo per sicurezza (es. List<VisitaReport>)
+        var record = (await db.QueryAsync<Visita>(sql, new { data = dataReport })).ToList();
+
+        if (record == null || !record.Any()) {
+            await JS.InvokeVoidAsync("alert", "Nessuna visita trovata per il " + dataReport.ToShortDateString());
+            return;
+        }
+
+        var doc = new DocumentoReportVisite(dataReport, record);
         byte[] pdfBytes = doc.GeneratePdf();
 
-        // 3. Download tramite JavaScript
-        string fileName = $"Report_Visite_{dataRicerca:yyyyMMdd}.pdf";
+        string fileName = $"Report_Visite_{dataReport:yyyyMMdd}.pdf";
         await JS.InvokeVoidAsync("downloadFile", fileName, Convert.ToBase64String(pdfBytes));
     }
     catch (Exception ex) {
-        await JS.InvokeVoidAsync("alert", "Errore: " + ex.Message);
+        await JS.InvokeVoidAsync("alert", "Errore tecnico: " + ex.Message);
     }
 }
+
     
     
     private async Task CaricaClienti() {

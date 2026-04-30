@@ -136,13 +136,13 @@
     <div class="toolbar-container">
         <!-- BARRA NAVIGAZIONE -->
 <div style="display:flex; gap:10px; margin-bottom: 15px;">
-    <button class="btn-comando-ordine btn-start-nav" @onclick='() => Nav.NavigateTo("/")'>
+    <button class="btn-comando-ordine btn-start-azzurro " @onclick='() => Nav.NavigateTo("/")'>
         <span>🏠</span> HOME
     </button>
-    <button class="btn-comando-ordine btn-start-nav" @onclick="() => VaiA(Prev)">
+    <button class="btn-comando-ordine btn-start-azzurro " @onclick="() => VaiA(Prev)">
         <span>◀</span> PREC.
     </button>
-    <button class="btn-comando-ordine btn-start-nav" @onclick="() => VaiA(Next)">
+    <button class="btn-comando-ordine btn-start-azzurro " @onclick="() => VaiA(Next)">
          <span>▶</span><span>SUCC.</span>
     </button>
 </div>
@@ -163,11 +163,11 @@
 
 
         <div style="display:flex; gap:10px; flex-wrap: wrap;">
-    <button class="btn-comando-ordine" @onclick="() => VaiA(IniziaNuovo)">
+    <button class="btn-comando-ordine btn-start-azzurro" @onclick="() => VaiA(IniziaNuovo)">
         <span>➕</span> NUOVO
     </button>
 
-    <button class="btn-comando-ordine btn-start-nav" @onclick="Annulla">
+    <button class="btn-comando-ordine btn-start-azzurro " @onclick="Annulla">
     <span>✖</span>
     <span>ANNULLA</span>
 </button>
@@ -182,16 +182,24 @@
         </button>
     }
 
+
+     <button class="btn-comando-ordine btn-start-azzurro" 
+            @onclick="Ricalcola" 
+            style="line-height: 1.1; padding: 5px 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 52px;">
+        <span>🔄</span>
+        <span>RICARICA<br />TOTALI</span>
+    </button>
+
     <div class="btn-group shadow-sm">
-    <button class="btn-comando-ordine @(ordine.StatoOrdine == "Preventivo" ? "btn-info" : "btn-primary")" 
+    <button class="btn-comando-ordine btn-outline-secondary btn-start-azzurro @(ordine.StatoOrdine == "Preventivo" ? "btn-info" : "btn-primary")" 
             @onclick='() => GeneraIlMioPdf("TUTTO")'>
-        <span>📄</span> Stampa @ordine.StatoOrdine
+        <span>📄</span> Stampa <br />@ordine.StatoOrdine
     </button>
-    <button class="btn-comando-ordine btn-outline-secondary" @onclick='() => GeneraIlMioPdf("PROFILI")'>
-        <span>📏</span> Solo Profili
+    <button class="btn-comando-ordine btn-outline-secondary btn-start-azzurro" @onclick='() => GeneraIlMioPdf("PROFILI")'>
+        <span>📏</span> Stampa @ordine.StatoOrdine <br />Solo Profili
     </button>
-    <button class="btn-comando-ordine btn-outline-secondary" @onclick='() => GeneraIlMioPdf("ACCESSORI")'>
-        <span>📦</span> Solo Accessori
+    <button class="btn-comando-ordine btn-outline-secondary btn-start-azzurro" @onclick='() => GeneraIlMioPdf("ACCESSORI")'>
+        <span>📦</span> Stampa @ordine.StatoOrdine <br />Solo Accessori
     </button>
 </div>
 
@@ -304,7 +312,7 @@
                 <div style="width: 60px;"><label class="win-label">Kg/ml</label><input type="number" step="0.001" class="win-input" @bind="rigaP.PesoAlMetro" /></div>
                 <div style="width: 65px;"><label class="win-label">€/Kg</label><input type="number" step="0.01" class="win-input" @bind="rigaP.PrezzoUnitario" /></div>
                 <div style="width: 45px;"><label class="win-label">Sc%</label><input type="number" class="win-input" @bind="rigaP.ScontoRiga" /></div>
-                <div style="flex-grow: 1;"><button class="win-btn" style="background:#005a9e; color:white; height:21px; width:100%;" @onclick="() => AggiungiRiga(false)">AGGIUNGI</button></div>
+                <div style="flex-grow: 1;"><button class="btn-comando-ordine" style="background:#005a9e; color:white; height:21px; width:100;" @onclick="() => AggiungiRiga(false)">AGGIUNGI</button></div>
             </div>
         </div>
 
@@ -682,33 +690,33 @@ else
 
 
         private async Task GeneraIlMioPdf(string filtro = "TUTTO")
-{
-    try 
-    {
-        if (ordine.IDCliente == 0) {
-            await JS.InvokeVoidAsync("alert", "Selezionare un cliente.");
-            return;
-        }
-
-        // 1. Refresh dati confezioni (tuo codice esistente)
-        Cliente clienteCompleto;
-        using (var db = new SqlConnection(conn)) {
-            clienteCompleto = await db.QueryFirstOrDefaultAsync<Cliente>(
-                "SELECT * FROM Clienti WHERE IDCliente = @id", new { id = ordine.IDCliente });
-
-            foreach (var riga in ordine.Righe) {
-                var datiProdotto = await db.QueryFirstOrDefaultAsync<dynamic>(
-                    "SELECT PezziPerConfezione, UmSecondaria FROM Prodotti WHERE CodiceProdotto = @cod", 
-                    new { cod = riga.CodiceProdotto });
-                if (datiProdotto != null) {
-                    riga.PezziPerConfezione = datiProdotto.PezziPerConfezione ?? 1;
-                    riga.UmSecondaria = datiProdotto.UmSecondaria ?? "CT";
+        {
+            try 
+            {
+                if (ordine.IDCliente == 0) {
+                    await JS.InvokeVoidAsync("alert", "Selezionare un cliente.");
+                    return;
                 }
-            }
-        }
 
-        // 2. Creazione copia filtrata per la stampa
-        var ordinePerStampa = new Ordine { 
+                // 1. Refresh dati confezioni (tuo codice esistente)
+                Cliente clienteCompleto;
+                using (var db = new SqlConnection(conn)) {
+                    clienteCompleto = await db.QueryFirstOrDefaultAsync<Cliente>(
+                        "SELECT * FROM Clienti WHERE IDCliente = @id", new { id = ordine.IDCliente });
+
+                    foreach (var riga in ordine.Righe) {
+                        var datiProdotto = await db.QueryFirstOrDefaultAsync<dynamic>(
+                            "SELECT PezziPerConfezione, UmSecondaria FROM Prodotti WHERE CodiceProdotto = @cod", 
+                            new { cod = riga.CodiceProdotto });
+                        if (datiProdotto != null) {
+                            riga.PezziPerConfezione = datiProdotto.PezziPerConfezione ?? 1;
+                            riga.UmSecondaria = datiProdotto.UmSecondaria ?? "CT";
+                        }
+                    }
+                }
+
+                // 2. Creazione copia filtrata per la stampa
+                var ordinePerStampa = new Ordine { 
             NumeroDocumento = ordine.NumeroDocumento,
             DataOrdine = ordine.DataOrdine,
             IDCliente = ordine.IDCliente,
@@ -716,75 +724,75 @@ else
             TotaleImponibile = ordine.TotaleImponibile // Assicurati che sia calcolato
         };
 
-        ordinePerStampa.Righe = filtro switch {
-            "PROFILI" => ordine.Righe.Where(r => !r.IsAccessorio).ToList(),
-            "ACCESSORI" => ordine.Righe.Where(r => r.IsAccessorio).ToList(),
-            _ => ordine.Righe.ToList()
-        };
+                ordinePerStampa.Righe = filtro switch {
+                    "PROFILI" => ordine.Righe.Where(r => !r.IsAccessorio).ToList(),
+                    "ACCESSORI" => ordine.Righe.Where(r => r.IsAccessorio).ToList(),
+                    _ => ordine.Righe.ToList()
+                };
 
-        if (!ordinePerStampa.Righe.Any()) {
-            await JS.InvokeVoidAsync("alert", "Nessun elemento trovato per questo filtro.");
-            return;
+                if (!ordinePerStampa.Righe.Any()) {
+                    await JS.InvokeVoidAsync("alert", "Nessun elemento trovato per questo filtro.");
+                    return;
+                }
+
+                // 3. Generazione Documento
+                // Passiamo 'ordine.Stato' al costruttore per decidere se mostrare i prezzi
+                var documento = new DocumentoOrdine(ordinePerStampa, clienteCompleto); 
+                byte[] pdfBytes = documento.GeneratePdf();
+
+                string nomeFile = $"{ordine.StatoOrdine}_{filtro}_{ordine.NumeroDocumento}.pdf";
+                using var stream = new MemoryStream(pdfBytes);
+                using var streamRef = new DotNetStreamReference(stream);
+                await JS.InvokeVoidAsync("downloadFileFromStream", nomeFile, streamRef);
+            }
+            catch (Exception ex) {
+                await JS.InvokeVoidAsync("alert", "ERRORE: " + ex.Message);
+            }
         }
 
-        // 3. Generazione Documento
-        // Passiamo 'ordine.Stato' al costruttore per decidere se mostrare i prezzi
-        var documento = new DocumentoOrdine(ordinePerStampa, clienteCompleto); 
-        byte[] pdfBytes = documento.GeneratePdf();
-
-        string nomeFile = $"{ordine.StatoOrdine}_{filtro}_{ordine.NumeroDocumento}.pdf";
-        using var stream = new MemoryStream(pdfBytes);
-        using var streamRef = new DotNetStreamReference(stream);
-        await JS.InvokeVoidAsync("downloadFileFromStream", nomeFile, streamRef);
-    }
-    catch (Exception ex) {
-        await JS.InvokeVoidAsync("alert", "ERRORE: " + ex.Message);
-    }
-}
-
-private void AggiornaSnapshot()
-{
-    snapshotOrdineOriginale = JsonSerializer.Serialize(ordine);
-    caricamentoCompletato = true;
-}
+        private void AggiornaSnapshot()
+        {
+            snapshotOrdineOriginale = JsonSerializer.Serialize(ordine);
+            caricamentoCompletato = true;
+        }
 
 
-    private async Task<bool> VerificaCodiceEsistente(string codice)
-{
-    if (string.IsNullOrWhiteSpace(codice)) return false;
+        private async Task<bool> VerificaCodiceEsistente(string codice)
+        {
+            if (string.IsNullOrWhiteSpace(codice)) return false;
 
-    using var db = new SqlConnection(conn);
-    // Controlliamo se esiste un prodotto con lo stesso codice (escludendo l'attuale se siamo in modifica)
-    var esiste = await db.ExecuteScalarAsync<int>(
-        "SELECT COUNT(1) FROM Prodotti WHERE CodiceProdotto = @codice", 
-        new { codice });
+            using var db = new SqlConnection(conn);
+            // Controlliamo se esiste un prodotto con lo stesso codice (escludendo l'attuale se siamo in modifica)
+            var esiste = await db.ExecuteScalarAsync<int>(
+                "SELECT COUNT(1) FROM Prodotti WHERE CodiceProdotto = @codice", 
+                new { codice });
 
-    return esiste > 0;
-}
+            return esiste > 0;
+        }
 
-private async Task VerificaDuplicatoOrdine(ChangeEventArgs e)
-{
-    string cod = e.Value?.ToString() ?? "";
-    nuovoProdottoListino.CodiceProdotto = cod;
+        private async Task VerificaDuplicatoOrdine(ChangeEventArgs e)
+        {
+            string cod = e.Value?.ToString() ?? "";
+            nuovoProdottoListino.CodiceProdotto = cod;
 
-    if (string.IsNullOrWhiteSpace(cod))
-    {
-        codiceDuplicatoOrdine = false;
-        return;
-    }
+            if (string.IsNullOrWhiteSpace(cod))
+            {
+                codiceDuplicatoOrdine = false;
+                return;
+            }
 
-    using var db = new SqlConnection(conn);
-    var conteggio = await db.ExecuteScalarAsync<int>(
-        "SELECT COUNT(1) FROM Prodotti WHERE CodiceProdotto = @cod", new { cod });
+            using var db = new SqlConnection(conn);
+            var conteggio = await db.ExecuteScalarAsync<int>(
+                "SELECT COUNT(1) FROM Prodotti WHERE CodiceProdotto = @cod", new { cod });
 
-    codiceDuplicatoOrdine = conteggio > 0;
-}
+            codiceDuplicatoOrdine = conteggio > 0;
+        }
 
 
-private void ApriPopupProdotto()
-{
-    // Prepariamo l'oggetto per il listino usando quello che hai già scritto nella riga
-    nuovoProdottoListino = new Prodotti 
+        private void ApriPopupProdotto()
+        {
+            // Prepariamo l'oggetto per il listino usando quello che hai già scritto nella riga
+            nuovoProdottoListino = new Prodotti 
     { 
         CodiceProdotto = rigaP.CodiceProdotto, //Prende solo il codice che stavi scrivendo
         Descrizione = "",
@@ -793,98 +801,131 @@ private void ApriPopupProdotto()
         IsAccessorio = false, // Siamo nel blocco profili
         UmProdotto = "ML" // Unità di misura predefinita per i profili"
     };
-    snapshotInizialeRiga = JsonSerializer.Serialize(nuovoProdottoListino);
-    visualizzaPopupProdotto = true;
-}
+            snapshotInizialeRiga = JsonSerializer.Serialize(nuovoProdottoListino);
+            visualizzaPopupProdotto = true;
+        }
 
-private async Task OnCodiceProfiloInput(ChangeEventArgs e)
-{ 
-    string codice = e.Value?.ToString() ?? "";
-    rigaP.CodiceProdotto = codice;
 
-    if (string.IsNullOrWhiteSpace(codice) || codice.Length < 2) 
-    { 
-        mostraTastoNuovoProfilo = false;
-        return;
-    } 
+        private async Task RicalcolaTotaleDocumento()
+        {
+            decimal nuovoTotale = 0;
 
-    using (var db = new SqlConnection(conn))
-    {
-        //Cerchiamo il prodotto
-        var p = await db.QueryFirstOrDefaultAsync<Prodotti>(
-            "SELECT * FROM Prodotti WHERE CodiceProdotto = @codice", new { codice });
-
-        if (p != null) 
-        { 
-            rigaP.Descrizione = p.Descrizione;
-            rigaP.PesoAlMetro = p.PesoAlMetro;
-            rigaP.UmRiga = p.UmProdotto;
-            mostraTastoNuovoProfilo = false;
-            // 2. --- RADAR TASK: Controlliamo se ci sono task aperti per questo codice ---
-            var task = await db.QueryFirstOrDefaultAsync<Attivita>(
-                "SELECT * FROM Attivita WHERE IDProdottoAttivita = @IDProdotto AND Completata = 0", 
-                new { IDProdotto = p.IDProdotto }); // Assicurati che IDProdotto sia il nome corretto nella tabella Prodotti
-
-            if (task != null)
+            foreach (var riga in ordine.Righe)
             {
-                await JS.InvokeVoidAsync("alert", $"⚠️ NOTA TECNICA ARTICOLO {codice}:\n{task.Descrizione}");
+                if (!riga.IsAccessorio)
+                {
+                    // Formula Profili: (Peso/ml * Lunghezza * Barre) * Prezzo * Sconto
+                    decimal kgRiga = riga.PesoAlMetro * riga.LunghezzaVerga * riga.Quantita;
+                    riga.PrezzoTotaleRiga = kgRiga * riga.PrezzoUnitario * (1 - (riga.ScontoRiga / 100));
+                }
+                else
+                {
+                    // Formula Accessori: Quantità * Prezzo * Sconto
+                    riga.PrezzoTotaleRiga = riga.Quantita * riga.PrezzoUnitario * (1 - (riga.ScontoRiga / 100));
+                }
+
+                nuovoTotale += riga.PrezzoTotaleRiga;
             }
 
-        } 
-        else 
-        { 
-            mostraTastoNuovoProfilo = true;
-            rigaP.Descrizione = "";
-            rigaP.UmRiga = "";
-        } 
-    } 
-} 
+            // Aggiorniamo la proprietà ufficiale dell'ordine
+            ordine.TotaleImponibile = nuovoTotale;
 
+            // Notifica a Blazor di aggiornare la UI
+            StateHasChanged();
 
-private async Task OnCodiceAccessorioInput(ChangeEventArgs e)
-{
-    string codice = e.Value?.ToString() ?? "";
-    rigaA.CodiceProdotto = codice;
-
-    if (string.IsNullOrWhiteSpace(codice) || codice.Length < 2) {
-        mostraTastoNuovoAccessorio = false;
-        return;
-    }
-
-    using var db = new SqlConnection(conn);
-    var p = await db.QueryFirstOrDefaultAsync<Prodotti>(
-        "SELECT * FROM Prodotti WHERE CodiceProdotto = @codice AND IsAccessorio = 1", new { codice });
-
-    if (p != null) {
-        rigaA.Descrizione = p.Descrizione;
-        rigaA.FinituraAccessorio = p.FinituraAccessorio;
-        
-        // AGGIUNTA: Trasciniamo l'UM dal listino alla riga dell'ordine
-        rigaA.UmRiga = p.UmProdotto; 
-
-        mostraTastoNuovoAccessorio = false;
-
-        // AGGIUNTA: Radar Task anche per gli accessori
-        var task = await db.QueryFirstOrDefaultAsync<Attivita>(
-            "SELECT * FROM Attivita WHERE IDProdottoAttivita = @IDProdotto AND Completata = 0", 
-            new { IDProdotto = p.IDProdotto });
-
-        if (task != null)
-        {
-            await JS.InvokeVoidAsync("alert", $"⚠️ NOTA TECNICA ACCESSORIO {codice}:\n{task.Descrizione}");
+            await SalvaTutto ();
         }
-    } else {
-        mostraTastoNuovoAccessorio = true;
-        rigaA.Descrizione = "";
-        rigaA.UmRiga = ""; // Puliamo se il codice è errato
-    }
-}
 
 
 
-private void ApriPopupAccessorio()
-{
-    nuovoProdottoListino = new Prodotti 
+        private async Task OnCodiceProfiloInput(ChangeEventArgs e)
+        { 
+            string codice = e.Value?.ToString() ?? "";
+            rigaP.CodiceProdotto = codice;
+
+            if (string.IsNullOrWhiteSpace(codice) || codice.Length < 2) 
+            { 
+                mostraTastoNuovoProfilo = false;
+                return;
+            } 
+
+            using (var db = new SqlConnection(conn))
+            {
+                //Cerchiamo il prodotto
+                var p = await db.QueryFirstOrDefaultAsync<Prodotti>(
+                    "SELECT * FROM Prodotti WHERE CodiceProdotto = @codice", new { codice });
+
+                if (p != null) 
+                { 
+                    rigaP.Descrizione = p.Descrizione;
+                    rigaP.PesoAlMetro = p.PesoAlMetro;
+                    rigaP.UmRiga = p.UmProdotto;
+                    mostraTastoNuovoProfilo = false;
+                    // 2. --- RADAR TASK: Controlliamo se ci sono task aperti per questo codice ---
+                    var task = await db.QueryFirstOrDefaultAsync<Attivita>(
+                        "SELECT * FROM Attivita WHERE IDProdottoAttivita = @IDProdotto AND Completata = 0", 
+                        new { IDProdotto = p.IDProdotto }); // Assicurati che IDProdotto sia il nome corretto nella tabella Prodotti
+
+                    if (task != null)
+                    {
+                        await JS.InvokeVoidAsync("alert", $"⚠️ NOTA TECNICA ARTICOLO {codice}:\n{task.Descrizione}");
+                    }
+
+                } 
+                else 
+                { 
+                    mostraTastoNuovoProfilo = true;
+                    rigaP.Descrizione = "";
+                    rigaP.UmRiga = "";
+                } 
+            } 
+        } 
+
+
+        private async Task OnCodiceAccessorioInput(ChangeEventArgs e)
+        {
+            string codice = e.Value?.ToString() ?? "";
+            rigaA.CodiceProdotto = codice;
+
+            if (string.IsNullOrWhiteSpace(codice) || codice.Length < 2) {
+                mostraTastoNuovoAccessorio = false;
+                return;
+            }
+
+            using var db = new SqlConnection(conn);
+            var p = await db.QueryFirstOrDefaultAsync<Prodotti>(
+                "SELECT * FROM Prodotti WHERE CodiceProdotto = @codice AND IsAccessorio = 1", new { codice });
+
+            if (p != null) {
+                rigaA.Descrizione = p.Descrizione;
+                rigaA.FinituraAccessorio = p.FinituraAccessorio;
+
+                // AGGIUNTA: Trasciniamo l'UM dal listino alla riga dell'ordine
+                rigaA.UmRiga = p.UmProdotto; 
+
+                mostraTastoNuovoAccessorio = false;
+
+                // AGGIUNTA: Radar Task anche per gli accessori
+                var task = await db.QueryFirstOrDefaultAsync<Attivita>(
+                    "SELECT * FROM Attivita WHERE IDProdottoAttivita = @IDProdotto AND Completata = 0", 
+                    new { IDProdotto = p.IDProdotto });
+
+                if (task != null)
+                {
+                    await JS.InvokeVoidAsync("alert", $"⚠️ NOTA TECNICA ACCESSORIO {codice}:\n{task.Descrizione}");
+                }
+            } else {
+                mostraTastoNuovoAccessorio = true;
+                rigaA.Descrizione = "";
+                rigaA.UmRiga = ""; // Puliamo se il codice è errato
+            }
+        }
+
+
+
+        private void ApriPopupAccessorio()
+        {
+            nuovoProdottoListino = new Prodotti 
     { 
         CodiceProdotto = rigaA.CodiceProdotto, // Mantiene solo il codice che stavi scrivendo
         Descrizione = "",
@@ -894,106 +935,107 @@ private void ApriPopupAccessorio()
         PesoAlMetro = 0,
         LunghezzaVerga = 0
     };
-    
-    snapshotInizialeRiga = JsonSerializer.Serialize(nuovoProdottoListino);
-    visualizzaPopupProdotto = true;
-}
+
+            snapshotInizialeRiga = JsonSerializer.Serialize(nuovoProdottoListino);
+            visualizzaPopupProdotto = true;
+        }
 
 
-private async Task OnClienteChanged(ChangeEventArgs e)
-{
-    // Recuperiamo l'ID selezionato dalla select
-    if (int.TryParse(e.Value?.ToString(), out int idSelezionato))
-    {
-        ordine.IDCliente = idSelezionato;
-        
-        // Se è stato scelto un cliente (ID > 0), carichiamo i suoi task
-        if (idSelezionato > 0)
+        private async Task OnClienteChanged(ChangeEventArgs e)
         {
-            try {
-                using var db = new SqlConnection(conn);
-                string sql = "SELECT * FROM Attivita WHERE IDClienteAttivita = @id AND Completata = 0";
-                var res = await db.QueryAsync<Attivita>(sql, new { id = idSelezionato });
-                taskPendenti = res.ToList();
-                // NOTIFICA DI TEST: Se vedi questo messaggio, la query funziona
-                if (taskPendenti.Any()) 
-                   await Notifica($"✅ Trovati {taskPendenti.Count} task per ID {idSelezionato}");
-                else 
-                   await Notifica($"ℹ️ Nessun task trovato per ID {idSelezionato}");
+            // Recuperiamo l'ID selezionato dalla select
+            if (int.TryParse(e.Value?.ToString(), out int idSelezionato))
+            {
+                ordine.IDCliente = idSelezionato;
 
-                StateHasChanged(); // Forziamo il refresh per mostrare i task appena caricati
-            } catch (Exception ex) {
-                await Notifica("❌ Errore DB: " + ex.Message);
-                taskPendenti = new(); 
+                // Se è stato scelto un cliente (ID > 0), carichiamo i suoi task
+                if (idSelezionato > 0)
+                {
+                    try {
+                        using var db = new SqlConnection(conn);
+                        string sql = "SELECT * FROM Attivita WHERE IDClienteAttivita = @id AND Completata = 0";
+                        var res = await db.QueryAsync<Attivita>(sql, new { id = idSelezionato });
+                        taskPendenti = res.ToList();
+                        // NOTIFICA DI TEST: Se vedi questo messaggio, la query funziona
+                        if (taskPendenti.Any()) 
+                            await Notifica($"✅ Trovati {taskPendenti.Count} task per ID {idSelezionato}");
+                        else 
+                            await Notifica($"ℹ️ Nessun task trovato per ID {idSelezionato}");
+
+                        StateHasChanged(); // Forziamo il refresh per mostrare i task appena caricati
+                    } catch (Exception ex) {
+                        await Notifica("❌ Errore DB: " + ex.Message);
+                        taskPendenti = new(); 
+                    }
+                }
+                else {
+                    taskPendenti = new();
+                }
             }
         }
-        else {
-            taskPendenti = new();
-        }
-    }
-}
 
 
-private async Task<List<Attivita>> GetAttivitaAperteLocali()
-{
-    using var db = new SqlConnection(conn);
-    return (await db.QueryAsync<Attivita>("SELECT * FROM Attivita WHERE Completata = 0")).ToList();
-}
-
-
-private async Task InviaOrdineViaEmail()
-{
-    try
-    {
-        // 1. Generazione del PDF in memoria
-        var clienteSelezionato = listaClienti.FirstOrDefault(c => c.IdCliente == ordine.IDCliente) 
-                                 ?? new Cliente { RagSociale = "Cliente" };
-        var documento = new DocumentoOrdine(ordine, clienteSelezionato);
-        byte[] pdfBytes = documento.GeneratePdf();
-
-        // 2. Creazione del messaggio email
-        var message = new MimeMessage();
-        message.From.Add(new MailboxAddress("ALQ Genova", "ugupio@gmail.com"));
-        message.To.Add(new MailboxAddress("Ufficio Ordini" , "ugupio@gmail.com"));
-        message.Subject = $"Ordine n. {ordine.IDOrdine}";
-
-        var bodyBuilder = new BodyBuilder { HtmlBody = $"<p>Buongiorno invio in allegato l'ordine n.{ordine.IDOrdine} per il cliente {clienteSelezionato.RagSociale}.'</p>" };
-        
-        // Aggiunta dell'allegato PDF
-        bodyBuilder.Attachments.Add($"Ordine_{ordine.IDOrdine}.pdf", pdfBytes);
-        message.Body = bodyBuilder.ToMessageBody();
-
-        // 3. Invio tramite SMTP
-        using (var client = new SmtpClient())
+        private async Task<List<Attivita>> GetAttivitaAperteLocali()
         {
-            // Questo dice al programma di accettare il certificato anche se l'antivirus prova a intercettarlo
-    client.ServerCertificateValidationCallback = (s, c, h, e) => true;
-
-    // Usiamo la porta 587 con StartTls (è la più compatibile con i firewall aziendali)
-    await client.ConnectAsync("smtp.robinson.it", 587, MailKit.Security.SecureSocketOptions.StartTls);
-
-    // Ricordati: la password dell'app Google da 16 caratteri DEVE essere senza spazi
-    await client.AuthenticateAsync("ugupio@gmail.com", "abcdefghijklmnop");
-
-    await client.SendAsync(message);
-    await client.DisconnectAsync(true);
+            using var db = new SqlConnection(conn);
+            return (await db.QueryAsync<Attivita>("SELECT * FROM Attivita WHERE Completata = 0")).ToList();
         }
 
-        await Notifica("📧 Email inviata con successo!");
-    }
-    catch (Exception ex)
-    {
-        await JS.InvokeVoidAsync("alert", "Errore invio email: " + ex.Message);
-    }
-}
-    
-    
-    
-    protected override async Task OnInitializedAsync() {
-    using var db = new SqlConnection(conn);
-    listaClienti = (await db.QueryAsync<Cliente>("SELECT IdCliente, RagSociale FROM Clienti ORDER BY RagSociale")).ToList();
-    listaIdOrdini = (await db.QueryAsync<int>(@"SELECT IDOrdine FROM Ordini ORDER BY DataOrdine DESC, IDOrdine DESC")).ToList();
-    tuttiITaskAperti = await GetAttivitaAperteLocali();
+
+        private async Task InviaOrdineViaEmail()
+        {
+            try
+            {
+                // 1. Generazione del PDF in memoria
+                var clienteSelezionato = listaClienti.FirstOrDefault(c => c.IdCliente == ordine.IDCliente) 
+                                         ?? new Cliente { RagSociale = "Cliente" };
+                var documento = new DocumentoOrdine(ordine, clienteSelezionato);
+                byte[] pdfBytes = documento.GeneratePdf();
+
+                // 2. Creazione del messaggio email
+                var message = new MimeMessage();
+                message.From.Add(new MailboxAddress("ALQ Genova", "ugupio@gmail.com"));
+                message.To.Add(new MailboxAddress("Ufficio Ordini" , "ugupio@gmail.com"));
+                message.Subject = $"Ordine n. {ordine.IDOrdine}";
+
+                var bodyBuilder = new BodyBuilder { HtmlBody = $"<p>Buongiorno invio in allegato l'ordine n.{ordine.IDOrdine} per il cliente {clienteSelezionato.RagSociale}.'</p>" };
+
+                // Aggiunta dell'allegato PDF
+                bodyBuilder.Attachments.Add($"Ordine_{ordine.IDOrdine}.pdf", pdfBytes);
+                message.Body = bodyBuilder.ToMessageBody();
+
+                // 3. Invio tramite SMTP
+                using (var client = new SmtpClient())
+                {
+                    // Questo dice al programma di accettare il certificato anche se l'antivirus prova a intercettarlo
+                    client.ServerCertificateValidationCallback = (s, c, h, e) => true;
+
+                    // Usiamo la porta 587 con StartTls (è la più compatibile con i firewall aziendali)
+                    await client.ConnectAsync("smtp.robinson.it", 587, MailKit.Security.SecureSocketOptions.StartTls);
+
+                    // Ricordati: la password dell'app Google da 16 caratteri DEVE essere senza spazi
+                    await client.AuthenticateAsync("ugupio@gmail.com", "abcdefghijklmnop");
+
+                    await client.SendAsync(message);
+                    await client.DisconnectAsync(true);
+                }
+
+                await Notifica("📧 Email inviata con successo!");
+            }
+            catch (Exception ex)
+            {
+                await JS.InvokeVoidAsync("alert", "Errore invio email: " + ex.Message);
+            }
+        }
+
+
+
+        protected override async Task OnInitializedAsync() {
+            using var db = new SqlConnection(conn);
+            listaClienti = (await db.QueryAsync<Cliente>("SELECT IdCliente, RagSociale FROM Clienti ORDER BY RagSociale")).ToList();
+            listaIdOrdini = (await db.QueryAsync<int>(@"SELECT IDOrdine FROM Ordini ORDER BY DataOrdine DESC, IDOrdine DESC")).ToList();
+            tuttiITaskAperti = await GetAttivitaAperteLocali();
+            await RicalcolaTotaleDocumento();
 
     if (id > 0) 
     {
@@ -1160,12 +1202,14 @@ private async Task InvertiUsoConfezione(DettaglioOrdine r)
     // AGGIORNATO v2.6: Inclusi i campi per la gestione confezioni e IDProdotto
     string sqlR = @"INSERT INTO Dettaglio_Ordini 
                 (IDOrdine, IDProdotto, CodiceProdotto, Descrizione, Quantita, UmRiga, 
-                 PrezzoUnitario, ScontoRiga, ColoreInt, ColoreEst, IsAccessorio, 
+                 PrezzoUnitario, ScontoRiga, PrezzoTotaleRiga, 
+                 ColoreInt, ColoreEst, IsAccessorio, 
                  FinituraAccessorio, LunghezzaVerga, PesoAlMetro, 
                  PezziPerConfezione, IsConfezione, QuantitaOriginalePezzi, UmSecondaria) 
                 VALUES 
                 (@IDOrdine, @IDProdotto, @CodiceProdotto, @Descrizione, @Quantita, @UmRiga, 
-                 @PrezzoUnitario, @ScontoRiga, @ColoreInt, @ColoreEst, @IsAccessorio, 
+                 @PrezzoUnitario, @ScontoRiga, @PrezzoTotaleRiga,
+                 @ColoreInt, @ColoreEst, @IsAccessorio, 
                  @FinituraAccessorio, @LunghezzaVerga, @PesoAlMetro, 
                  @PezziPerConfezione, @IsConfezione, @QuantitaOriginalePezzi, @UmSecondaria)"; 
 

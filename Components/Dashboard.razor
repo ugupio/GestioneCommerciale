@@ -8,6 +8,7 @@
 @inject IJSRuntime JS
 
 
+
 <style>
     .win-form { background-color: #f0f0f0; font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; border: 1px solid #999; padding: 5px; min-width: 950px; min-height: 100vh; }
     .win-header { background: #005a9e; color: white; padding: 3px 8px; font-weight: bold; margin: -5px -5px 5px -5px; font-size: 12px; border-bottom: 1px solid #004578; }
@@ -213,33 +214,69 @@
     <div style="display: flex; gap: 10px; align-items: flex-start; margin-top: 10px;">
     
     <!-- COLONNA SINISTRA: RITARDI (60%) -->
-    <div class="win-group" style="flex: 6; margin-bottom: 0;">
-        <div class="section-title" style="color: #dc3545;">⚠️ Ordini in Ritardo</div>
-        <div style="max-height: 180px; overflow-y: auto;">
-            <table class="win-grid">
-                <thead>
-                    <tr><th>Cliente</th><th>N. Doc.</th><th style="color:#dc3545">Prevista</th><th style="width:80px">Azione</th></tr>
-                </thead>
-                <tbody>
-                    @foreach (var rit in listaRitardi) {
-    <tr>
-        <td>@(rit.RagSociale ?? "")</td>
-        <td>@(rit.NumeroDocumento ?? "")</td>
-        <td class="fw-bold text-danger">@rit.DataConsegnaPrevista.ToShortDateString()</td>
-        
-        <!-- CORREZIONE QUI: Aggiunto <td> e chiuso correttamente il tag <button> -->
-        <td class="text-center">
-            <button class="win-btn-cell p-0" style="font-size:9px; height:20px" 
-    @onclick="@(() => SollecitaOrdine((string)rit.RagSociale, (string)rit.NumeroDocumento, (int)rit.IDClienteAttivita))">
-    📞 SOLLECITA
-</button>
-        </td>
-    </tr>
-}
-                </tbody>
-            </table>
-        </div>
+<div class="win-group" style="flex: 6; margin-bottom: 0;">
+    <div class="section-title" style="color: #dc3545;">⚠️ Ordini in Ritardo</div>
+    <div style="max-height: 180px; overflow-y: auto;">
+        <table class="win-grid">
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>N. Doc.</th>
+                    <th style="color:#dc3545">Prevista</th>
+                    <th style="width:80px">Azione</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var rit in listaRitardi) 
+                {
+                    // Calcolo giorni per evidenziare i ritardi gravi (> 7 giorni)
+                    var giorniRitardo = (DateTime.Now - (DateTime)rit.DataConsegnaPrevista).Days;
+                    
+                    <tr @ondblclick="() => VaiADettaglioOrdine((int)rit.IDOrdine)" 
+                        style="cursor: pointer; @(giorniRitardo > 7 ? "background-color: #ffe6e6;" : "")" 
+                        title="Doppio clic per aprire l'ordine">
+                        
+                        <td>@(rit.RagSociale ?? "")</td>
+                        <td>@(rit.NumeroDocumento ?? "")</td>
+                        <td class="fw-bold text-danger">@rit.DataConsegnaPrevista.ToShortDateString()</td>
+                        
+                        <td class="text-center">
+                            <div style="display: flex; gap: 4px; justify-content: center; align-items: center;">
+                                <!-- Pulsante Consegna -->
+                                <button class="btn btn-sm btn-success" 
+                                        style="height: 20px; padding: 0 5px; line-height: 1;" 
+                                        @onclick="() => RegistraConsegna((int)rit.IDOrdine)"
+                                        @onclick:stopPropagation="true"
+                                        title="Segna come Consegnato">
+                                    <span style="font-size: 10px;">✅</span>
+                                </button>
+                                <!-- Pulsante Sollecita -->
+                                <button class="win-btn-cell p-0" style="font-size:9px; height:20px;" 
+                                    @onclick="@(() => {
+                                        // Conversione sicura passando per stringa
+                                        DateTime dOrd = DateTime.TryParse(rit.DataOrdine?.ToString(), out DateTime dt1) ? dt1 : DateTime.Today;
+                                        DateTime dPrev = DateTime.TryParse(rit.DataConsegnaPrevista?.ToString(), out DateTime dt2) ? dt2 : DateTime.Today;
+
+                                        SollecitaOrdine(
+                                            (string)(rit.RagSociale ?? ""), 
+                                            (string)(rit.NumeroDocumento ?? ""), 
+                                            (int)(rit.IDClienteAttivita ?? 0), 
+                                            dOrd, 
+                                            dPrev
+                                        );
+                                    })">
+                                    📞
+                                </button>
+
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     </div>
+</div>
+
 
     <!-- COLONNA DESTRA: PROMEMORIA (40%) -->
     <div class="win-group" style="flex: 4; margin-bottom: 0; border-left: 2px solid #0056b3;">
@@ -417,11 +454,18 @@
 
         // 2. RITARDI (Specifica la classe se esiste, altrimenti usa dynamic)
         string sqlRitardi = @"
-            SELECT TOP 10 c.IdCliente AS IDClienteAttivita, c.RagSociale, o.NumeroDocumento, o.DataConsegnaPrevista
-            FROM Ordini o 
-            JOIN Clienti c ON o.IDCliente = c.IdCliente
-            WHERE o.DataConsegnaPrevista < GETDATE() AND o.DataConsegnaEffettiva IS NULL
-            ORDER BY o.DataConsegnaPrevista ASC";
+    SELECT 
+        o.IDOrdine AS IDOrdine, 
+        c.IdCliente AS IDClienteAttivita, 
+        c.RagSociale AS RagSociale, 
+        o.NumeroDocumento AS NumeroDocumento, 
+        o.DataOrdine AS DataOrdine,          -- Assicurati che sia questa!
+        o.DataConsegnaPrevista AS DataConsegnaPrevista
+    FROM Ordini o 
+    JOIN Clienti c ON o.IDCliente = c.IdCliente
+    WHERE o.DataConsegnaPrevista < GETDATE() AND o.DataConsegnaEffettiva IS NULL
+    ORDER BY o.DataConsegnaPrevista ASC";
+
         
         // CORREZIONE: Se non hai una classe specifica per i ritardi, usa dynamic
         var resRitardi = await db.QueryAsync<dynamic>(sqlRitardi);
@@ -487,6 +531,17 @@ StateHasChanged(); // Forza l'aggiornamento finale della pagina
     showPopupTask = true;
 }
 
+private async Task VaiADettaglioOrdine(int id)
+{
+    if (id > 0)
+    {
+        await JS.InvokeVoidAsync("open", $"/nuovo-ordine/{id}", "_blank");
+    }
+}
+
+
+
+
 private async Task SalvaTask() {
     using var db = new SqlConnection(conn);
     string sql = "INSERT INTO Attivita (Descrizione, DataScadenza, Priorita, Completata, IDClienteAttivita, IDProdottoAttivita) VALUES (@Descrizione, @DataScadenza, @Priorita, 0, NULLIF(@IDClienteAttivita, 0), NULLIF(@IDProdottoAttivita, 0))";
@@ -505,18 +560,39 @@ private async Task SegnaCompletato(int id) {
 
 
 // Sollecita Ordine in Ritardo
-private void SollecitaOrdine(string cliente, string numDoc, int idClientePassato)
+private async Task SollecitaOrdine(string cliente, string numDoc, int idClientePassato, DateTime dataOrd, DateTime dataPrev)
 {
     nuovoTask = new Attivita 
     { 
-        Descrizione = $"📞 Sollecitare consegna Ordine {numDoc} - {cliente}",
+        Descrizione = $"📞 Sollecitata produzione per Ordine {numDoc} (Cliente: {cliente})",
         DataScadenza = DateTime.Today,
         IDClienteAttivita = idClientePassato,
-        Priorita = 3, // Alta priorità per i solleciti
-        
+        Priorita = 3
     };
     showPopupTask = true;
+
+    string dOrd = dataOrd.ToString("dd/MM/yyyy");
+    string dPrev = dataPrev.ToString("dd/MM/yyyy");
+
+    string emailAzienda = "ordini@alqgenovasrl.com";
+    string oggetto = Uri.EscapeDataString($"SOLLECITO PRODUZIONE: Ordine n. {numDoc} - {cliente}");
+    
+    // Riduciamo i ritorni a capo finali per permettere a Outlook di "attaccare" la firma
+    string corpo = Uri.EscapeDataString(
+        $"Buongiorno,\r\n\r\n" +
+        $"Si richiede lo stato di avanzamento per il seguente ordine in ritardo:\r\n\r\n" +
+        $"• CLIENTE: {cliente}\r\n" +
+        $"• ORDINE N.: {numDoc}\r\n" +
+        $"• DATA ORDINE: {dOrd}\r\n" +
+        $"• CONSEGNA PREVISTA IL: {dPrev}\r\n\r\n" +
+        $"In attesa di riscontro, saluti.  Gucci Riccardo - ALQ Genova Srl"
+    );
+
+    // Usiamo "_blank" o lasciamo il comportamento di sistema per far scattare Outlook correttamente
+    await JS.InvokeVoidAsync("open", $"mailto:{emailAzienda}?subject={oggetto}&body={corpo}", "_self");
 }
+
+
 
 // Pianifica Visita Cliente Dormiente
 private void PianificaVisitaDormiente(string cliente, int idCliente)
@@ -531,6 +607,54 @@ private void PianificaVisitaDormiente(string cliente, int idCliente)
     showPopupTask = true;
 }
 
+private async Task RegistraConsegna(object idOrd)
+{
+    try 
+    {
+        int id = Convert.ToInt32(idOrd);
+
+        using var db = new SqlConnection(conn);
+        await db.OpenAsync();
+
+        if (id <= 0) { 
+            await JS.InvokeVoidAsync("alert", "Errore: L'ID ordine non è valido (" + id + ")"); 
+            return; 
+        }
+
+        
+        string sql = @"UPDATE Ordini SET 
+                       DataConsegnaEffettiva = @oggi, 
+                       StatoOrdine = 'Consegnato' 
+                       WHERE IDOrdine = @id";
+
+        // Prova a forzare il tipo nella query
+        int righeColpite = await db.ExecuteAsync(sql, new { oggi = DateTime.Now, id = (int)id });
+
+
+        if (righeColpite > 0)
+        {
+            // Ricarichiamo i dati
+            await OnInitializedAsync(); 
+            StateHasChanged();
+
+            // CORRETTO: "alert" è la funzione, il messaggio è il parametro
+            await JS.InvokeVoidAsync("alert", "✅ Ordine Consegnato con successo!");
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", "⚠️ Errore: Ordine non trovato nel database.");
+        }
+    }
+    catch (Exception ex)
+    {
+        // CORRETTO: "alert" per visualizzare l'eccezione
+        await JS.InvokeVoidAsync("alert", "❌ Errore Database: " + ex.Message);
+    }
+}
+
+
+     
+   
 
 
 

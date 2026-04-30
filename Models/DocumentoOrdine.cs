@@ -97,38 +97,61 @@ public class DocumentoOrdine : IDocument
 
     void ComposeContent(IContainer container)
     {
-        // 1. LOGICA DI CONTROLLO
+        // 1. LOGICA DI FILTRAGGIO
         bool isStampaAccessori = Filtro == "ACCESSORI";
         bool isStampaProfili = Filtro == "PROFILI";
         bool mostraEconomica = string.Equals(Ordine.StatoOrdine, "Preventivo", StringComparison.OrdinalIgnoreCase)
                                || isStampaAccessori
                                || isStampaProfili;
 
+        decimal totaleEconomicoStampa = 0;
+        decimal pesoTotaleStampa = 0;
+
         container.Column(col =>
         {
             col.Item().Table(table =>
             {
-                // 2. COLONNE
+                // 2. DEFINIZIONE COLONNE DINAMICHE
                 table.ColumnsDefinition(columns =>
                 {
                     columns.ConstantColumn(25); // Pos.
                     columns.RelativeColumn(3);  // ARTICOLO
-                    if (!isStampaAccessori) { columns.ConstantColumn(45); columns.ConstantColumn(45); }
-                    columns.ConstantColumn(35); // Q.TÀ
-                    columns.ConstantColumn(25); // UM
-                    if (mostraEconomica) { columns.ConstantColumn(60); columns.ConstantColumn(30); columns.ConstantColumn(70); }
-                    else { columns.ConstantColumn(30); }
-                    if (!isStampaProfili) { columns.RelativeColumn(1); }
+
+                    if (!isStampaAccessori)
+                    {
+                        columns.ConstantColumn(50); // COL. INT.
+                        columns.ConstantColumn(50); // COL. EST.
+                    }
+
+                    columns.ConstantColumn(40); // Q.TÀ
+                    columns.ConstantColumn(30); // UM
+
+                    if (mostraEconomica)
+                    {
+                        columns.ConstantColumn(60); // PREZZO UNIT
+                        columns.ConstantColumn(30); // SC%
+                        columns.ConstantColumn(70); // TOTALE RIGA
+                    }
+                    else
+                    {
+                        columns.ConstantColumn(35); // SC%
+                    }
+
+                    if (!isStampaProfili)
+                    {
+                        columns.RelativeColumn(1); // FINITURA ACC.
+                    }
                 });
 
                 // 3. HEADER
-                table.Header(header => {
+                table.Header(header =>
+                {
                     header.Cell().Element(CellStyle).AlignCenter().Text("Pos.").FontSize(7).SemiBold();
-                    header.Cell().Element(CellStyle).Text("ARTICOLO").FontSize(7).SemiBold();
+                    header.Cell().Element(CellStyle).Text("CODICE PRODOTTO / DESCRIZIONE").FontSize(7).SemiBold();
                     if (!isStampaAccessori)
                     {
-                        header.Cell().Element(CellStyle).AlignCenter().Text("INT.").FontSize(7).SemiBold();
-                        header.Cell().Element(CellStyle).AlignCenter().Text("EST.").FontSize(7).SemiBold();
+                        header.Cell().Element(CellStyle).AlignCenter().Text("COL.INT.").FontSize(7).SemiBold();
+                        header.Cell().Element(CellStyle).AlignCenter().Text("COL.EST.").FontSize(7).SemiBold();
                     }
                     header.Cell().Element(CellStyle).AlignCenter().Text("Q.TÀ").FontSize(7).SemiBold();
                     header.Cell().Element(CellStyle).AlignCenter().Text("UM").FontSize(7).SemiBold();
@@ -142,84 +165,118 @@ public class DocumentoOrdine : IDocument
                     {
                         header.Cell().Element(CellStyle).AlignCenter().Text("SC%").FontSize(7).SemiBold();
                     }
-                    if (!isStampaProfili) { header.Cell().Element(CellStyle).Text("FINITURA").FontSize(7).SemiBold(); }
+                    if (!isStampaProfili) { header.Cell().Element(CellStyle).Text("FINITURA ACC.").FontSize(7).SemiBold(); }
                 });
 
-                // 4. CICLO RIGHE CON CALCOLO MATEMATICO ESPLICITO
-                decimal totaleDocumentoFiltrato = 0;
-
-                foreach (var r in Ordine.Righe)
+                // 4. CICLO FISSO DI 17 RIGHE (Per layout costante)
+                for (int i = 1; i <= 17; i++)
                 {
-                    // --- CALCOLO MATEMATICO SECONDO TUA FORMULA ---
-                    decimal totaleRigaCalcolato = 0;
-                    if (!r.IsAccessorio)
-                    {
-                        // Peso/ml * Lunghezza * Barre = KG RIGA
-                        decimal kgRiga = r.PesoAlMetro * r.LunghezzaVerga * r.Quantita;
-                        // KG RIGA * Prezzo * Sconto
-                        totaleRigaCalcolato = kgRiga * r.PrezzoUnitario * (1 - (r.ScontoRiga / 100));
-                    }
-                    else
-                    {
-                        // Quantità * Prezzo * Sconto
-                        totaleRigaCalcolato = r.Quantita * r.PrezzoUnitario * (1 - (r.ScontoRiga / 100));
-                    }
+                    var r = Ordine.Righe.ElementAtOrDefault(i - 1);
+                    decimal valoreRigaStampa = 0;
+                    decimal pesoRigaStampa = 0;
 
-                    totaleDocumentoFiltrato += totaleRigaCalcolato;
-
-                    // --- STAMPA RIGA ---
-                    table.Cell().Element(CellStyle).AlignCenter().Text(r.IDRigaOrdine.ToString()).FontSize(7);
-                    table.Cell().Element(CellStyle).Text(txt => {
-                        txt.Span($"{r.CodiceProdotto} - ").SemiBold().FontSize(8).FontColor(Colors.Blue.Medium);
-                        txt.Span(r.Descrizione).FontSize(7);
-                        if (!r.IsAccessorio && mostraEconomica)
+                    if (r != null)
+                    {
+                        // Calcolo matematico riga
+                        if (!r.IsAccessorio)
                         {
-                            decimal metriTot = r.Quantita * r.LunghezzaVerga;
-                            decimal pesoTot = metriTot * r.PesoAlMetro;
+                            pesoRigaStampa = r.PesoAlMetro * r.LunghezzaVerga * r.Quantita;
+                            valoreRigaStampa = pesoRigaStampa * r.PrezzoUnitario * (1 - (r.ScontoRiga / 100));
+                        }
+                        else
+                        {
+                            valoreRigaStampa = r.Quantita * r.PrezzoUnitario * (1 - (r.ScontoRiga / 100));
+                        }
+                        totaleEconomicoStampa += valoreRigaStampa;
+                        pesoTotaleStampa += pesoRigaStampa;
+                    }
+
+                    // CELLE
+                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(i.ToString()).FontSize(8);
+
+                    table.Cell().Element(CellStyle).MinHeight(30).Text(txt =>
+                    {
+                        if (r != null)
+                        {
+                            txt.Span(r.CodiceProdotto).SemiBold().FontSize(8).FontColor(Colors.Blue.Medium);
                             txt.EmptyLine();
-                            txt.Span($"{r.Quantita:N0} pz x {r.LunghezzaVerga:N2} mt = {metriTot:N2} ml | Peso Tot: {pesoTot:N2} Kg").FontSize(6).Italic().FontColor(Colors.Grey.Medium);
+                            string desc = r.Descrizione + (r.UmRiga == "BR" && r.LunghezzaVerga > 0 ? $" (L: {r.LunghezzaVerga:N2} mt)" : "");
+                            txt.Span(desc).FontSize(7);
+
+                            if (!r.IsAccessorio && mostraEconomica)
+                            {
+                                decimal mlTot = r.Quantita * r.LunghezzaVerga;
+                                txt.EmptyLine();
+                                txt.Span($"{r.Quantita:N0} pz x {r.LunghezzaVerga:N2} mt = {mlTot:N2} ml | Peso: {pesoRigaStampa:N2} Kg").FontSize(6).Italic().FontColor(Colors.Grey.Medium);
+                            }
                         }
                     });
 
                     if (!isStampaAccessori)
                     {
-                        table.Cell().Element(CellStyle).AlignCenter().Text(r.ColoreInt).FontSize(7);
-                        table.Cell().Element(CellStyle).AlignCenter().Text(r.ColoreEst).FontSize(7);
+                        table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r?.ColoreInt ?? "").FontSize(8);
+                        table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r?.ColoreEst ?? "").FontSize(8);
                     }
 
-                    table.Cell().Element(CellStyle).AlignCenter().Text(r.Quantita.ToString("N0")).FontSize(7);
-                    table.Cell().Element(CellStyle).AlignCenter().Text(r.IsConfezione ? r.UmSecondaria : r.UmRiga).FontSize(7);
+                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r != null ? r.Quantita.ToString("N0") : "").FontSize(8);
+                    table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r != null ? (r.IsConfezione ? r.UmSecondaria : r.UmRiga) : "").FontSize(7);
 
                     if (mostraEconomica)
                     {
-                        table.Cell().Element(CellStyle).AlignCenter().Text($"{r.PrezzoUnitario:C2} {(r.IsAccessorio ? "/pz" : "/Kg")}").FontSize(7);
-                        table.Cell().Element(CellStyle).AlignCenter().Text(r.ScontoRiga > 0 ? $"{(int)r.ScontoRiga}%" : "-").FontSize(7);
-                        table.Cell().Element(CellStyle).AlignRight().Text(totaleRigaCalcolato.ToString("C2")).FontSize(7).SemiBold();
+                        table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r != null ? $"{r.PrezzoUnitario:C2} {(r.IsAccessorio ? "/pz" : "/Kg")}" : "").FontSize(7);
+                        table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r != null && r.ScontoRiga > 0 ? $"{(int)r.ScontoRiga}%" : "").FontSize(7);
+                        table.Cell().Element(CellStyle).MinHeight(30).AlignRight().Text(r != null ? valoreRigaStampa.ToString("C2") : "").FontSize(7).SemiBold();
                     }
                     else
                     {
-                        table.Cell().Element(CellStyle).AlignCenter().Text(r.ScontoRiga > 0 ? $"{(int)r.ScontoRiga}%" : "").FontSize(7);
+                        table.Cell().Element(CellStyle).MinHeight(30).AlignCenter().Text(r != null && r.ScontoRiga > 0 ? $"{(int)r.ScontoRiga}%" : "").FontSize(8);
                     }
 
                     if (!isStampaProfili)
                     {
-                        table.Cell().Element(CellStyle).Text(r.IsAccessorio ? r.FinituraAccessorio : "").FontSize(7);
+                        table.Cell().Element(CellStyle).MinHeight(30).Text(r?.IsAccessorio == true ? r.FinituraAccessorio : "").FontSize(7);
                     }
                 }
+            });
 
-                // 5. FOOTER CON IL NUOVO TOTALE CALCOLATO
+            // 5. BLOCCO FINALE (Condizioni e Note ripristinate)
+            col.Item().PaddingTop(10).Row(row =>
+            {
+                // Sinistra: Dati Tecnici e Condizioni
+                row.RelativeItem(2).Border(0.25f).Padding(5).Column(c => {
+                    c.Item().Text("CONDIZIONI DI VENDITA").FontSize(8).SemiBold();
+                    c.Item().Text($"Peso Totale Merce: {pesoTotaleStampa:N2} Kg").FontSize(8);
+
+                    c.Item().PaddingTop(5).Text(txt => {
+                        txt.Span("Concordate con: ").FontSize(8);
+                        txt.Span(string.IsNullOrEmpty(Ordine.ConcordatoCon) ? "____________________" : Ordine.ConcordatoCon).FontSize(8).SemiBold();
+                    });
+                });
+
+                // Destra: Note o Totale Economico
                 if (mostraEconomica)
                 {
-                    col.Item().AlignRight().PaddingTop(10).Table(t => {
-                        t.ColumnsDefinition(c => { c.ConstantColumn(120); c.ConstantColumn(90); });
-                        t.Cell().Text("TOTALE IMPONIBILE:").FontSize(10).SemiBold();
-                        t.Cell().AlignRight().BorderTop(1).PaddingTop(2).Text(totaleDocumentoFiltrato.ToString("C2")).FontSize(11).Bold();
-                        t.Cell().ColumnSpan(2).AlignRight().Text("Iva Esclusa").FontSize(7).Italic();
+                    row.RelativeItem(3).PaddingLeft(10).AlignRight().Column(c => {
+                        c.Item().Table(t => {
+                            t.ColumnsDefinition(cd => { cd.ConstantColumn(120); cd.ConstantColumn(90); });
+                            t.Cell().Text("TOTALE IMPONIBILE:").FontSize(10).SemiBold();
+                            t.Cell().AlignRight().BorderBottom(1).Text(totaleEconomicoStampa.ToString("C2")).FontSize(11).Bold();
+                        });
+                        c.Item().PaddingTop(2).Text("Iva Esclusa").FontSize(7).Italic().FontColor(Colors.Grey.Medium);
+                    });
+                }
+                else
+                {
+                    row.RelativeItem(3).PaddingLeft(10).Border(0.25f).Padding(5).Column(c => {
+                        c.Item().Text("NOTE ORDINE").FontSize(8).SemiBold();
+                        c.Item().PaddingTop(2).Text(Ordine.NoteOrdine ?? "").FontSize(7);
                     });
                 }
             });
         });
     }
+
+
 
 
 

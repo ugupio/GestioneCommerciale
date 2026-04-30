@@ -156,6 +156,8 @@ public class Visita
     public int TemperaturaCliente { get; set; } = 2; // Cambia da int a string
     public bool RichiedeSeguito { get; set; }
     public DateTime? DataProssimoContatto { get; set; }
+    public string RagSociale { get; set; }
+
 }
 
 
@@ -236,4 +238,5 @@ public class Zona
     public string NomeZona { get; set; }
     public string Descrizione { get; set; }
 }
+
 

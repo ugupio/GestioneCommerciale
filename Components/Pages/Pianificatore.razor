@@ -337,12 +337,32 @@
     await CaricaZone();
     
     // Recupera l'indirizzo salvato in precedenza
-    var salvato = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "indirizzo_partenza");
-    if (!string.IsNullOrWhiteSpace(salvato))
+    // var salvato = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "indirizzo_partenza");
+    // if (!string.IsNullOrWhiteSpace(salvato))
+    // {
+    //    IndirizzoPartenza = salvato;
+    // }
+}
+
+
+protected override async Task OnAfterRenderAsync(bool firstRender)
+{
+    // Eseguiamo questo codice SOLO la prima volta che la pagina viene renderizzata nel browser
+    if (firstRender)
     {
-        IndirizzoPartenza = salvato;
+        // Recupera l'indirizzo dal localStorage (qui JS è disponibile)
+        var salvato = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "indirizzo_partenza");
+        
+        if (!string.IsNullOrWhiteSpace(salvato))
+        {
+            IndirizzoPartenza = salvato;
+            
+            // Notifica a Blazor che un valore è cambiato e deve aggiornare la UI
+            StateHasChanged();
+        }
     }
 }
+
 
 // Nuovo metodo per salvare l'indirizzo
 private async Task SalvaComePredefinito()
