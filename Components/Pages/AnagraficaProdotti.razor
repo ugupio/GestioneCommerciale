@@ -782,7 +782,7 @@ private async Task SalvaModifiche()
 private async Task EseguiRicercaRadar()
 {
     if (prodottoSelezionatoRadar == null) return;
-    using var db = new Microsoft.Data.SqlClient.SqlConnection(conn);
+    using var db = new SqlConnection(conn);
     
     string sql = @"
         SELECT 

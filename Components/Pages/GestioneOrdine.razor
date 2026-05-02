@@ -1409,7 +1409,7 @@ private async Task SalvaDatiInArchivio(DettaglioOrdine riga)
 
     if (conferma)
     {
-        using var db = new Microsoft.Data.SqlClient.SqlConnection(conn);
+        using var db = new System.Data.SqlClient.SqlConnection(conn);
         string sql = @"
             UPDATE Prodotti 
             SET PesoAlMetro = @Peso, 
@@ -1435,7 +1435,7 @@ private async Task SalvaDatiInArchivio(DettaglioOrdine riga)
 
 private async Task AggiornaDatiDaArchivio(DettaglioOrdine riga)
 {
-    using var db = new Microsoft.Data.SqlClient.SqlConnection(conn);
+    using var db = new System.Data.SqlClient.SqlConnection(conn);
     
     // Peschiamo i dati aggiornati dall'anagrafica
     string sql = "SELECT * FROM Prodotti WHERE CodiceProdotto = @Codice";

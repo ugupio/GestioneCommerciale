@@ -38,6 +38,7 @@ public class Cliente
     public double DistanzaKM { get; set; }
     public int IdZona { get; set; }
     public int FrequenzaVisitaGg { get; set; }
+    public bool IsNuovo { get; set; }   
 }
 
 public class Prodotti
@@ -158,6 +159,28 @@ public class Visita
     public DateTime? DataProssimoContatto { get; set; }
     public string RagSociale { get; set; }
 
+}
+
+public class ReportVisitaRiunione
+{
+    // --- DATI PROVENIENTI DA TABELLA 'Visite' ---
+    public int IDVisita { get; set; }
+    public DateTime? DataVisita { get; set; }
+    public string Motivazione { get; set; }
+    public string NoteEsito { get; set; }
+    public string ReferenteIncontrato { get; set; }
+    public int TemperaturaCliente { get; set; }
+    public bool RichiedeSeguito { get; set; }
+
+    // --- DATI PROVENIENTI DA TABELLA 'Clienti' (via JOIN) ---
+    public string RagSociale { get; set; } = "";
+
+    // Usiamo i nomi esatti della tua classe Cliente
+    public string Citta_Legale { get; set; }
+    public string Prov_Legale { get; set; }
+
+    // Il flag per distinguere i tuoi nuovi inserimenti
+    public bool IsNuovo { get; set; }
 }
 
 

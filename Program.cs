@@ -2,7 +2,6 @@ using GestioneCommerciale.Components;
 using GestioneCommerciale.Services;
 using QuestPDF.Infrastructure;
 using Radzen;
-using Radzen;
 
 
 
@@ -24,7 +23,7 @@ builder.Services.AddRazorComponents()
 builder.Services.AddHttpClient();
 builder.Services.AddRadzenComponents();
 builder.Services.AddScoped<PianificatoreService>();
-
+builder.Services.AddScoped<VisitaService>();
 
 
 var app = builder.Build();

@@ -1,6 +1,6 @@
 ﻿@page "/nuova-visita"
 @rendermode InteractiveServer
-@using Microsoft.Data.SqlClient
+@using System.Data.SqlClient
 @using Dapper
 @using GestioneCommerciale.Models
 @using System.Text.Json
@@ -10,6 +10,8 @@
 @using QuestPDF.Fluent
 @using QuestPDF.Helpers
 @using QuestPDF.Infrastructure
+@inject VisitaService MyVisitaService
+@using System.Data.SqlClient
 
 
 
@@ -187,15 +189,24 @@
     <!-- GRUPPO DATA E AZIONI -->
     <div style="display:flex; gap:8px; flex-shrink: 0;">
         
-        <!-- DATA REPORT -->
-        <div class="date-wrapper-premium">
-            <span class="date-label-premium">DATA REPORT</span>
-            <input type="date" class="date-input-premium" @bind="dataReport" />
-        </div>
+        <!-- DATA REPORT (Inizio) -->
+<div class="date-wrapper-premium">
+    <span class="date-label-premium">DAL (INIZIO)</span>
+    <input type="date" class="date-input-premium" @bind="dataReport" />
+</div>
 
-        <button class="btn-comando-ordine" style="background:#fff176 !important;" @onclick="ScaricaReportGiornaliero">
-            <span>🖨️</span><span>REPORT</span>
-        </button>
+<!-- DATA FINE (Opzionale per Riunione) -->
+<div class="date-wrapper-premium">
+    <span class="date-label-premium">AL (FINE)</span>
+    <input type="date" class="date-input-premium" @bind="dataFineReport" />
+</div>
+
+<button class="btn-comando-ordine" style="background:#fff176 !important;" @onclick="GestisciGenerazioneReport">
+    <span>🖨️</span>
+    <span>@(dataFineReport == null ? "REPORT GIORNALIERO" : "REPORT RIUNIONE")</span>
+</button>
+
+       
 
         <button class="btn-comando-ordine" @onclick='() => Nav.NavigateTo("/pianificatore")'> <span>📅</span>  <span>PIANIFICA</span>  </button>
 
@@ -407,6 +418,7 @@
     private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
     private int idPrecedente = 0;
     private DateTime dataReport = DateTime.Today;
+    private DateTime? dataFineReport;
     
 
 
@@ -431,7 +443,7 @@
             return;
         }
 
-        using var db = new Microsoft.Data.SqlClient.SqlConnection(conn);
+        using var db = new System.Data.SqlClient.SqlConnection(conn);
         // Usiamo un alias chiaro e filtriamo per data "pura"
         var sql = @"SELECT v.*, c.RagSociale 
                     FROM Visite v 
@@ -667,4 +679,65 @@
     }
     private async Task CercaEnter(KeyboardEventArgs e) { if (e.Key == "Enter") await EseguiRicerca(); }
     private async Task ShowToast(string msg) { testoNotifica = msg; mostraMessaggio = true; StateHasChanged(); await Task.Delay(3000); mostraMessaggio = false; StateHasChanged(); }
+
+private async Task GeneraReportPerRiunione()
+{
+    // Qui usa le date che hai già nel tuo filtro della pagina
+    // Se non le hai, puoi usare ad esempio l'ultimo mese
+    DateTime inizio = DateTime.Now.AddMonths(-1); 
+    DateTime fine = DateTime.Now;
+
+    // 1. Recupero dati
+    var dati = await MyVisitaService.GetVisitePerReportRiunione(inizio, fine);
+
+    if (dati == null || !dati.Any())
+    {
+        // Magari metti un messaggio: "Nessuna visita trovata nel periodo"
+        return;
+    }
+
+    // 2. Generazione PDF
+    var report = new ReportRiunioneDocument(dati, inizio, fine);
+    byte[] pdfBytes = report.GeneratePdf();
+
+    // 3. Download
+    string base64 = Convert.ToBase64String(pdfBytes);
+    await JS.InvokeVoidAsync("downloadFile", $"Report_Commerciale_{fine:yyyyMMdd}.pdf", base64);
+}
+
+private async Task GestisciGenerazioneReport()
+    {
+        // Se l'utente non ha scelto una data di fine, facciamo il report giornaliero classico
+        if (dataFineReport == null)
+        {
+            await ScaricaReportGiornaliero();
+        }
+        else
+        {
+            await ScaricaReportRiunioneStrategico();
+        }
+    }
+
+    private async Task ScaricaReportRiunioneStrategico()
+    {
+        // 1. Chiamata al nuovo VisitaService
+        var dati = await MyVisitaService.GetVisitePerReportRiunione(dataReport, dataFineReport.Value);
+
+        if (dati == null || !dati.Any())
+        {
+            // Magari un log o un avviso qui
+            return;
+        }
+
+        // 2. Generazione del PDF con la nuova grafica (KPI, Province, Bollini verdi)
+        var report = new ReportRiunioneDocument(dati, dataReport, dataFineReport.Value);
+        byte[] pdfBytes = report.GeneratePdf();
+
+        // 3. Download
+        string base64 = Convert.ToBase64String(pdfBytes);
+        await JS.InvokeVoidAsync("downloadFile", $"Report_Riunione_{DateTime.Now:ddMMyy}.pdf", base64);
+    }
+}
+
+
 }

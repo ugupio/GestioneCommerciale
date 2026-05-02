@@ -4,7 +4,7 @@
 @using GestioneCommerciale.Models
 @using Radzen
 @using Radzen.Blazor
-@using Microsoft.Data.SqlClient
+@using System.Data.SqlClient
 @using Dapper
 @inject DialogService DialogService
 @rendermode InteractiveServer
@@ -381,7 +381,7 @@ private async Task EliminaAppuntamento(ElementoAgenda appuntamento)
     {
         try
         {
-            using (var db = new Microsoft.Data.SqlClient.SqlConnection(conn))
+            using (var db = new System.Data.SqlClient.SqlConnection(conn))
             {
                 // Rimuoviamo il record dalla tabella Agenda
                 string sql = "DELETE FROM Agenda WHERE IdAgenda = @Id";
@@ -475,7 +475,7 @@ private async Task SalvaChiusuraCiclo(ElementoAgenda appuntamento, Visita v)
 {
     try
     {
-        using (var db = new Microsoft.Data.SqlClient.SqlConnection(conn))
+        using (var db = new System.Data.SqlClient.SqlConnection(conn))
         {
             await db.OpenAsync();
             
@@ -515,7 +515,7 @@ private async Task SalvaChiusuraCiclo(ElementoAgenda appuntamento, Visita v)
 
 private async Task RegistraEseguita(ElementoAgenda appuntamento, Visita v)
 {
-    using (var db = new Microsoft.Data.SqlClient.SqlConnection(conn))
+    using (var db = new System.Data.SqlClient.SqlConnection(conn))
     {
         await db.OpenAsync();
         using (var trans = db.BeginTransaction())

@@ -1,6 +1,6 @@
 ﻿@page "/pianificatore"
 @rendermode InteractiveServer
-@using Microsoft.Data.SqlClient
+@using System.Data.SqlClient
 @using Dapper
 @using GestioneCommerciale.Models
 @using System.Data
@@ -407,7 +407,7 @@ private async Task SalvaComePredefinito()
         LonPartenza = 10.51930;
 
         // 4. CARICAMENTO CLIENTI (SQL DIRETTO)
-        using (var db = new Microsoft.Data.SqlClient.SqlConnection(conn))
+        using (var db = new System.Data.SqlClient.SqlConnection(conn))
         {
             var sql = @"
                 SELECT c.* 
@@ -469,7 +469,7 @@ private async Task SalvaComePredefinito()
 
     try
     {
-        using (var db = new Microsoft.Data.SqlClient.SqlConnection(conn))
+        using (var db = new System.Data.SqlClient.SqlConnection(conn))
         {
             string sqlInsert = @"
                 INSERT INTO Agenda (IdCliente, DataInizio, DataFine, Titolo, Tipo, Dettaglio, IsChiuso, Priorita)
