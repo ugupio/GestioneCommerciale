@@ -207,6 +207,21 @@
     <div class="win-row-compact">
         <label class="lbl-fixed">Rag. Soc.:</label>
         <input type="text" class="win-input fw-bold" style="flex-grow: 2;" @bind="c.RagSociale" />
+
+        <div class="card mb-3 border-success">
+    <div class="card-body">
+        <!-- <h6 class="card-title text-success"><i class="bi bi-star-fill"></i> Status Report Riunione</h6> -->
+        <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" role="switch" id="switchNuovo" 
+                   @bind="c.IsNuovo" style="transform: scale(1.3); cursor: pointer;">
+            <label class="form-check-label ms-2 fw-bold" for="switchNuovo">
+                @(c.IsNuovo ? "NUOVO CLIENTE" : "CLIENTE STORICO")
+            </label>
+        </div>
+        <!--<small class="text-muted">Se attivo, il cliente apparirà con il bollino verde nel Report Strategico.</small> -->
+    </div>
+</div>
+
         
         <label class="lbl-fixed" style="width: 60px;">Ref.:</label>
         <input type="text" class="win-input" style="flex-grow: 1;" @bind="c.Referente" />
@@ -484,13 +499,13 @@
     try {
         if (c.IdCliente == 0) {
             // QUERY INSERT COMPLETA (Pagina 12)
-            string sql = @"INSERT INTO Clienti (RagSociale, Referente, Ind_legale, Citta_Legale, 
+            string sql = @"INSERT INTO Clienti (RagSociale, IsNuovo, Referente, Ind_legale, Citta_Legale, 
                            CAP_Legale, Prov_Legale, Telefono, Fax, Email, Cel1, Cel2, PIva, CodFiscale, 
                            SDI, Banca, Agenzia, ABI, CAB, IBAN, PagProposto, PagAccettato, 
                            InfoCommerciali, PrevisioneAnnuo, Carrello, ScaricoAgevole, 
                            Annotazioni, ScontoProfili, ScontoAccessori, Lat, Lon, IdZona, FrequenzaVisitaGg) 
                            OUTPUT INSERTED.IdCliente 
-                           VALUES (@RagSociale, @Referente, @Ind_legale, @Citta_Legale, 
+                           VALUES (@RagSociale, @IsNuovo, @Referente, @Ind_legale, @Citta_Legale, 
                            @CAP_Legale, @Prov_Legale, @Telefono, @Fax, @Email, @Cel1, @Cel2, @PIva, @CodFiscale, 
                            @SDI, @Banca, @Agenzia, @ABI, @CAB, @IBAN, @PagProposto, @PagAccettato, 
                            @InfoCommerciali, @PrevisioneAnnuo, @Carrello, @ScaricoAgevole, 
@@ -501,7 +516,7 @@
             indiceCorrente = listaIdClienti.IndexOf(c.IdCliente);
         } else {
             // QUERY UPDATE COMPLETA (Pagina 13)
-            string sql = @"UPDATE Clienti SET RagSociale=@RagSociale, Referente=@Referente, 
+            string sql = @"UPDATE Clienti SET RagSociale=@RagSociale, IsNuovo=@IsNuovo, Referente=@Referente,
                            Ind_legale=@Ind_legale, Citta_Legale=@Citta_Legale, CAP_Legale=@CAP_Legale, 
                            Prov_Legale=@Prov_Legale, Telefono=@Telefono, Fax=@Fax, Email=@Email, 
                            Cel1=@Cel1, Cel2=@Cel2, PIva=@PIva, CodFiscale=@CodFiscale, SDI=@SDI, 
@@ -761,6 +776,14 @@ private async Task CaricaDettagliCorrelati(int? idCliente)
     }
 }
 
+public async Task ToggleNuovoCliente(int idCliente, bool nuovoStato)
+{
+    using var db = new SqlConnection(conn);
+    await db.ExecuteAsync(
+        "UPDATE Clienti SET IsNuovo = @nuovoStato WHERE IdCliente = @idCliente", 
+        new { idCliente, nuovoStato }
+    );
+}
 
 
 }

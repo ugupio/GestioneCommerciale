@@ -2,6 +2,7 @@
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using GestioneCommerciale.Models;
+using System.IO;
 
 namespace GestioneCommerciale.Models
 {
@@ -74,13 +75,11 @@ namespace GestioneCommerciale.Models
         {
             container.Column(column =>
             {
-                // --- PAGINA 1: COPERTINA ACCATTIVANTE ---
+                // --- PAGINA 1: COPERTINA ---
                 column.Item().PaddingTop(40).AlignCenter().Text("SINTESI DELLE ATTIVITÀ").FontSize(24).ExtraBold().FontColor(Colors.Blue.Medium);
-                column.Item().AlignCenter().Text("Presidio del Territorio e Sviluppo Nuovi Lead").FontSize(12).FontColor(Colors.Grey.Medium);
-
+                column.Item().AlignCenter().Text("Analisi Territoriale e Potenziali di Vendita").FontSize(12).FontColor(Colors.Grey.Medium);
                 column.Item().PaddingVertical(30).LineHorizontal(1).LineColor(Colors.Grey.Lighten3);
 
-                // Box KPI Grandi
                 column.Item().Row(row =>
                 {
                     var totali = _visite.Count;
@@ -91,10 +90,9 @@ namespace GestioneCommerciale.Models
                     row.ConstantItem(15);
                     row.RelativeItem().Element(c => CreateKpiCard(c, "COMUNI COPERTI", comuni.ToString(), Colors.Grey.Medium));
                     row.ConstantItem(15);
-                    row.RelativeItem().Element(c => CreateKpiCard(c, "NUOVI CLIENTI PROSPECT", $"+{nuovi}", Colors.Green.Medium));
+                    row.RelativeItem().Element(c => CreateKpiCard(c, "NUOVI CLIENTI", $"+{nuovi}", Colors.Green.Medium));
                 });
 
-                // Elemento Grafico "Stimolo Fantasia" (Progress Bar di Crescita)
                 column.Item().PaddingTop(50).Background(Colors.Grey.Lighten4).Padding(20).Column(c =>
                 {
                     c.Item().AlignCenter().Text("PIPELINE DI SVILUPPO").FontSize(10).Bold().FontColor(Colors.Blue.Medium);
@@ -106,16 +104,12 @@ namespace GestioneCommerciale.Models
                         r.RelativeItem(1).Height(8).Background(Colors.Blue.Darken2);
                         r.RelativeItem(1).Height(8).Background(Colors.Green.Medium);
                     });
-                    //c.Item().PaddingTop(15).AlignCenter().Text("Stiamo seminando oggi per raccogliere domani. Ogni nuovo cliente è un investimento per il futuro.").FontSize(11).Italic().FontColor(Colors.Grey.Darken2);
+                    c.Item().PaddingTop(15).AlignCenter().Text("Ogni nuova anagrafica e ogni cliente 'caldo' rappresentano le basi del fatturato futuro.").FontSize(11).Italic().FontColor(Colors.Grey.Darken2);
                 });
 
-                // SALTO PAGINA
                 column.Item().PageBreak();
 
-                // --- PAGINA 2: DETTAGLIO VISITE RAGGRUPPATE ---
-                column.Item().PaddingTop(10).Text("DETTAGLIO ATTIVITÀ PER PROVINCIA").FontSize(14).Bold().FontColor(Colors.Blue.Medium);
-                column.Item().PaddingBottom(10).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten2);
-
+                // --- PAGINA 2+: DETTAGLIO ---
                 var gruppiProvincia = _visite.GroupBy(x => x.Prov_Legale ?? "N.D.").OrderBy(x => x.Key);
 
                 foreach (var gruppo in gruppiProvincia)
@@ -128,75 +122,61 @@ namespace GestioneCommerciale.Models
 
                         foreach (var v in gruppo)
                         {
-                            listCol.Item()
-                                .Background(Colors.Grey.Lighten4)
-                                .BorderLeft(4)
+                            listCol.Item().ShowEntire().PaddingBottom(5)
+                                .Background(v.IsNuovo ? "#F0FFF4" : Colors.Grey.Lighten4)
+                                .BorderLeft(6)
                                 .BorderColor(v.IsNuovo ? Colors.Green.Medium : Colors.Blue.Medium)
                                 .BorderTop(0.5f).BorderRight(0.5f).BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2)
                                 .Padding(12)
                                 .Column(col =>
                                 {
-                                    // RIGA 1: CLIENTE | MOTIVO | REF
                                     col.Item().Row(row =>
                                     {
-                                        row.RelativeItem(3).Row(inner => {
-                                            inner.ConstantItem(18).Text("👤");
-                                            inner.RelativeItem().Column(c => {
-                                                c.Item().Row(r => {
-                                                    r.AutoItem().Text("CLIENTE").FontSize(7).Bold();
-                                                    if (v.IsNuovo)
-                                                    {
-                                                        r.ConstantItem(5);
-                                                        r.AutoItem().Background(Colors.Green.Lighten4).PaddingHorizontal(3).Text("NUOVO").FontSize(6).Bold().FontColor(Colors.Green.Darken3);
-                                                    }
-                                                });
-                                                c.Item().Text(v.RagSociale ?? "N/D").FontSize(9).Bold();
+                                        row.RelativeItem(3).Column(c => {
+                                            c.Item().Row(r => {
+                                                r.AutoItem().Text("CLIENTE").FontSize(7).Bold().FontColor(v.IsNuovo ? Colors.Green.Darken3 : Colors.Grey.Medium);
+                                                if (v.IsNuovo)
+                                                {
+                                                    r.ConstantItem(5);
+                                                    r.AutoItem().Background(Colors.Green.Medium).PaddingHorizontal(5).Text("NUOVA ANAGRAFICA").FontSize(7).Bold().FontColor(Colors.White);
+                                                }
                                             });
+                                            c.Item().Text(v.RagSociale ?? "N/D").FontSize(11).Bold();
                                         });
 
-                                        row.RelativeItem(2).Row(inner => {
-                                            inner.ConstantItem(18).Text("🎯");
-                                            inner.RelativeItem().Column(c => {
-                                                c.Item().Text("MOTIVO").FontSize(7).Bold();
-                                                c.Item().Text(v.Motivazione ?? "-").FontSize(9);
-                                            });
+                                        row.RelativeItem(2).Column(c => {
+                                            c.Item().Text("MOTIVO").FontSize(7).Bold();
+                                            c.Item().Text(v.Motivazione ?? "-").FontSize(9);
                                         });
 
-                                        row.RelativeItem(2).Row(inner => {
-                                            inner.ConstantItem(18).Text("🤝");
-                                            inner.RelativeItem().Column(c => {
-                                                c.Item().Text("REF").FontSize(7).Bold();
-                                                c.Item().Text(v.ReferenteIncontrato ?? "-").FontSize(9);
-                                            });
+                                        row.RelativeItem(2).Column(c => {
+                                            c.Item().Text("REFERENTE").FontSize(7).Bold();
+                                            c.Item().Text(v.ReferenteIncontrato ?? "-").FontSize(9);
                                         });
                                     });
 
-                                    col.Item().PaddingVertical(6).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten2);
+                                    col.Item().PaddingVertical(6).LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
 
-                                    // RIGA 2: NOTE ESITO | SEGUITO
                                     col.Item().Row(row =>
                                     {
-                                        row.RelativeItem(5).Row(inner => {
-                                            inner.ConstantItem(18).Text("📝");
-                                            inner.RelativeItem().Column(c => {
-                                                c.Item().Row(r => {
-                                                    r.AutoItem().Text("NOTE ESITO").FontSize(7).Bold();
-                                                    if (v.TemperaturaCliente >= 4)
-                                                    {
-                                                        r.ConstantItem(8);
-                                                        r.AutoItem().Text("🔥 INTERESSE ALTO").FontSize(7).Bold().FontColor(Colors.Red.Medium);
-                                                    }
-                                                });
-                                                c.Item().Text(v.NoteEsito ?? "Nessuna nota.").FontSize(9).Italic();
-                                            });
+                                        row.RelativeItem(5).Column(c => {
+                                            c.Item().Text("NOTE ESITO").FontSize(7).Bold();
+                                            c.Item().Text(v.NoteEsito ?? "Nessuna nota.").FontSize(9).Italic();
                                         });
 
+                                        // --- INDICATORE TEMPERATURA AL POSTO DEL SEGUITO ---
                                         row.RelativeItem(2).AlignRight().Column(c => {
-                                            c.Item().Text("SEGUITO").FontSize(7).Bold();
-                                            c.Item().Text(v.RichiedeSeguito ? "SÌ" : "NO")
-                                             .FontSize(10)
-                                             .FontColor(v.RichiedeSeguito ? Colors.Red.Medium : Colors.Green.Darken3)
-                                             .Bold();
+                                            c.Item().Text("POTENZIALE").FontSize(7).Bold();
+                                            c.Item().Row(r => {
+                                                for (int i = 1; i <= 5; i++)
+                                                {
+                                                    string icon = (i <= v.TemperaturaCliente) ? "●" : "○";
+                                                    string color = v.TemperaturaCliente >= 4 ? Colors.Red.Medium : (v.TemperaturaCliente <= 2 ? Colors.Blue.Medium : Colors.Orange.Medium);
+                                                    r.AutoItem().PaddingLeft(1).Text(icon).FontSize(12).FontColor(i <= v.TemperaturaCliente ? color : Colors.Grey.Lighten2);
+                                                }
+                                            });
+                                            string label = v.TemperaturaCliente >= 4 ? "CALDO" : (v.TemperaturaCliente <= 2 ? "FREDDO" : "TIEPIDO");
+                                            c.Item().Text(label).FontSize(7).Bold().FontColor(v.TemperaturaCliente >= 4 ? Colors.Red.Medium : Colors.Grey.Medium);
                                         });
                                     });
                                 });
@@ -208,10 +188,10 @@ namespace GestioneCommerciale.Models
 
         void CreateKpiCard(QuestPDF.Infrastructure.IContainer container, string title, string value, string color)
         {
-            container.Border(0.5f).BorderColor(Colors.Grey.Lighten2).Padding(15).Column(col =>
+            container.Border(1).BorderColor(Colors.Grey.Lighten2).Padding(15).Column(col =>
             {
                 col.Item().AlignCenter().Text(title).FontSize(8).Bold().FontColor(Colors.Grey.Medium);
-                col.Item().AlignCenter().Text(value).FontSize(24).Bold().FontColor(color);
+                col.Item().AlignCenter().Text(value).FontSize(26).Bold().FontColor(color);
             });
         }
     }
