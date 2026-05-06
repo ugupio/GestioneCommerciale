@@ -106,14 +106,7 @@ public class Reso
 }
 
 
-public class DettaglioReso
-{
-    public string Codice { get; set; } = "";
-    public string Descrizione { get; set; } = "";
-    public decimal Quantita { get; set; }
-    public string Colore { get; set; } = "";
-    public string StatoBene { get; set; } = "";
-}
+
 
 
 public class DettaglioOrdine
@@ -181,6 +174,8 @@ public class ReportVisitaRiunione
 
     // Il flag per distinguere i tuoi nuovi inserimenti
     public bool IsNuovo { get; set; }
+    public float? Lat { get; set; }
+    public float? Lon { get; set; }
 }
 
 
@@ -203,14 +198,26 @@ public class Ordine
     public List<DettaglioOrdine> Righe { get; set; } = new List<DettaglioOrdine>();
 }
 
-public class RigaReso
+public class DettaglioReso
 {
     public int IDRigaReso { get; set; }
     public int IDReso { get; set; }
-    public string Codice { get; set; }
-    public string Descrizione { get; set; }
+    public string Codice { get; set; } = "";
+    public string Descrizione { get; set; } = "";
     public decimal Quantita { get; set; }
+    public string UmRiga { get; set; } = "PZ";
+
+    public bool IsAccessorio { get; set; }
+    public string FinituraAccessorio { get; set; } = "";
+    public string ColoreInt { get; set; } = "";
+    public string ColoreEst { get; set; } = "";
+    public string StatoBene { get; set; } = "";
+
+    // Questa la usiamo SOLO per mostrare il dato nella tabella a video (Blazor)
+    // Non caricarla/salvarla mai nel database!
+    public string ColoreInfo => IsAccessorio ? FinituraAccessorio : $"{ColoreInt} / {ColoreEst}";
 }
+
 
 public class PerformanceData
 {
@@ -234,6 +241,7 @@ public class ElementoAgenda
 
     // Questo rimane utile per legare l'oggetto UI al record DB
     public object OriginalObject { get; set; }
+    public string Stato { get; set; }
 }
 
 // In class.cs o Models.cs

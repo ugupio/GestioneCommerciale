@@ -190,13 +190,13 @@
     <div style="display:flex; gap:8px; flex-shrink: 0;">
         
         <!-- DATA REPORT (Inizio) -->
-<div class="date-wrapper-premium">
+<div class="date-wrapper-premium" style="height: 75px;">
     <span class="date-label-premium">DAL (INIZIO)</span>
     <input type="date" class="date-input-premium" @bind="dataReport" />
 </div>
 
 <!-- DATA FINE (Opzionale per Riunione) -->
-<div class="date-wrapper-premium">
+<div class="date-wrapper-premium" style="height: 75px;">
     <span class="date-label-premium">AL (FINE)</span>
     <input type="date" class="date-input-premium" @bind="dataFineReport" />
 </div>
@@ -482,13 +482,32 @@
     }
 
     private async Task CaricaVisita(int id) {
-        using var db = new SqlConnection(conn);
-        v = await db.QueryFirstOrDefaultAsync<Visita>("SELECT * FROM Visite WHERE IDVisita = @id", new { id });
-        if (v != null) {
-            await AlCambioCliente();
-            snapshotOriginale = JsonSerializer.Serialize(v);
+    using var db = new SqlConnection(conn);
+    v = await db.QueryFirstOrDefaultAsync<Visita>("SELECT * FROM Visite WHERE IDVisita = @id", new { id });
+    
+    if (v != null) {
+        await AlCambioCliente();
+
+        // --- NORMALIZZAZIONE DATE (Stessa logica del Salva) ---
+        if (v.DataVisita.HasValue)
+        {
+            var d = v.DataVisita.Value;
+            v.DataVisita = new DateTime(d.Year, d.Month, d.Day, d.Hour, d.Minute, 0);
         }
+
+        if (v.DataProssimoContatto.HasValue)
+        {
+            var dpc = v.DataProssimoContatto.Value;
+            v.DataProssimoContatto = new DateTime(dpc.Year, dpc.Month, dpc.Day, dpc.Hour, dpc.Minute, 0);
+        }
+
+        // Snapshot dello stato appena caricato dal DB
+        snapshotOriginale = JsonSerializer.Serialize(v);
     }
+    
+    StateHasChanged();
+}
+
 
     private async Task AlCambioCliente() {
         if (v.IDCliente > 0) {
@@ -504,13 +523,32 @@
         StateHasChanged();
     }
 
-    private async Task<bool> CheckModificheRealmenteFatte() {
-        var attuale = JsonSerializer.Serialize(v);
-        if (attuale != snapshotOriginale) {
-            return await JS.InvokeAsync<bool>("confirm", "Sono state apportate modifiche. Vuoi uscire senza salvare?");
-        }
-        return true;
+    
+
+    private async Task<bool> CheckModificheRealmenteFatte()
+{
+    // 1. Genera lo snapshot dello stato attuale
+    var snapshotAttuale = JsonSerializer.Serialize(v);
+
+    // 2. Confronta: se sono uguali, non chiedere nulla e ritorna true (puoi procedere)
+    if (snapshotAttuale == snapshotOriginale)
+    {
+        return true; 
     }
+
+    // 3. Se sono diversi, allora chiedi conferma
+    try 
+    {
+        return await JS.InvokeAsync<bool>("confirm", "Ci sono modifiche non salvate. Vuoi uscire comunque?");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Errore JS: {ex.Message}");
+        return true; // In caso di errore JS, lasciamo passare per non bloccare l'utente
+    }
+}
+
+
 
     private async Task Nuovo() {
     if (!await CheckModificheRealmenteFatte()) return;
@@ -555,10 +593,37 @@
         await db.ExecuteAsync(sqlUpdate, v);
     }
 
-    snapshotOriginale = JsonSerializer.Serialize(v);
     await AlCambioCliente();
+
+    // --- NORMALIZZAZIONE DATE (Logica Comune) ---
+    if (v.DataVisita.HasValue)
+    {
+        var d = v.DataVisita.Value;
+        v.DataVisita = new DateTime(d.Year, d.Month, d.Day, d.Hour, d.Minute, 0);
+    }
+
+    if (v.DataProssimoContatto.HasValue)
+    {
+        var dpc = v.DataProssimoContatto.Value;
+        v.DataProssimoContatto = new DateTime(dpc.Year, dpc.Month, dpc.Day, dpc.Hour, dpc.Minute, 0);
+    }
+
+    // Creazione snapshot dello stato pulito
+    snapshotOriginale = JsonSerializer.Serialize(v);
+    
+    // Aggiornamento navigazione
+    if (!listaIdVisite.Contains(v.IDVisita)) 
+    {
+        listaIdVisite.Add(v.IDVisita);
+    }
+    
+    indiceCorrente = listaIdVisite.IndexOf(v.IDVisita);
+
     await ShowToast("Salvataggio completato.");
+    StateHasChanged(); 
 }
+
+
 
 
 
@@ -697,7 +762,7 @@ private async Task GeneraReportPerRiunione()
     }
 
     // 2. Generazione PDF
-    var report = new ReportRiunioneDocument(dati, inizio, fine);
+    var report = new ReportRiunioneDocument(dati, inizio, fine, null);
     byte[] pdfBytes = report.GeneratePdf();
 
     // 3. Download
@@ -719,24 +784,42 @@ private async Task GestisciGenerazioneReport()
     }
 
     private async Task ScaricaReportRiunioneStrategico()
+{
+    var dati = await MyVisitaService.GetVisitePerReportRiunione(dataReport, dataFineReport.Value);
+
+    if (dati == null || !dati.Any()) return;
+
+    // --- NUOVA LOGICA PER LA MAPPA ---
+    byte[] mappaBytes = null;
+    try 
     {
-        // 1. Chiamata al nuovo VisitaService
-        var dati = await MyVisitaService.GetVisitePerReportRiunione(dataReport, dataFineReport.Value);
+        // Prepariamo l'URL per Yandex (Gratuito e senza API Key)
+        var punti = dati.Where(v => v.Lat != 0 && v.Lon != 0)
+                        .Select(v => $"{v.Lon.ToString().Replace(",", ".")},{v.Lat.ToString().Replace(",", ".")},pm2blm")
+                        .ToList();
 
-        if (dati == null || !dati.Any())
+        if (punti.Any())
         {
-            // Magari un log o un avviso qui
-            return;
+            string mapUrl = $"https://yandex.ru{string.Join("~", punti)}";
+            
+            // Chiamiamo il JS per scaricare l'immagine (ESET lo lascerà passare)
+            var base64Mappa = await JS.InvokeAsync<string>("downloadImageAsBase64", mapUrl);
+            mappaBytes = Convert.FromBase64String(base64Mappa);
         }
-
-        // 2. Generazione del PDF con la nuova grafica (KPI, Province, Bollini verdi)
-        var report = new ReportRiunioneDocument(dati, dataReport, dataFineReport.Value);
-        byte[] pdfBytes = report.GeneratePdf();
-
-        // 3. Download
-        string base64 = Convert.ToBase64String(pdfBytes);
-        await JS.InvokeVoidAsync("downloadFile", $"Report_Riunione_{DateTime.Now:ddMMyy}.pdf", base64);
     }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Errore download mappa tramite browser: " + ex.Message);
+    }
+
+    // Passiamo i byte della mappa al costruttore del report
+    var report = new ReportRiunioneDocument(dati, dataReport, dataFineReport.Value, mappaBytes);
+    byte[] pdfBytes = report.GeneratePdf();
+
+    string base64 = Convert.ToBase64String(pdfBytes);
+    await JS.InvokeVoidAsync("downloadFile", $"Report_Riunione_{DateTime.Now:ddMMyy}.pdf", base64);
+}
+
 }
 
 

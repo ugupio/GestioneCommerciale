@@ -49,26 +49,57 @@ namespace GestioneCommerciale.Models
                 page.Content().Column(col => {
                     col.Item().PaddingTop(10).Table(table => {
                         table.ColumnsDefinition(c => {
+                            // Modifico leggermente le proporzioni: 4 per la descrizione, 1 per il codice (opzionale)
+                            // Se vuoi il codice INSIEME alla descrizione, mantieni pure 4, 1, 1, 2
                             c.RelativeColumn(4); c.RelativeColumn(1); c.RelativeColumn(1); c.RelativeColumn(2);
                         });
 
                         table.Header(h => {
-                            h.Cell().Element(FineHeaderStyle).Text("Descrizione del bene");
-                            h.Cell().Element(FineHeaderStyle).Text("Quantità");
-                            h.Cell().Element(FineHeaderStyle).Text("Colore");
+                            h.Cell().Element(FineHeaderStyle).Text("Descrizione e Codice"); // Intestazione più chiara
+                            h.Cell().Element(FineHeaderStyle).AlignCenter().Text("Quantità");
+                            h.Cell().Element(FineHeaderStyle).AlignCenter().Text("Colore/Finitura"); // Nome colonna aggiornato
                             h.Cell().Element(FineHeaderStyle).Text("Stato del bene");
                         });
 
                         // Righe Dati
                         foreach (var r in Modello.Righe)
                         {
-                            table.Cell().Element(FineCellStyle).Text(r.Descrizione);
-                            table.Cell().Element(FineCellStyle).AlignCenter().Text(r.Quantita.ToString());
-                            table.Cell().Element(FineCellStyle).AlignCenter().Text(r.Colore);
-                            table.Cell().Element(FineCellStyle).Text(r.StatoBene);
+                            // 1. DESCRIZIONE PULITA (Codice - Descrizione)
+                            table.Cell().Element(FineCellStyle).Text(t => {
+                                // Stampiamo il codice pulito in grassetto
+                                t.Span($"{r.Codice} - ").Bold();
+
+                                var desc = r.Descrizione ?? "";
+                                // Se la descrizione contiene "]", prendiamo solo quello che c'è dopo (elimina il doppione [CODICE])
+                                if (desc.Contains("]"))
+                                {
+                                    desc = desc.Substring(desc.IndexOf("]") + 1).Trim();
+                                }
+
+                                t.Span(desc);
+                            });
+
+                            // 2. QUANTITÀ
+                            table.Cell().Element(FineCellStyle).AlignCenter().Text($"{r.Quantita} {r.UmRiga}");
+
+                            // 3. COLORE / FINITURA (Senza codice, solo dato tecnico)
+                            table.Cell().Element(FineCellStyle).AlignCenter().Text(txt =>
+                            {
+                                if (r.IsAccessorio)
+                                    txt.Span(string.IsNullOrWhiteSpace(r.FinituraAccessorio) ? "-" : r.FinituraAccessorio);
+                                else
+                                    txt.Span($"{(string.IsNullOrWhiteSpace(r.ColoreInt) ? "N.D." : r.ColoreInt)} / {(string.IsNullOrWhiteSpace(r.ColoreEst) ? "N.D." : r.ColoreEst)}");
+                            });
+
+                            // 4. STATO DEL BENE
+                            table.Cell().Element(FineCellStyle).Text(r.StatoBene ?? "-");
                         }
 
-                        // Riempimento (Portato a 21 totali)
+
+
+
+
+                        // Riempimento (Portato a 21 totali) - invariato ma assicurati che le celle corrispondano
                         for (int i = Modello.Righe.Count; i < 21; i++)
                         {
                             table.Cell().Element(FineCellStyle).Text(" ");
@@ -77,6 +108,8 @@ namespace GestioneCommerciale.Models
                             table.Cell().Element(FineCellStyle).Text(" ");
                         }
                     });
+                    
+
 
                     col.Item().PaddingTop(10).Text(t => {
                         t.Span("Motivo del reso: ").Bold().FontSize(9);

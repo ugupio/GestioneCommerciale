@@ -11,12 +11,14 @@ namespace GestioneCommerciale.Models
         private readonly List<ReportVisitaRiunione> _visite;
         private readonly DateTime _inizio;
         private readonly DateTime _fine;
+        private readonly byte[] _mappaBytes;
 
-        public ReportRiunioneDocument(List<ReportVisitaRiunione> visite, DateTime inizio, DateTime fine)
+        public ReportRiunioneDocument(List<ReportVisitaRiunione> visite, DateTime inizio, DateTime fine, byte[] mappaBytes)
         {
             _visite = visite ?? new List<ReportVisitaRiunione>();
             _inizio = inizio;
             _fine = fine;
+            _mappaBytes = mappaBytes;
         }
 
         public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
@@ -90,10 +92,98 @@ namespace GestioneCommerciale.Models
                     row.ConstantItem(15);
                     row.RelativeItem().Element(c => CreateKpiCard(c, "COMUNI COPERTI", comuni.ToString(), Colors.Grey.Medium));
                     row.ConstantItem(15);
-                    row.RelativeItem().Element(c => CreateKpiCard(c, "NUOVI CLIENTI", $"+{nuovi}", Colors.Green.Medium));
+                    row.RelativeItem().Element(c => CreateKpiCard(c, "NUOVI CLIENTI PROSPECT", $"+{nuovi}", Colors.Green.Medium));
                 });
 
-                column.Item().PaddingTop(50).Background(Colors.Grey.Lighten4).Padding(20).Column(c =>
+                // --- GRAFICO EVOLUTO: VISITE + NUOVI CLIENTI ---
+                column.Item().PaddingTop(30).Element(container =>
+                {
+                    container.Column(c =>
+                    {
+                        c.Item().PaddingBottom(10).Text("DISTRIBUZIONE TERRITORIALE E SVILUPPO NUOVI CLIENTI").FontSize(11).Bold().FontColor(Colors.Blue.Medium);
+
+                        // 1. Raggruppamento dati con conteggio Nuovi (Prospect)
+                        var statisticheProv = _visite
+                            .GroupBy(v => v.Prov_Legale ?? "N.D.")
+                            .Select(g => new {
+                                Provincia = g.Key,
+                                Totali = g.Count(),
+                                Nuovi = g.Count(x => x.IsNuovo) // Conta i nuovi clienti
+                            })
+                            .OrderByDescending(x => x.Totali)
+                            .ToList();
+
+                        if (statisticheProv.Any())
+                        {
+                            var maxVisite = (float)statisticheProv.Max(x => x.Totali);
+
+                            c.Item().Border(0.5f).BorderColor(Colors.Grey.Lighten3).Padding(15).Background(Colors.Grey.Lighten5).Column(colStat =>
+                            {
+                                foreach (var stat in statisticheProv)
+                                {
+                                    colStat.Item().PaddingVertical(5).Row(row =>
+                                    {
+                                        // Nome Provincia
+                                        row.ConstantItem(60).Text(stat.Provincia).FontSize(10).SemiBold();
+
+                                        // Contenitore Barre (una sopra l'altra per ogni provincia)
+                                        row.RelativeItem().Column(barre =>
+                                        {
+                                            // BARRA BLU (Visite Totali)
+                                            barre.Item().Height(8).Background(Colors.Grey.Lighten3).Row(r => {
+                                                r.RelativeItem(stat.Totali / maxVisite).Background(Colors.Blue.Medium);
+                                                if (stat.Totali < maxVisite) r.RelativeItem(1 - (stat.Totali / maxVisite));
+                                            });
+
+                                            // BARRA VERDE (Nuovi Clienti) - Solo se > 0
+                                            if (stat.Nuovi > 0)
+                                            {
+                                                barre.Item().PaddingTop(2).Height(8).Background(Colors.Grey.Lighten3).Row(r => {
+                                                    r.RelativeItem(stat.Nuovi / maxVisite).Background(Colors.Green.Medium);
+                                                    if (stat.Nuovi < maxVisite) r.RelativeItem(1 - (stat.Nuovi / maxVisite));
+                                                });
+                                            }
+                                        });
+
+                                        // Valori numerici a destra
+                                        row.ConstantItem(70).AlignRight().Column(cVal => {
+                                            cVal.Item().Text($"{stat.Totali} Tot.").FontSize(8).Bold().FontColor(Colors.Blue.Medium);
+                                            if (stat.Nuovi > 0)
+                                                cVal.Item().Text($"{stat.Nuovi} Nuovi").FontSize(8).Bold().FontColor(Colors.Green.Medium);
+                                        });
+                                    });
+                                }
+
+                                // --- LEGENDA (Aggiunta in fondo al box grigio) ---
+                                colStat.Item().PaddingTop(15).BorderTop(0.5f).BorderColor(Colors.Grey.Lighten2).PaddingTop(10).Row(legenda =>
+                                {
+                                    legenda.RelativeItem().Row(l1 => {
+                                        l1.ConstantItem(10).Height(10).Width(10).Background(Colors.Blue.Medium);
+                                        l1.ConstantItem(5);
+                                        l1.RelativeItem().Text("Visite Totali").FontSize(8);
+                                    });
+                                    legenda.RelativeItem().Row(l2 => {
+                                        l2.ConstantItem(10).Height(10).Width(10).Background(Colors.Green.Medium);
+                                        l2.ConstantItem(5);
+                                        l2.RelativeItem().Text("Nuovi Clienti (Prospect)").FontSize(8);
+                                    });
+                                });
+                            });
+                        }
+
+                        c.Item().PaddingTop(10).AlignCenter().Text("Analisi della capillarità operativa e dello sviluppo commerciale")
+                                .FontSize(8).Italic().FontColor(Colors.Grey.Medium);
+                    });
+                });
+
+
+
+
+
+
+
+
+                column.Item().PaddingTop(20).Background(Colors.Grey.Lighten4).Padding(20).Column(c =>
                 {
                     c.Item().AlignCenter().Text("PIPELINE DI SVILUPPO").FontSize(10).Bold().FontColor(Colors.Blue.Medium);
                     c.Item().PaddingTop(15).Row(r =>
@@ -104,10 +194,11 @@ namespace GestioneCommerciale.Models
                         r.RelativeItem(1).Height(8).Background(Colors.Blue.Darken2);
                         r.RelativeItem(1).Height(8).Background(Colors.Green.Medium);
                     });
-                    c.Item().PaddingTop(15).AlignCenter().Text("Ogni nuova anagrafica e ogni cliente 'caldo' rappresentano le basi del fatturato futuro.").FontSize(11).Italic().FontColor(Colors.Grey.Darken2);
+                    c.Item().PaddingTop(15).AlignCenter().Text("Analisi del Territorio, Potenziali di Vendita e Opportunità Future").FontSize(11).Italic().FontColor(Colors.Grey.Darken2);
                 });
 
                 column.Item().PageBreak();
+
 
                 // --- PAGINA 2+: DETTAGLIO ---
                 var gruppiProvincia = _visite.GroupBy(x => x.Prov_Legale ?? "N.D.").OrderBy(x => x.Key);

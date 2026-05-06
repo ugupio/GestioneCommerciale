@@ -221,30 +221,54 @@
 
     ListaAgenda.Clear();
 
-    // 2. MAPPING STORICO (Quello che hai appena salvato finisce qui)
-    foreach (var v in visiteEseguite)
-    {
-        ListaAgenda.Add(new ElementoAgenda {
-            Data = v.DataVisita ?? DateTime.Now,
-            DataFine = (v.DataVisita ?? DateTime.Now).AddHours(1),
-            Titolo = "✅ " + (v.RagSociale ?? "Visita Eseguita"),
-            Tipo = "VISITA",
-            IsChiuso = true, // Questo lo farà apparire GRIGIO e BARRATO
-            Dettaglio = v.NoteEsito
-        });
-    }
+    // 2. MAPPING STORICO (Tabella Visite)
+foreach (var v in visiteEseguite)
+{
+    var valoreStato = v.StatoVisita?.ToString(); 
+    string statoMappato = "";
+
+    // TRADUZIONE SECONDO LA TUA SEQUENZA:
+    if (valoreStato == "1") 
+        statoMappato = "Eseguita";      // Grigio / Barrato
+    else if (valoreStato == "2")
+        statoMappato = "Programmata";   // Blu / Normale
+    else if (valoreStato == "3")
+        statoMappato = "Annullata";     // Rosso / Barrato
+    else 
+        statoMappato = "Programmata";   // Fallback di sicurezza
+
+    // Forza l'orario alle 09:00 se arriva come 00:00 (fondamentale per viste Day/Week)
+    DateTime dataVisita = v.DataVisita ?? DateTime.Now;
+    if (dataVisita.Hour == 0 && dataVisita.Minute == 0)
+        dataVisita = dataVisita.Date.AddHours(9);
+
+    ListaAgenda.Add(new ElementoAgenda {
+        Data = dataVisita,
+        DataFine = dataVisita.AddHours(1),
+        Titolo = (statoMappato == "Eseguita" ? "✅ " : statoMappato == "Annullata" ? "❌ " : "🚗 ") + (v.RagSociale ?? "Visita"),
+        Tipo = "VISITA",
+        Stato = statoMappato, // Qui passiamo la parola allo Switch del Render
+        IsChiuso = (statoMappato == "Eseguita" || statoMappato == "Annullata"),
+        Dettaglio = v.NoteEsito
+    });
+}
+
+
+
+
 
     // 3. MAPPING TASK
     foreach (var a in attivitaTask)
-    {
-        ListaAgenda.Add(new ElementoAgenda {
-            Data = a.DataScadenza,
-            DataFine = a.DataScadenza.AddMinutes(30),
-            Titolo = "📝 Task: " + (string.IsNullOrEmpty(a.RagSociale) ? a.Descrizione : a.RagSociale),
-            Tipo = "TASK",
-            IsChiuso = false
-        });
-    }
+{
+    ListaAgenda.Add(new ElementoAgenda {
+        Data = a.DataScadenza,
+        DataFine = a.DataScadenza.AddMinutes(30),
+        Titolo = "📝 Task: " + (string.IsNullOrEmpty(a.RagSociale) ? a.Descrizione : a.RagSociale),
+        Tipo = "TASK",          // <--- Fondamentale
+        Stato = "TASK_ATTIVO",  // <--- Stato neutro
+        IsChiuso = false
+    });
+}
 
     // 4. MAPPING AGENDA (Le auto "🚗" da fare)
     foreach (var g in agendaPianificata)
@@ -272,19 +296,33 @@
     // Stile base
     args.Attributes["style"] = "border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 0.85rem;";
 
-    // Se è CHIUSA (indipendentemente se viene da Visite o da Agenda)
-    if (args.Data.IsChiuso)
+    // 1. SE È UN TASK -> GIALLO
+    if (args.Data.Tipo == "TASK")
     {
-        args.Attributes["style"] += "background: #e0e0e0; color: #888; text-decoration: line-through; opacity: 0.7; border-left: 4px solid #bbb;";
+        args.Attributes["style"] += "background: #fff200; color: #333; border-left: 4px solid #f1c40f; font-weight: bold;";
+        return; // Esci, non serve lo switch sotto
     }
-    else // Se è ancora DA FARE
+
+    // 2. SE È UNA VISITA -> USA LO SWITCH
+    switch (args.Data.Stato)
     {
-        if (args.Data.Tipo == "VISITA")
-            args.Attributes["style"] += "background: #1e90ff; color: white; border-left: 4px solid #0652DD;";
-        else
-            args.Attributes["style"] += "background: #ffa502; color: black; border-left: 4px solid #e17055;";
+        case "Eseguita":
+            args.Attributes["style"] += "background: #d1d8e0; color: #777; text-decoration: line-through; opacity: 0.8; border-left: 4px solid #778ca3;";
+            break;
+
+        case "Annullata":
+            args.Attributes["style"] += "background: #fab1a0; color: #b33939; text-decoration: line-through; opacity: 0.6; border-left: 4px solid #d63031;";
+            break;
+
+        case "Programmata":
+        default:
+            // Blu e Normale (per Agenda e Visite da fare)
+            args.Attributes["style"] += "background: #1e90ff; color: white; border-left: 4px solid #0652DD; font-weight: bold;";
+            break;
     }
 }
+
+
 
 
 
