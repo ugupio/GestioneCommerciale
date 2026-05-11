@@ -13,6 +13,8 @@
 @inject IHttpClientFactory ClientFactory
 @inject IJSRuntime JSRuntime
 @using QuestPDF.Fluent
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment HostEnvironment
+
 
 
 
@@ -194,6 +196,10 @@
         <button class="btn-comando-ordine" @onclick="Nuovo"><span>👤➕</span><span>NUOVO</span></button>
         
         <!-- NUOVO TASTO REPORT -->
+        <button class="btn-comando-ordine" style="background-color: #ffffff; border: 1px solid #2c3e50; color: #2c3e50;" @onclick="GeneraSchedaUfficiale">
+        <span>📝</span><span>SCHEDA CLIENTE</span>
+        </button>
+
         <button class="btn-comando-ordine" style="background-color: #f8f9fa; border: 1px solid #ccc; color: #333;" @onclick="() => mostraModaleStampa = true">
             <span>📊</span><span>REPORT</span>
         </button>
@@ -1044,7 +1050,30 @@ private async Task GeneraReportClienti()
             await JS.InvokeVoidAsync("alert", "Errore generazione: " + ex.Message);
         }
     }
+    private async Task GeneraSchedaUfficiale()
+    {
+        try
+        {
+            if (c.IdCliente == 0) {
+                await JS.InvokeVoidAsync("alert", "Selezionare o salvare un cliente prima di stampare la scheda.");
+                return;
+            }
+
+            var documento = new SchedaClienteUfficiale(c, HostEnvironment.WebRootPath);
+            byte[] pdfBytes = documento.GeneratePdf();
+
+            string nomeFile = $"Scheda_Ufficiale_{c.RagSociale.Replace(" ", "_")}.pdf";
+            using var stream = new MemoryStream(pdfBytes);
+            using var streamRef = new DotNetStreamReference(stream);
+            await JS.InvokeVoidAsync("downloadFileFromStream", nomeFile, streamRef);
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", "Errore: " + ex.Message);
+        }
+    }
 }
+
 
 
 
