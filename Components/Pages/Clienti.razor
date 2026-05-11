@@ -12,6 +12,8 @@
 @inject IJSRuntime JS
 @inject IHttpClientFactory ClientFactory
 @inject IJSRuntime JSRuntime
+@using QuestPDF.Fluent
+
 
 
 <style>
@@ -187,15 +189,22 @@
         </div>
     </div>
 
-    <!-- GRUPPO AZIONI -->
+        <!-- GRUPPO AZIONI  -->
     <div style="display:flex; gap:5px; flex-shrink: 0;">
         <button class="btn-comando-ordine" @onclick="Nuovo"><span>👤➕</span><span>NUOVO</span></button>
+        
+        <!-- NUOVO TASTO REPORT -->
+        <button class="btn-comando-ordine" style="background-color: #f8f9fa; border: 1px solid #ccc; color: #333;" @onclick="() => mostraModaleStampa = true">
+            <span>📊</span><span>REPORT</span>
+        </button>
+
         <button class="btn-comando-ordine" @onclick="Annulla"><span>✖</span><span>ANNULLA</span></button>
         <button class="btn-comando-ordine btn-start-verde" @onclick="Salva"><span>💾</span><span>SALVA</span></button>
         @if(c.IdCliente > 0) {
             <button class="btn-comando-ordine btn-start-rosso" @onclick="Elimina"><span>🗑️</span><span>ELIMINA</span></button>
         }
     </div>
+
 
 </div>
 </div>
@@ -406,7 +415,136 @@
 </div>
 
     @if (mostraMessaggio) { <div class="toast-msg">@testoNotifica</div> }
+
+
 </div>
+
+@if (mostraModaleStampa)
+{
+    <!-- Oscuramento sfondo -->
+    <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 1040;"></div>
+
+    <!-- Finestra Popup Centrata -->
+    <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1050; width: 700px; background: white; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); overflow: hidden; border: 1px solid #999; font-family: sans-serif;">
+        
+        <!-- Header stile Windows -->
+        <div style="background: #2c3e50; color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <h5 style="margin: 0; font-size: 1.1rem;"><i class="bi bi-printer-fill me-2"></i> Reportistica e Pianificazione Giro</h5>
+            <button @onclick="ChiudiModale" style="background: transparent; border: none; color: white; font-size: 1.5rem; cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+
+        <!-- Menu a Schede (Tabs) -->
+        <div style="display: flex; background: #f8f9fa; border-bottom: 1px solid #ddd;">
+            <button @onclick="() => tabAttiva = 1" style="padding: 12px 20px; border: none; cursor: pointer; background: @(tabAttiva == 1 ? "white" : "transparent"); border-bottom: @(tabAttiva == 1 ? "3px solid #007bff" : "none"); font-weight: @(tabAttiva == 1 ? "bold" : "normal");">1. Filtri Selezione</button>
+            <button @onclick="() => tabAttiva = 2" style="padding: 12px 20px; border: none; cursor: pointer; background: @(tabAttiva == 2 ? "white" : "transparent"); border-bottom: @(tabAttiva == 2 ? "3px solid #007bff" : "none"); font-weight: @(tabAttiva == 2 ? "bold" : "normal");">2. Opzioni Report</button>
+            <button @onclick="() => tabAttiva = 3" style="padding: 12px 20px; border: none; cursor: pointer; background: @(tabAttiva == 3 ? "white" : "transparent"); border-bottom: @(tabAttiva == 3 ? "3px solid #28a745" : "none"); color: @(tabAttiva == 3 ? "#28a745" : "black"); font-weight: bold;">3. 🚗 GIRO QUOTIDIANO</button>
+        </div>
+
+        <div style="padding: 25px; min-height: 350px;">
+            
+            @if (tabAttiva == 1)
+            {
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <label style="display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem;">Provincia</label>
+                        <input type="text" class="form-control" @bind="filtroProv" placeholder="Esempio: MI, RM..." />
+                    </div>
+                    <div>
+                        <label style="display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem;">Stato Cliente</label>
+                        <select class="form-select" @bind="filtroStato">
+                            <option value="TUTTI">Tutti i Clienti</option>
+                            <option value="NUOVI">Solo Nuovi (IsNuovo)</option>
+                            <option value="STORICI">Solo Storici</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem;">Previsione Minima (€)</label>
+                        <input type="number" class="form-control" @bind="previsioneMinima" />
+                    </div>
+                </div>
+            }
+
+            @if (tabAttiva == 2)
+            {
+                <div style="display: flex; flex-direction: column; gap: 20px;">
+                    <div>
+                        <label style="font-weight: bold; display: block; margin-bottom: 10px;">Formato del Documento:</label>
+                        <div style="display: flex; gap: 30px;">
+                            <label style="cursor:pointer;"><input type="radio" name="layout" @onclick='() => tipoLayout = "TABELLA"' checked='@(tipoLayout == "TABELLA")'> <b>Elenco Tabellare</b> (Compatto)</label>
+                            <label style="cursor:pointer;"><input type="radio" name="layout" @onclick='() => tipoLayout = "SCHEDA"' checked='@(tipoLayout == "SCHEDA")'> <b>Scheda Visita</b> (Con spazio note)</label>
+                        </div>
+                    </div>
+                    <hr />
+                    <div>
+                        <label style="font-weight: bold; display: block; margin-bottom: 5px;">Ordinamento Dati:</label>
+                        <select class="form-select" @bind="tipoRaggruppamento">
+                            <option value="ALFABETICO">Ragione Sociale (A-Z)</option>
+                            <option value="PROVINCIA">Raggruppa per Provincia</option>
+                            <option value="ZONA">Raggruppa per IdZona</option>
+                        </select>
+                    </div>
+                </div>
+            }
+
+            @if (tabAttiva == 3)
+            {
+                <div style="display: flex; flex-direction: column; height: 100%;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: flex-end;">
+                        <div style="flex-grow: 1;">
+                            <label style="display: block; font-weight: bold; font-size: 0.8rem;">Filtra Provincia per il Giro:</label>
+                            <input type="text" class="form-control form-control-sm" @bind="filtroProvGiro" @onkeyup='(e) => { if(e.Key=="Enter") CaricaClientiPerGiro(); }' />
+                        </div>
+                        <button class="btn btn-dark btn-sm" @onclick="CaricaClientiPerGiro"><i class="bi bi-search"></i> Carica</button>
+                    </div>
+                    
+                    <div style="height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; background: #fff;">
+                        <table class="table table-sm table-hover mb-0" style="font-size: 0.85rem;">
+                            <thead style="position: sticky; top: 0; background: #eee; z-index: 1;">
+                                <tr>
+                                    <th style="width: 40px; text-align: center;">Sel.</th>
+                                    <th>Ragione Sociale</th>
+                                    <th>Città</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var cli in clientiGiroPotenziali)
+                                {
+                                    <tr>
+                                        <td style="text-align: center;">
+                                            <input type="checkbox" checked="@clientiSelezionatiGiro.Any(x => x.IdCliente == cli.IdCliente)" 
+                                                   @onchange='(e) => ToggleSelezione(cli, e.Value)' />
+                                        </td>
+                                        <td>@cli.RagSociale</td>
+                                        <td>@cli.Citta_Legale (@cli.Prov_Legale)</td>
+                                    </tr>
+                                }
+                                @if (!clientiGiroPotenziali.Any())
+                                {
+                                    <tr><td colspan="3" class="text-center text-muted p-4">Nessun cliente caricato. Inserisci la provincia e premi Carica.</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top: 10px; font-weight: bold; color: #28a745; font-size: 0.9rem;">
+                        <i class="bi bi-check-circle-fill"></i> Clienti selezionati per il giro: @clientiSelezionatiGiro.Count
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #f1f1f1; padding: 15px 20px; text-align: right; border-top: 1px solid #ddd;">
+            <span style="float: left; color: #666; font-size: 0.8rem; margin-top: 10px;">CRM GestAgenti v2.1</span>
+            <button class="btn btn-secondary" @onclick="ChiudiModale" style="margin-right: 10px;">Annulla</button>
+            <button class="btn btn-success" style="padding-left: 30px; padding-right: 30px; font-weight: bold;" @onclick="GeneraReportClienti">
+                <i class="bi bi-file-pdf"></i> @(tabAttiva == 3 ? "STAMPA GIRO" : "GENERA PDF")
+            </button>
+        </div>
+    </div>
+}
+
+
+
 
 @code {
     private Cliente c = new Cliente();
@@ -422,9 +560,62 @@
     private List<dynamic> listaVisiteCliente = new();
     private decimal totaleOrdiniCliente;
     private List<Zona> ListeZone = new();
+    bool mostraModaleStampa = false;
+    int tabAttiva = 1;
+    // Variabili Filtro
+    string filtroProv = "";
+    string filtroStato = "TUTTI"; // NUOVI, STORICI
+    bool soloConOrdiniRecenti = false;
+    int? giorniInattivita = null;
+    int? previsioneMinima = null;
+    string tipoRaggruppamento = "ALFABETICO";
+    private string tipoLayout = "TABELLA"; // Oppure "SCHEDA"
+    private string filtroProvGiro = "";
+    private List<Cliente> clientiGiroPotenziali = new();
+    private List<Cliente> clientiSelezionatiGiro = new();
 
+    private void ApriModale()
+    {
+        tabAttiva = 1;
+        clientiSelezionatiGiro.Clear(); // Puliamo la selezione precedente
+        mostraModaleStampa = true;
+        StateHasChanged();
+    }
 
+    private void ChiudiModale()
+    {
+        mostraModaleStampa = false;
+        StateHasChanged();
+    }
 
+    private async Task CaricaClientiPerGiro()
+    {
+        try
+        {
+            using var db = new SqlConnection(conn);
+            var sql = "SELECT * FROM Clienti WHERE Prov_Legale LIKE @p ORDER BY RagSociale";
+            var result = await db.QueryAsync<Cliente>(sql, new { p = $"%{filtroProvGiro}%" });
+            clientiGiroPotenziali = result.ToList();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", "Errore nel caricamento: " + ex.Message);
+        }
+    }
+
+    private void ToggleSelezione(Cliente c, object checkedValue)
+    {
+        bool isChecked = (bool)checkedValue;
+        if (isChecked)
+        {
+            if (!clientiSelezionatiGiro.Any(x => x.IdCliente == c.IdCliente))
+                clientiSelezionatiGiro.Add(c);
+        }
+        else
+        {
+            clientiSelezionatiGiro.RemoveAll(x => x.IdCliente == c.IdCliente);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
 {
@@ -784,6 +975,77 @@ public async Task ToggleNuovoCliente(int idCliente, bool nuovoStato)
         new { idCliente, nuovoStato }
     );
 }
+
+private async Task GeneraReportClienti()
+    {
+        try
+        {
+            List<Cliente> listaDaStampare = new();
+            string layoutFinale = tipoLayout;
+
+            // Se siamo nel Tab 3 (Giro), usiamo i selezionati e forziamo la SCHEDA
+            if (tabAttiva == 3)
+            {
+                if (!clientiSelezionatiGiro.Any())
+                {
+                    await JS.InvokeVoidAsync("alert", "Seleziona almeno un cliente per il giro!");
+                    return;
+                }
+                listaDaStampare = clientiSelezionatiGiro;
+                layoutFinale = "SCHEDA"; 
+            }
+            else
+            {
+                // Logica SQL standard per Tab 1 e 2
+                using var db = new SqlConnection(conn);
+                var sql = "SELECT * FROM Clienti WHERE 1=1";
+                var p = new DynamicParameters();
+
+                if (!string.IsNullOrWhiteSpace(filtroProv)) {
+                    sql += " AND Prov_Legale LIKE @prov";
+                    p.Add("prov", $"%{filtroProv}%");
+                }
+                if (filtroStato == "NUOVI") sql += " AND IsNuovo = 1";
+                if (filtroStato == "STORICI") sql += " AND IsNuovo = 0";
+                if (previsioneMinima.HasValue) {
+                    sql += " AND PrevisioneAnnuo >= @prev";
+                    p.Add("prev", previsioneMinima.Value);
+                }
+
+                // Ordinamento
+                sql += tipoRaggruppamento switch {
+                    "PROVINCIA" => " ORDER BY Prov_Legale, RagSociale",
+                    "ZONA" => " ORDER BY IdZona, RagSociale",
+                    _ => " ORDER BY RagSociale"
+                };
+
+                var result = await db.QueryAsync<Cliente>(sql, p);
+                listaDaStampare = result.ToList();
+            }
+
+            if (!listaDaStampare.Any()) {
+                await JS.InvokeVoidAsync("alert", "Nessun dato da stampare.");
+                return;
+            }
+
+            // Esecuzione QuestPDF
+            var documento = new DocumentoReportClienti(listaDaStampare, layoutFinale);
+            byte[] pdfBytes = documento.GeneratePdf();
+
+            string nomeFile = $"Report_{layoutFinale}_{DateTime.Now:yyyyMMdd}.pdf";
+            using var stream = new MemoryStream(pdfBytes);
+            using var streamRef = new DotNetStreamReference(stream);
+            await JS.InvokeVoidAsync("downloadFileFromStream", nomeFile, streamRef);
+
+            ChiudiModale();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", "Errore generazione: " + ex.Message);
+        }
+    }
+}
+
 
 
 }
