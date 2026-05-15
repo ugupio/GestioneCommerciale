@@ -728,7 +728,9 @@ else
             StatoOrdine = ordine.StatoOrdine, // Fondamentale per il layout
             TotaleImponibile = ordine.TotaleImponibile, // Assicurati che sia calcolato
             NoteOrdine = ordine.NoteOrdine,      
-            ConcordatoCon = ordine.ConcordatoCon 
+            ConcordatoCon = ordine.ConcordatoCon,
+            RiferimentoCliente = ordine.RiferimentoCliente,
+            DataConsegnaPrevista = ordine.DataConsegnaPrevista
         };
 
                 ordinePerStampa.Righe = filtro switch {
@@ -743,14 +745,16 @@ else
                 }
 
                 // 3. Generazione Documento
-                // Passiamo 'ordine.Stato' al costruttore per decidere se mostrare i prezzi
-                var documento = new DocumentoOrdine(ordinePerStampa, clienteCompleto); 
+                var documento = new DocumentoOrdine(ordinePerStampa, clienteCompleto);
                 byte[] pdfBytes = documento.GeneratePdf();
 
-                string nomeFile = $"{ordine.StatoOrdine}_{filtro}_{ordine.NumeroDocumento}.pdf";
+                // Inviamo i dati come Stream efficiente a JavaScript
                 using var stream = new MemoryStream(pdfBytes);
                 using var streamRef = new DotNetStreamReference(stream);
-                await JS.InvokeVoidAsync("downloadFileFromStream", nomeFile, streamRef);
+
+                // Richiamiamo la nuova funzione che gestisce correttamente il Blob
+                await JS.InvokeVoidAsync("viewPdfInNewTab", streamRef);
+
             }
             catch (Exception ex) {
                 await JS.InvokeVoidAsync("alert", "ERRORE: " + ex.Message);

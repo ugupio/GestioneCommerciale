@@ -47,7 +47,7 @@ public class SchedaClienteUfficiale : IDocument
                 if (File.Exists(_pathLogoTwin)) row.RelativeItem().Height(40).Image(_pathLogoTwin);
                 else row.RelativeItem().Text("TWIN SYSTEMS").FontSize(10).Bold();
 
-                if (File.Exists(_pathLogoAlq)) row.RelativeItem().AlignRight().Height(40).Image(_pathLogoAlq);
+                if (File.Exists(_pathLogoAlq)) row.RelativeItem().AlignRight().Height(60).Image(_pathLogoAlq);
                 else row.RelativeItem().AlignRight().Text("ALQ GENOVA").FontSize(14).Bold();
             });
             col.Item().PaddingTop(25).AlignCenter().Text("SCHEDA CLIENTE").FontSize(18).ExtraBold();

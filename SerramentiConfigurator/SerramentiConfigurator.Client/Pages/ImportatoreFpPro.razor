@@ -1,0 +1,190 @@
+﻿@page "/amministrazione/importatore"
+@using System.Net.Http.Headers
+@using SerramentiConfigurator.Models
+
+<PageTitle>Importazione Dati FP Pro | Amministrazione</PageTitle>
+
+<div class="container mt-4 text-white animate-fadeIn">
+    <!-- Breadcrumb e Titolo High-Tech -->
+    <div class="mb-4 text-secondary small">
+        <a href="/" class="text-decoration-none text-secondary">Dashboard</a> /
+        <span class="text-info">Amministrazione B2B</span>
+    </div>
+
+    <div class="mb-5">
+        <h1 class="fw-bold mb-1 text-white">🔄 Sincronizzazione Archivio FP Pro</h1>
+        <p class="text-light opacity-75">Carica le esportazioni tabelle di Microsoft Access / MySQL per aggiornare il catalogo web.</p>
+    </div>
+
+    <div class="row g-4">
+        <!-- SEZIONE 1: IMPORTAZIONE SERIE (T_SERIE) -->
+        <div class="col-md-6">
+            <div class="p-4" style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); height: 100%;">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div style="font-size: 2rem;">📋</div>
+                    <div>
+                        <h4 class="fw-bold text-white mb-0">1. Tabella Serie / Sistemi</h4>
+                        <small class="text-light opacity-50">File atteso con colonne: <em>PkId, Serie</em></small>
+                    </div>
+                </div>
+
+                <p class="text-light opacity-75 small mb-4">Popola la tabella principale dei sistemi (es. CX650, RX450). Questo passaggio è obbligatorio prima di caricare i profili.</p>
+
+                <!-- Input di Caricamento File Blazor Nativo -->
+                <div class="upload-box mb-3">
+                    <InputFile OnChange="CaricaFileSerie" class="form-control bg-dark border-secondary text-white" accept=".xlsx, .xls, .csv" disabled="@caricamentoInCorso" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(messaggioSerie))
+                {
+                    <div class="alert small p-2 @(isErroreSerie ? "alert-danger text-danger bg-danger-subtle" : "alert-success text-success bg-success-subtle")" style="border-radius: 8px;">
+                        @messaggioSerie
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- SEZIONE 2: IMPORTAZIONE PROFILI (ARTICOLI_PROFILI) -->
+        <div class="col-md-6">
+            <div class="p-4" style="background: rgba(30, 41, 59, 0.7); border: 2px solid rgba(6, 182, 212, 0.3); border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); height: 100%;">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div style="font-size: 2rem;">📐</div>
+                    <div>
+                        <h4 class="fw-bold text-info mb-0">2. Catalogo Profili</h4>
+                        <small class="text-light opacity-50">File atteso con colonne: <em>SerieId, Codice, Descr, Costo_ml, Kg_ml</em></small>
+                    </div>
+                </div>
+
+                <p class="text-light opacity-75 small mb-4">Sincronizza l'elenco delle barre (telai, ante, fermavetri) agganciandole automaticamente alle serie del database.</p>
+
+                <div class="upload-box mb-3">
+                    <InputFile OnChange="CaricaFileProfili" class="form-control bg-dark border-secondary text-white" accept=".xlsx, .xls, .csv" disabled="@caricamentoInCorso" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(messaggioProfili))
+                {
+                    <div class="alert small p-2 @(isErroreProfili ? "alert-danger text-danger bg-danger-subtle" : "alert-success text-success bg-success-subtle")" style="border-radius: 8px;">
+                        @messaggioProfili
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Indicatore di Caricamento Globale (Spinner) -->
+    @if (caricamentoInCorso)
+    {
+        <div class="text-center mt-5 p-3" style="background: rgba(255,255,255,0.05); border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+            <div class="spinner-border text-info mb-2" role="status"></div>
+            <p class="mb-0 text-info fw-semibold">Elaborazione file e scrittura in SQL Server Express in corso...</p>
+        </div>
+    }
+
+    <!-- Pulsante Navigazione Rapida per tornare in Dashboard -->
+    <div class="mt-5 text-start">
+        <a href="/" class="btn btn-outline-light px-4 py-2" style="border-radius: 10px;">
+            🏠 Torna alla Dashboard Cantieri
+        </a>
+    </div>
+</div>
+
+
+@code {
+    // Iniezione esplicita del client HTTP per le chiamate API
+    [Inject] private HttpClient Http { get; set; }
+
+    private bool caricamentoInCorso = false;
+    
+    private string messaggioSerie = "";
+    private bool isErroreSerie = false;
+
+    private string messaggioProfili = "";
+    private bool isErroreProfili = false;
+
+    // Massimo peso del file concesso in transito (15 Mega per file corposi di officina)
+    private long maxFileSize = 1024 * 1024 * 15;
+
+    // --- CARICAMENTO EXCEL SERIE ---
+    private async Task CaricaFileSerie(InputFileChangeEventArgs e)
+    {
+        caricamentoInCorso = true;
+        messaggioSerie = "Caricamento in corso...";
+        isErroreSerie = false;
+        StateHasChanged();
+
+        try
+        {
+            var file = e.File;
+            using var content = new MultipartFormDataContent();
+            var fileContent = new StreamContent(file.OpenReadStream(maxFileSize));
+            
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+            content.Add(fileContent, "file", file.Name);
+
+            // Chiamata all'endpoint reale registrato in SerieController.cs
+            var response = await Http.PostAsync("api/serie/importare-excel", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                messaggioSerie = "✅ Archivio Serie sincronizzato con successo in SQL Server!";
+            }
+            else
+            {
+                isErroreSerie = true;
+                messaggioSerie = $"❌ Errore server: {response.StatusCode}. Verifica la struttura dei dati.";
+            }
+        }
+        catch (Exception ex)
+        {
+            isErroreSerie = true;
+            messaggioSerie = $"💥 Errore di transito: {ex.Message}";
+        }
+        finally
+        {
+            caricamentoInCorso = false;
+            StateHasChanged();
+        }
+    }
+
+    // --- CARICAMENTO EXCEL PROFILI ---
+    private async Task CaricaFileProfili(InputFileChangeEventArgs e)
+    {
+        caricamentoInCorso = true;
+        messaggioProfili = "Caricamento in corso...";
+        isErroreProfili = false;
+        StateHasChanged();
+
+        try
+        {
+            var file = e.File;
+            using var content = new MultipartFormDataContent();
+            var fileContent = new StreamContent(file.OpenReadStream(maxFileSize));
+            
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+            content.Add(fileContent, "file", file.Name);
+
+            // Chiamata all'endpoint reale registrato in ProfiliController.cs
+            var response = await Http.PostAsync("api/profili/importare-profili", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                messaggioProfili = "✅ Catalogo Profili importato correttamente e agganciato alle serie!";
+            }
+            else
+            {
+                isErroreProfili = true;
+                messaggioProfili = $"❌ Errore server: {response.StatusCode}. Controlla la relazione delle serie.";
+            }
+        }
+        catch (Exception ex)
+        {
+            isErroreProfili = true;
+            messaggioProfili = $"💥 Errore di transito: {ex.Message}";
+        }
+        finally
+        {
+            caricamentoInCorso = false;
+            StateHasChanged();
+        }
+    }
+}

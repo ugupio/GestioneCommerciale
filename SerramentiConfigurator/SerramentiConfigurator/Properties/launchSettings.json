@@ -1,0 +1,16 @@
+{
+  "$schema": "schemastore.org",
+  "profiles": {
+    "SerramentiConfigurator.Server": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "inspectUri": "",
+      "applicationUrl": "https://localhost:7237;http://localhost:5295",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DOTNET_MODIFIABLE_ASSEMBLIES": "off"
+      }
+    }
+  }
+}

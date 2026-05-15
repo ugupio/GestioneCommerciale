@@ -1,0 +1,150 @@
+﻿@page "/cantiere/{CantiereId:int}/commessa/{CommessaId:int}"
+@using SerramentiConfigurator.Models
+@inject NavigationManager Navigation
+
+<PageTitle>Dettaglio Commessa | Serramenti</PageTitle>
+
+<div class="container mt-4">
+    <!-- Navigazione "Breadcrumb" ad alto contrasto -->
+    <div class="mb-4 text-secondary small">
+        <a href="/" class="text-decoration-none text-secondary">Cantieri</a> /
+        <span class="text-white">@NomeCantiere</span> /
+        <span class="text-info">@TitoloCommessa</span>
+    </div>
+
+    <!-- Header della Commessa -->
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold mb-0">@TitoloCommessa</h1>
+            <p class="text-secondary mb-0">Lista elementi e fabbisogno materiali complessivo</p>
+        </div>
+        <button class="btn-nuovo-infisso" @onclick="AggiungiNuovoInfisso">+ Aggiungi Infisso</button>
+    </div>
+
+    <div class="row g-4">
+        <!-- COLONNA SINISTRA: Elenco Infissi (Card Satinate) -->
+        <div class="col-lg-8">
+            <h5 class="text-secondary mb-3 fw-bold">ELEMENTI INSERITI (@Elementi.Count)</h5>
+            
+            @if (Elementi.Count == 0)
+            {
+                <div class="glass-card text-center py-5 text-secondary">
+                    <i class="bi bi-plus-circle display-4 text-info"></i>
+                    <p class="mt-2 mb-0">Nessun infisso presente. Clicca su "+ Aggiungi Infisso" per iniziare.</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var infisso in Elementi)
+                {
+                    <div class="item-card glass-panel mb-3 position-relative">
+                        <div class="row align-items-center">
+                            <!-- Icona Tipologia -->
+                            <div class="col-auto">
+                                <div class="tech-icon-container">
+                                    <i class="bi bi-window display-6 text-info"></i>
+                                </div>
+                            </div>
+                            
+                            <!-- Dati Tecnici Principali -->
+                            <div class="col">
+                                <div class="d-flex align-items-center gap-2">
+                                    <h5 class="fw-bold mb-0 text-white">@infisso.EtichettaVano</h5>
+                                    <span class="badge-serie">@infisso.SerieProfilo</span>
+                                </div>
+                                <p class="text-secondary small mb-0 mt-1">
+                                    Schema: <strong>@infisso.TipologiaApertura</strong> |
+                                    Finitura: <span class="text-light">@infisso.Colore</span>
+                                </p>
+                                <div class="mt-2">
+                                    <span class="tech-dim">L: <strong>@infisso.Larghezza mm</strong></span>
+                                    <span class="tech-dim ms-3">H: <strong>@infisso.Altezza mm</strong></span>
+                                    <span class="tech-dim ms-3 text-info">Qtà: <strong>@infisso.Quantita</strong></span>
+                                </div>
+                            </div>
+
+                            <!-- Pulsanti Azione Rapidi -->
+                            <div class="col-auto text-end">
+                                <!-- NUOVO PULSANTE: Configura Graficamente -->
+                                <button class="btn btn-info btn-sm me-2 text-dark fw-bold"
+                                        style="border-radius: 8px;"
+                                        title="Apri Configuratore Tecnico 2D/3D"
+                                        @onclick="() => ApriConfiguratore(infisso.Id)">
+                                    <i class="bi bi-sliders me-1"></i> Configura
+                                </button>
+                                <button class="btn btn-outline-light btn-sm me-2" style="border-radius: 8px;">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" style="border-radius: 8px;">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <!-- COLONNA DESTRA: Riepilogo Fabbisogno Materiali Complessivo -->
+        <div class="col-lg-4">
+            <h5 class="text-secondary mb-3 fw-bold">RIEPILOGO MATERIALI (COMMESSA)</h5>
+            <div class="glass-card panel-riepilogo">
+                <h6 class="text-info fw-bold mb-3">PROFILI (Calcolo stimato a barre)</h6>
+                <ul class="list-unstyled text-secondary small">
+                    <li class="mb-2 d-flex justify-content-between">
+                        <span>Telaio Z (6.0m):</span> <strong class="text-white">5 Barre</strong>
+                    </li>
+                    <li class="mb-2 d-flex justify-content-between">
+                        <span>Anta Sormonto (6.0m):</span> <strong class="text-white">7 Barre</strong>
+                    </li>
+                    <li class="mb-3 d-flex justify-content-between">
+                        <span>Inversore Battuta (6.5m):</span> <strong class="text-white">2 Barre</strong>
+                    </li>
+                </ul>
+
+                <hr class="border-secondary border-opacity-25 my-3" />
+
+                <h6 class="text-info fw-bold mb-3">ACCESSORI E MECCANISMI</h6>
+                <ul class="list-unstyled text-secondary small">
+                    <li class="mb-2 d-flex justify-content-between">
+                        <span>Kit Chiusura C.E. (2 Ante):</span> <strong class="text-white">2 Kit</strong>
+                    </li>
+                    <li class="mb-2 d-flex justify-content-between">
+                        <span>Cerniere Flash:</span> <strong class="text-white">12 Pz</strong>
+                    </li>
+                    <li class="mb-2 d-flex justify-content-between">
+                        <span>Squadrette ad espansione:</span> <strong class="text-white">24 Pz</strong>
+                    </li>
+                </ul>
+
+                <button class="btn-invia-ordine w-100 mt-4">INVIA RICHIESTA ORDINE</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int CantiereId { get; set; }
+    [Parameter] public int CommessaId { get; set; }
+
+    private string NomeCantiere = "Scuola Elementare Pascoli";
+    private string TitoloCommessa = "Infissi Primo Piano";
+
+    private List<ElementoInfisso> Elementi = new()
+    {
+        new ElementoInfisso { Id = 101, EtichettaVano = "Aula 10", TipologiaApertura = "2 Ante", SerieProfilo = "CX650", Colore = "RAL 7016 Opaco", Larghezza = 1400, Altezza = 1500, Quantita = 4 },
+        new ElementoInfisso { Id = 102, EtichettaVano = "Corridoio Nord", TipologiaApertura = "Fisso + Vasistas", SerieProfilo = "CX650", Colore = "RAL 7016 Opaco", Larghezza = 900, Altezza = 2200, Quantita = 2 },
+        new ElementoInfisso { Id = 103, EtichettaVano = "Bagni Personale", TipologiaApertura = "1 Anta Vasistas", SerieProfilo = "RX450", Colore = "Bianco Raggrinzato", Larghezza = 600, Altezza = 600, Quantita = 5 }
+    };
+
+    private void ApriConfiguratore(int elementoId)
+    {
+        // Reindirizza al configuratore grafico passando l'ID dell'infisso selezionato
+        Navigation.NavigateTo($"/configuratore/{elementoId}");
+    }
+
+    private void AggiungiNuovoInfisso()
+    {
+        // Logica futura per inserire un nuovo elemento vuoto
+    }
+}

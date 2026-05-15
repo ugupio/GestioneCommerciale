@@ -1,0 +1,142 @@
+﻿@page "/"
+@using SerramentiConfigurator.Models
+
+<PageTitle>Dashboard | Serramenti</PageTitle>
+
+<div class="container mt-4 text-white">
+    <!-- Intestazione ad alto contrasto -->
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold mb-0 text-white">I miei Progetti</h1>
+            <p class="text-light opacity-75">Gestione cantieri e commesse attive</p>
+        </div>
+        <button class="btn btn-primary px-4 py-2" style="border-radius: 12px; font-weight: 600;">+ Nuovo Cantiere</button>
+    </div>
+
+    <!-- BARRA DI RICERCA E FILTRI -->
+    <div class="glass-card mb-4 p-3 d-flex flex-wrap gap-3 align-items-center" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px;">
+        <div class="flex-grow-1 position-relative">
+            <!-- Icona di ricerca forzata via testo se il font non carica -->
+            <span class="position-absolute top-50 translate-middle-y ms-3 text-light opacity-50">🔍</span>
+            <input type="text" class="form-control bg-dark border-secondary text-white ps-5"
+                   style="border-radius: 12px; background: rgba(0,0,0,0.4) !important; color: #fff !important;"
+                   placeholder="Cerca per nome, città o cliente..."
+                   @bind-value="TestoRicerca" @bind-value:event="oninput" />
+        </div>
+        
+        <div class="btn-group" role="group">
+            <button class="btn btn-outline-light @(StatoSelezionato == "" ? "active" : "")" @onclick='() => FiltraPerStato("")'>Tutti</button>
+            <button class="btn btn-outline-light @(StatoSelezionato == "In Corso" ? "active" : "")" @onclick='() => FiltraPerStato("In Corso")'>In Corso</button>
+            <button class="btn btn-outline-light @(StatoSelezionato == "Completato" ? "active" : "")" @onclick='() => FiltraPerStato("Completato")'>Completati</button>
+        </div>
+    </div>
+
+    <!-- GRIGLIA CANTIERI FILTRATA -->
+    <div class="row g-4">
+        @if (CantieriFiltrati.Count == 0)
+        {
+            <div class="col-12 text-center py-5 text-light opacity-50">
+                <p class="fs-4">📁 Nessun cantiere trovato</p>
+                <p class="small">Modifica i criteri di ricerca impostati.</p>
+            </div>
+        }
+        else
+        {
+            @foreach (var cantiere in CantieriFiltrati)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <!-- Card con sfondo e bordi ad alta visibilità -->
+                    <div class="p-4" style="background: rgba(30, 41, 59, 0.7); border: 2px solid @(cantiere.IsPinned ? "#06b6d4" : "rgba(255,255,255,0.1)"); border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                        
+                        <!-- Interfaccia di PIN testuale e visiva robusta -->
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h4 class="fw-bold text-white mb-0" style="font-size: 1.3rem;">@cantiere.Nome</h4>
+                            <button class="btn btn-sm p-1 text-decoration-none backend-pin-btn"
+                                    style="background: rgba(255,255,255,0.1); border-radius: 6px;"
+                                    @onclick="() => InvertiPin(cantiere)">
+                                @(cantiere.IsPinned ? "📌 Fissato" : "📍 Fissa")
+                            </button>
+                        </div>
+
+                        <p class="text-light opacity-75 small mb-3">📍 @cantiere.Localita</p>
+                        
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <span class="badge px-2.5 py-1.5" style="background-color: @(cantiere.Stato == "In Corso" ? "#0369a1" : "#15803d"); color: #fff; font-size: 0.8rem; font-weight: bold;">
+                                @cantiere.Stato
+                            </span>
+                            <small class="text-light opacity-50">@cantiere.DataCreazione.ToString("dd/MM/yyyy")</small>
+                        </div>
+
+                        <!-- SEZIONE COMMESSE COLLEGATE (Risolto contrasto e navigazione) -->
+                        <div class="border-top border-secondary border-opacity-50 pt-3">
+                            <h6 class="text-light opacity-75 small fw-bold mb-2">COMMESSE ATTIVE:</h6>
+                            @if (cantiere.Commesse.Count == 0)
+                            {
+                                <p class="text-light opacity-50 small italic mb-0">Nessuna commessa inserita.</p>
+                            }
+                            else
+                            {
+                                <div class="d-flex flex-column gap-2">
+                                    @foreach (var commessa in cantiere.Commesse)
+                                    {
+                                        <!-- Utilizzo del tag anchor <a> nativo con stile forzato per evitare il nero su nero -->
+                                        <a href="/cantiere/@cantiere.Id/commessa/@commessa.Id"
+                                               class="w-100 p-2 d-flex justify-content-between align-items-center text-decoration-none custom-commessa-link"
+                                               style="background: #0f172a; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: #38bdf8 !important;">
+                                            <span style="font-weight: 600;">📁 @commessa.TitoloCommessa</span>
+                                            <span class="text-light opacity-50 font-monospace">➔</span>
+                                        </a>
+                                    }
+                                </div>
+                            }
+                        </div>
+
+                    </div>
+                </div>
+            }
+        }
+    </div>
+    <!-- PULSANTE DI APERTURA STRUMENTO SINCRONIZZAZIONE ARCHIVI -->
+    <div class="mt-5 text-end border-top border-secondary border-opacity-25 pt-4">
+        <a href="/amministrazione/importatore" class="btn btn-sm text-secondary text-decoration-none" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 16px;">
+            ⚙️ Pannello Gestione Archivi FP Pro B2B
+        </a>
+    </div>
+</div>
+
+@code {
+    private string TestoRicerca { get; set; } = "";
+    private string StatoSelezionato { get; set; } = "";
+    private List<Cantiere> ListaCantieri = new();
+
+    protected override void OnInitialized()
+    {
+        var c1 = new Cantiere { Id = 1, Nome = "Scuola Elementare Pascoli", Localita = "Milano", Stato = "In Corso", IsPinned = true, DataCreazione = DateTime.Now.AddDays(-10) };
+        c1.Commesse.Add(new Commessa { Id = 1, CantiereId = 1, TitoloCommessa = "Infissi Primo Piano" });
+        c1.Commesse.Add(new Commessa { Id = 2, CantiereId = 1, TitoloCommessa = "Facciata Continua Atrio" });
+
+        var c2 = new Cantiere { Id = 2, Nome = "Palazzo Verderame", Localita = "Torino", Stato = "Completato", IsPinned = false, DataCreazione = DateTime.Now.AddDays(-30) };
+        c2.Commesse.Add(new Commessa { Id = 3, CantiereId = 2, TitoloCommessa = "Sostituzione Vetrate" });
+
+        var c3 = new Cantiere { Id = 3, Nome = "Condominio Aurora", Localita = "Milano", Stato = "In Corso", IsPinned = false, DataCreazione = DateTime.Now.AddDays(-2) };
+        c3.Commesse.Add(new Commessa { Id = 4, CantiereId = 3, TitoloCommessa = "Portoncini d'Ingresso" });
+
+        ListaCantieri.AddRange(new[] { c1, c2, c3 });
+    }
+
+    private List<Cantiere> CantieriFiltrati => ListaCantieri
+        .OrderByDescending(c => c.IsPinned)
+        .Where(c => (string.IsNullOrEmpty(StatoSelezionato) || c.Stato == StatoSelezionato) &&
+                    (string.IsNullOrEmpty(TestoRicerca) ||
+                     c.Nome.Contains(TestoRicerca, StringComparison.OrdinalIgnoreCase) ||
+                     c.Localita.Contains(TestoRicerca, StringComparison.OrdinalIgnoreCase)))
+        .ToList();
+
+    private void FiltraPerStato(string stato) => StatoSelezionato = stato;
+
+    private void InvertiPin(Cantiere cantiere)
+    {
+        cantiere.IsPinned = !cantiere.IsPinned;
+        StateHasChanged();
+    }
+}

@@ -1,0 +1,524 @@
+﻿@page "/configuratore/{ElementoId:int}"
+@using SerramentiConfigurator.Models
+@inject NavigationManager Navigation
+
+
+
+<div class="configuratore-container">
+    <!-- COLONNA 1: PARAMETRI INFISSO (SINISTRA) -->
+    <div class="colonna parametri">
+        <h3>📐 Parametri Geometrici</h3>
+        <div class="form-group">
+            <label>Larghezza (mm)</label>
+            <input type="number" @bind-value="elemento.Larghezza" @bind-value:event="oninput" @onchange="Ricalcola" min="400" max="3000" />
+        </div>
+        <div class="form-group">
+            <label>Altezza (mm)</label>
+            <input type="number" @bind-value="elemento.Altezza" @bind-value:event="oninput" @onchange="Ricalcola" min="400" max="3000" />
+        </div>
+        
+        <h3>🎨 Estetica e Serie</h3>
+        <div class="form-group">
+            <label>Serie Profilo</label>
+            <!-- Usiamo value e @onchange esplicito invece di @bind -->
+            <select value="@elemento.SerieProfilo" @onchange="OnSerieProfiloChanged">
+                <option value="CX650">CX650 (Battente 65mm)</option>
+                <option value="CX750">CX750 (Taglio Termico Alto)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Colore</label>
+            <select @bind="elemento.Colore">
+                <option value="RAL9010">Bianco Puro RAL 9010</option>
+                <option value="RAL7016">Grigio Antracite RAL 7016</option>
+                <option value="Anodizzato">Argento Anodizzato</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- COLONNA 2: CANVAS INTERATTIVI (CENTRO) -->
+    <div class="colonna canvas-center">
+        <div class="tabs">
+            <button class="@(vistaAttiva == "2D" ? "active" : "")" @onclick='() => CambiaVista("2D")'>Sezione Tecnica 2D (SVG)</button>
+            <button class="@(vistaAttiva == "3D" ? "active" : "")" @onclick='() => CambiaVista("3D")'>Vista 3D (Three.js)</button>
+        </div>
+
+        <div class="render-area">
+            @if (vistaAttiva == "2D")
+            {
+                // Estrariamo tutte le logiche di calcolo e di assegnazione stringhe prima dell'SVG
+                // per evitare conflitti con i tag grafici condizionali di .NET
+                string rgbProfilo = "#334155"; // Default Grigio Tecnico
+                if (elemento.Colore == "RAL9010") rgbProfilo = "#f8fafc";      // Bianco Puro
+                else if (elemento.Colore == "RAL7016") rgbProfilo = "#1e293b"; // Grigio Antracite
+                else if (elemento.Colore == "Anodizzato") rgbProfilo = "#cbd5e1"; // Argento Argentato
+
+                int spTelaio = 65;
+                int spAnta = 75;
+                int sormonto = 23;
+                int spFermavetro = 20;
+
+                int wUtileApribile = elemento.HaFiancoluce ? (elemento.Larghezza - elemento.LarghezzaFiancoluce) : elemento.Larghezza;
+                int hUtileApribile = elemento.HaSopraluce ? (elemento.Altezza - elemento.AltezzaSopraluce) : elemento.Altezza;
+                int yStartApribile = elemento.HaSopraluce ? elemento.AltezzaSopraluce : 0;
+
+                int xAntaEsterna = (elemento.TelaioSinistro ? spTelaio : 0) - sormonto;
+                int yAntaEsterna = (elemento.HaSopraluce ? elemento.AltezzaSopraluce + 35 : (elemento.TelaioSuperiore ? spTelaio : 0)) - sormonto;
+                int wAntaTotale = wUtileApribile - (elemento.TelaioSinistro ? spTelaio : 0) - (elemento.HaFiancoluce ? 35 : (elemento.TelaioDestro ? spTelaio : 0)) + (sormonto * 2);
+                int hAntaTotale = hUtileApribile - (elemento.HaSopraluce ? 35 : (elemento.TelaioSuperiore ? spTelaio : 0)) - (elemento.TelaioInferiore ? spTelaio : 0) + (sormonto * 2);
+
+                int wSingolaAnta = (wAntaTotale / 2) - 3;
+                int xAnta2 = xAntaEsterna + wSingolaAnta + 6;
+                int yZoccolo = yAntaEsterna + hAntaTotale - spAnta - elemento.AltezzaZoccolo;
+
+                int xManiglia = elemento.VersoApertura == "Destra" ? (xAntaEsterna + 25) : (xAntaEsterna + wAntaTotale - 35);
+                if (elemento.NumeroAnte == 2 && elemento.VersoApertura == "Destra") xManiglia = xAntaEsterna + (wAntaTotale / 2) + 25;
+                int yManiglia = yAntaEsterna + (hAntaTotale / 2);
+
+                <svg viewBox="-100 -100 @(elemento.Larghezza + 200) @(elemento.Altezza + 200)" width="100%" height="100%" class="svg-tecnico" style="background-color: #0c111d; border-radius: 12px; box-shadow: inset 0 0 40px rgba(0,0,0,0.6);">
+                    <defs>
+                        <linearGradient id="vetroCelesteGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="rgba(56, 189, 248, 0.45)" />
+                            <stop offset="50%" stop-color="rgba(6, 182, 212, 0.25)" />
+                            <stop offset="100%" stop-color="rgba(14, 165, 233, 0.1)" />
+                        </linearGradient>
+                        
+                        <linearGradient id="alluminioSatinato" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#94a3b8" />
+                            <stop offset="50%" stop-color="#e2e8f0" />
+                            <stop offset="100%" stop-color="#64748b" />
+                        </linearGradient>
+
+                        <filter id="ombraElemento" x="-30%" y="-30%" width="160%" height="160%">
+                            <feDropShadow dx="4" dy="5" stdDeviation="4" flood-color="#000" flood-opacity="0.6" />
+                        </filter>
+                    </defs>
+
+                    <g>
+                        <!-- 1. TELAIO PERIMETRALE UNIFORMEMENTE COLORATO -->
+                        <rect x="0" y="0" width="@elemento.Larghezza" height="@elemento.Altezza" fill="@rgbProfilo" fill-opacity="0.15" stroke="@rgbProfilo" stroke-width="8" />
+                        
+                        <rect x="@(elemento.TelaioSinistro ? spTelaio : 0)"
+                              y="@(elemento.TelaioSuperiore ? spTelaio : 0)"
+                              width="@(elemento.Larghezza - (elemento.TelaioSinistro ? spTelaio : 0) - (elemento.TelaioDestro ? spTelaio : 0))"
+                              height="@(elemento.Altezza - (elemento.TelaioSuperiore ? spTelaio : 0) - (elemento.TelaioInferiore ? spTelaio : 0))"
+                              fill="none" stroke="@rgbProfilo" stroke-width="3" opacity="0.9" />
+
+                        <!-- 2. DISEGNO MODULARE: SOPRALUCE E FIANCOLUCE -->
+                        @if (elemento.HaSopraluce)
+                        {
+                            <rect x="0" y="@(elemento.AltezzaSopraluce - 35)" width="@elemento.Larghezza" height="70" fill="@rgbProfilo" fill-opacity="0.8" stroke="rgba(0,0,0,0.4)" stroke-width="2" />
+                            <rect x="@(spTelaio + 5)" y="@(spTelaio + 5)" width="@(elemento.Larghezza - (spTelaio * 2) - 10)" height="@(elemento.AltezzaSopraluce - spTelaio - 45)" fill="none" stroke="#d97706" stroke-width="4" />
+                            <rect x="@(spTelaio + 10)" y="@(spTelaio + 10)" width="@(elemento.Larghezza - (spTelaio * 2) - 20)" height="@(elemento.AltezzaSopraluce - spTelaio - 55)" fill="url(#vetroCelesteGrad)" stroke="#38bdf8" stroke-width="1.5" />
+                        }
+                        @if (elemento.HaFiancoluce)
+                        {
+                            <rect x="@(elemento.Larghezza - elemento.LarghezzaFiancoluce - 35)" y="@(elemento.HaSopraluce ? elemento.AltezzaSopraluce : 0)" width="70" height="@(elemento.Altezza - (elemento.HaSopraluce ? elemento.AltezzaSopraluce : 0))" fill="@rgbProfilo" fill-opacity="0.8" stroke="rgba(0,0,0,0.4)" stroke-width="2" />
+                            <rect x="@(elemento.Larghezza - elemento.LarghezzaFiancoluce + 40)" y="@(yStartApribile + spTelaio + 5)" width="@(elemento.LarghezzaFiancoluce - spTelaio - 45)" height="@(hUtileApribile - (spTelaio * 2) - 10)" fill="none" stroke="#d97706" stroke-width="4" />
+                            <rect x="@(elemento.Larghezza - elemento.LarghezzaFiancoluce + 45)" y="@(yStartApribile + spTelaio + 10)" width="@(elemento.LarghezzaFiancoluce - spTelaio - 55)" height="@(hUtileApribile - (spTelaio * 2) - 20)" fill="url(#vetroCelesteGrad)" stroke="#38bdf8" stroke-width="1.5" />
+                        }
+
+                        <!-- 3. SEZIONE ANTE APRIBILI REALI CON VETRO CELESTE -->
+                        @if (elemento.NumeroAnte == 1)
+                        {
+                            <rect x="@xAntaEsterna" y="@yAntaEsterna" width="@wAntaTotale" height="@hAntaTotale" fill="@rgbProfilo" stroke="rgba(0,0,0,0.5)" stroke-width="3" />
+                            <rect x="@(xAntaEsterna + spAnta)" y="@(yAntaEsterna + spAnta)" width="@(wAntaTotale - (spAnta * 2))" height="@(hAntaTotale - (spAnta * 2))" fill="#020617" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+                            <rect x="@(xAntaEsterna + spAnta + 2)" y="@(yAntaEsterna + spAnta + 2)" width="@(wAntaTotale - (spAnta * 2) - 4)" height="@(hAntaTotale - (spAnta * 2) - 4)" fill="none" stroke="#d97706" stroke-width="5" />
+                            <rect x="@(xAntaEsterna + spAnta + spFermavetro)" y="@(yAntaEsterna + spAnta + spFermavetro)" width="@(wAntaTotale - (spAnta * 2) - (spFermavetro * 2))" height="@(hAntaTotale - (spAnta * 2) - (spFermavetro * 2))" fill="url(#vetroCelesteGrad)" stroke="#06b6d4" stroke-width="1.5" />
+                        }
+                        else if (elemento.NumeroAnte == 2)
+                        {
+                            <!-- ANTA SINISTRA -->
+                            <rect x="@xAntaEsterna" y="@yAntaEsterna" width="@wSingolaAnta" height="@hAntaTotale" fill="@rgbProfilo" stroke="rgba(0,0,0,0.5)" stroke-width="3" />
+                            <rect x="@(xAntaEsterna + spAnta)" y="@(yAntaEsterna + spAnta)" width="@(wSingolaAnta - (spAnta * 2))" height="@(hAntaTotale - (spAnta * 2))" fill="#020617" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+                            <rect x="@(xAntaEsterna + spAnta + 2)" y="@(yAntaEsterna + spAnta + 2)" width="@(wSingolaAnta - (spAnta * 2) - 4)" height="@(hAntaTotale - (spAnta * 2) - 4)" fill="none" stroke="#d97706" stroke-width="5" />
+                            <rect x="@(xAntaEsterna + spAnta + spFermavetro)" y="@(yAntaEsterna + spAnta + spFermavetro)" width="@(wSingolaAnta - (spAnta * 2) - (spFermavetro * 2))" height="@(hAntaTotale - (spAnta * 2) - (spFermavetro * 2))" fill="url(#vetroCelesteGrad)" stroke="#06b6d4" stroke-width="1.5" />
+
+                            <!-- INVERSORE DI BATTUTA STRUTTURALE -->
+                            <rect x="@(xAntaEsterna + wSingolaAnta - 2)" y="@(yAntaEsterna + 2)" width="10" height="@(hAntaTotale - 4)" fill="@rgbProfilo" stroke="rgba(0,0,0,0.5)" stroke-width="2" />
+
+                            <!-- ANTA DESTRA (Principale) -->
+                            <rect x="@xAnta2" y="@yAntaEsterna" width="@wSingolaAnta" height="@hAntaTotale" fill="@rgbProfilo" stroke="rgba(0,0,0,0.5)" stroke-width="3" />
+                            <rect x="@(xAnta2 + spAnta)" y="@(yAntaEsterna + spAnta)" width="@(wSingolaAnta - (spAnta * 2))" height="@(hAntaTotale - (spAnta * 2))" fill="#020617" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+                            <rect x="@(xAnta2 + spAnta + 2)" y="@(yAntaEsterna + spAnta + 2)" width="@(wSingolaAnta - (spAnta * 2) - 4)" height="@(hAntaTotale - (spAnta * 2) - 4)" fill="none" stroke="#d97706" stroke-width="5" />
+                            <rect x="@(xAnta2 + spAnta + spFermavetro)" y="@(yAntaEsterna + spAnta + spFermavetro)" width="@(wSingolaAnta - (spAnta * 2) - (spFermavetro * 2))" height="@(hAntaTotale - (spAnta * 2) - (spFermavetro * 2))" fill="url(#vetroCelesteGrad)" stroke="#06b6d4" stroke-width="1.5" />
+
+                        }
+
+                        <!-- SEZIONE STRUTTURA ZOCCOLO INFERIORE -->
+                        @if (elemento.AntaHaZoccoloInferiore)
+                        {
+                            if (elemento.NumeroAnte == 1)
+                            {
+                                <rect x="@(xAntaEsterna + 4)" y="@yZoccolo" width="@(wAntaTotale - 8)" height="@elemento.AltezzaZoccolo" fill="@rgbProfilo" stroke="rgba(0,0,0,0.6)" stroke-width="2" />
+                            }
+                            else
+                            {
+                                <rect x="@(xAntaEsterna + 4)" y="@yZoccolo" width="@(wSingolaAnta - 6)" height="@elemento.AltezzaZoccolo" fill="@rgbProfilo" stroke="rgba(0,0,0,0.6)" stroke-width="2" />
+                                <rect x="@(xAntaEsterna + wSingolaAnta + 8)" y="@yZoccolo" width="@(wSingolaAnta - 10)" height="@elemento.AltezzaZoccolo" fill="@rgbProfilo" stroke="rgba(0,0,0,0.6)" stroke-width="2" />
+                            }
+                        }
+
+                        <!-- Linee tratteggiate di officina (Cinematica) -->
+                        <g stroke="rgba(255, 255, 255, 0.45)" stroke-width="2.5" stroke-dasharray="8,5" fill="none">
+                            @if (elemento.VersoApertura == "Destra")
+                            {
+                                int xCerniera = elemento.NumeroAnte == 2 ? (xAntaEsterna + (wAntaTotale / 2) + 4) : xAntaEsterna;
+                                <line x1="@xCerniera" y1="@yAntaEsterna" x2="@(xAntaEsterna + wAntaTotale)" y2="@(yAntaEsterna + hAntaTotale / 2)" />
+                                <line x1="@xCerniera" y1="@(yAntaEsterna + hAntaTotale)" x2="@(xAntaEsterna + wAntaTotale)" y2="@(yAntaEsterna + hAntaTotale / 2)" />
+                            }
+                            else if (elemento.VersoApertura == "Sinistra")
+                            {
+                                int xCerniera = elemento.NumeroAnte == 2 ? (xAntaEsterna + (wAntaTotale / 2) - 4) : (xAntaEsterna + wAntaTotale);
+                                <line x1="@xCerniera" y1="@yAntaEsterna" x2="@xAntaEsterna" y2="@(yAntaEsterna + hAntaTotale / 2)" />
+                                <line x1="@xCerniera" y1="@(yAntaEsterna + hAntaTotale)" x2="@xAntaEsterna" y2="@(yAntaEsterna + hAntaTotale / 2)" />
+                            }
+                            else if (elemento.VersoApertura == "Vasistas")
+                            {
+                                <line x1="@xAntaEsterna" y1="@(yAntaEsterna + hAntaTotale)" x2="@(xAntaEsterna + wAntaTotale / 2)" y2="@yAntaEsterna" />
+                                <line x1="@(xAntaEsterna + wAntaTotale)" y1="@(yAntaEsterna + hAntaTotale)" x2="@(xAntaEsterna + wAntaTotale / 2)" y2="@yAntaEsterna" />
+                            }
+                        </g>
+
+                        <!-- 4. CERNIERE FLASH INGRANDITE 1.5X -->
+                        <g filter="url(#ombraElemento)">
+                            @if (elemento.VersoApertura == "Destra")
+                            {
+                                int xCern = wAntaTotale + xAntaEsterna - 12;
+                                @RenderCernieraSicura(xCern, yAntaEsterna + 100, "V")
+                                @RenderCernieraSicura(xCern, yAntaEsterna + (hAntaTotale / 2) - 25, "V")
+                                @RenderCernieraSicura(xCern, yAntaEsterna + hAntaTotale - 160, "V")
+                                @if (elemento.NumeroAnte == 2)
+                                {
+                                    @RenderCernieraSicura(xAntaEsterna - 12, yAntaEsterna + 100, "V")
+                                    @DisegnaCernieraSecondariaSx(xAntaEsterna - 12, yAntaEsterna + hAntaTotale - 160)
+                                }
+                            }
+                            else if (elemento.VersoApertura == "Sinistra")
+                            {
+                                int xCern = xAntaEsterna - 12;
+                                @RenderCernieraSicura(xCern, yAntaEsterna + 100, "V")
+                                @RenderCernieraSicura(xCern, yAntaEsterna + (hAntaTotale / 2) - 25, "V")
+                                @RenderCernieraSicura(xCern, yAntaEsterna + hAntaTotale - 160, "V")
+                            }
+                            else if (elemento.VersoApertura == "Vasistas")
+                            {
+                                @RenderCernieraSicura(xAntaEsterna + 120, yAntaEsterna + hAntaTotale - 12, "H")
+                                @RenderCernieraSicura(xAntaEsterna + wAntaTotale - 170, yAntaEsterna + hAntaTotale - 12, "H")
+                            }
+                        </g>
+
+                        <!-- 5. FERRAMENTA MANIGLIA INGRANDITA 1.5X -->
+                        @if (elemento.VersoApertura != "Vasistas")
+                        {
+                            <g transform="translate(@xManiglia, @yManiglia) scale(1.5)" filter="url(#ombraElemento)">
+                                @if (elemento.TipoAperturaFerramenta == "Cremonese")
+                                {
+                                    <rect x="-10" y="-35" width="20" height="70" rx="2" fill="url(#alluminioSatinato)" stroke="#334155" stroke-width="1" />
+                                    <circle cx="0" cy="-26" r="1.8" fill="#475569" />
+                                    <circle cx="0" cy="26" r="1.8" fill="#475569" />
+                                    <circle cx="0" cy="0" r="6" fill="#1e293b" />
+                                    @if (elemento.VersoApertura == "Destra")
+                                    {
+                                        <path d="M 0,-6 L 36,-6 C 40,-6 44,-3 44,2 L 44,6 C 44,11 40,14 36,14 L 0,14 Z" fill="url(#alluminioSatinato)" stroke="#334155" stroke-width="0.8" />
+                                    }
+                                    else
+                                    {
+                                        <path d="M 0,-6 L -36,-6 C -40,-6 -44,-3 -44,2 L -44,6 C -44,11 -40,14 -36,14 L 0,14 Z" fill="url(#alluminioSatinato)" stroke="#334155" stroke-width="0.8" />
+                                    }
+                                }
+                                else
+                                {
+                                    <rect x="-8" y="-22" width="16" height="44" rx="7" fill="url(#alluminioSatinato)" stroke="#334155" stroke-width="1" />
+                                    <circle cx="0" cy="0" r="5" fill="#0f172a" />
+                                    @if (elemento.VersoApertura == "Destra")
+                                    {
+                                        <path d="M 0,0 L 38,0 C 44,0 48,6 42,12 L 36,20" fill="none" stroke="url(#alluminioSatinato)" stroke-width="7" stroke-linecap="round" />
+                                    }
+                                    else
+                                    {
+                                        <path d="M 0,0 L -38,0 C -44,0 -48,6 -42,12 L -36,20" fill="none" stroke="url(#alluminioSatinato)" stroke-width="7" stroke-linecap="round" />
+                                    }
+                                }
+                            </g>
+                        }
+                        else
+                        {
+                            <g transform="translate(@(xAntaEsterna + wAntaTotale / 2), @(yAntaEsterna + 15)) scale(1.5)" filter="url(#ombraElemento)">
+                                <rect x="-16" y="-6" width="32" height="12" fill="url(#alluminioSatinato)" stroke="#334155" rx="1" />
+                                <path d="M -5,6 L -8,18 L 8,18 L 5,6 Z" fill="#475569" stroke="#0f172a" />
+                            </g>
+                        }
+
+                        <!-- 6. QUOTE METRICHE PERIMETRALI -->
+                        <text x="@(elemento.Larghezza / 2)" y="-45" text-anchor="middle" fill="#38bdf8" font-weight="bold" font-size="16" font-family="monospace">L: @elemento.Larghezza mm</text>
+                        <text x="-55" y="@(elemento.Altezza / 2)" text-anchor="middle" transform="rotate(-90, -55, @(elemento.Altezza / 2))" fill="#38bdf8" font-weight="bold" font-size="16" font-family="monospace">H: @elemento.Altezza mm</text>
+                    </g>
+                </svg>
+            }
+            else
+            {
+                <div id="threejs-canvas" class="threejs-container"></div>
+            }
+        </div>
+
+    </div>
+
+    <!-- COLONNA 3: DISTINTA ANALITICA B2B (DESTRA) -->
+    <div class="colonna distinta">
+        <h3>📦 Fabbisogno Materiali (Sfrido Puro)</h3>
+        <table class="tabella-materiali">
+            <thead>
+                <tr>
+                    <th>Codice</th>
+                    <th>Descrizione</th>
+                    <th>Q.tà Teorica</th>
+                    <th>Ordinativo B2B</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>PR-TX-01</td>
+                    <td>Profilo Telaio (@elemento.SerieProfilo)</td>
+                    <td>@MetriLineariTelaio m</td>
+                    <td><strong>@BarreTelaio Barre da 6m</strong></td>
+                </tr>
+                <tr>
+                    <td>PR-AN-02</td>
+                    <td>Profilo Anta (@elemento.SerieProfilo)</td>
+                    <td>@MetriLineariAnta m</td>
+                    <td><strong>@BarreAnta Barre da 6m</strong></td>
+                </tr>
+                <tr>
+                    <td>AC-MAN-09</td>
+                    <td>Kit Maniglia + Meccanismi</td>
+                    <td>1 Pz</td>
+                    <td><strong>1 Kit</strong></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <button class="btn-ordine" @onclick="SalvaConfigurazione">💾 Salva Configurazione</button>
+    </div>
+</div>
+
+
+
+@code {
+    [Parameter] public int ElementoId { get; set; }
+    
+    // Liste che simulano il contenuto delle tabelle del Database
+    private List<ProfiloCatalogo> CatalogoProfili = new();
+    private List<AccessorioCatalogo> CatalogoAccessori = new();
+    private List<RegolaFerramenta> MatriceRegole = new();
+    
+    // Inizializzazione sicura di default per evitare valori nulli nei calcoli tecnici
+    private ElementoInfisso elemento = new()
+    {
+        Id = 0,
+        EtichettaVano = "Nuovo Infisso",
+        TipologiaApertura = "Fisso",
+        SerieProfilo = "CX650",
+        Colore = "RAL7016",
+        Larghezza = 1000,
+        Altezza = 1000,
+        Quantita = 1
+    };
+    
+    private string vistaAttiva = "2D";
+
+        // Rendering isolato e protetto delle cerniere Flash 1.5x
+    private RenderFragment RenderCernieraSicura(int x, int y, string orientamento) => __builder => {
+        <g transform="translate(@x, @y) scale(1.5)">
+            @if(orientamento == "V") {
+                <rect x="-5" y="6" width="3" height="18" rx="1" fill="#334155" />
+                <rect x="6" y="6" width="3" height="18" rx="1" fill="#334155" />
+                <rect x="-2" y="0" width="8" height="14" fill="url(#alluminioSatinato)" stroke="#1e293b" stroke-width="0.5" />
+                <rect x="-2" y="15" width="8" height="14" fill="url(#alluminioSatinato)" stroke="#1e293b" stroke-width="0.5" />
+                <line x1="-2" y1="14.5" x2="6" y2="14.5" stroke="#0f172a" stroke-width="0.8" />
+            } else {
+                <rect x="0" y="-2" width="14" height="8" fill="url(#alluminioSatinato)" stroke="#334155" stroke-width="0.5" />
+                <rect x="15" y="-2" width="14" height="8" fill="url(#alluminioSatinato)" stroke="#334155" stroke-width="0.5" />
+            }
+        </g>
+    };
+
+    private RenderFragment DisegnaCernieraSecondariaSx(int x, int y) => __builder => {
+        <g transform="translate(@x, @y) scale(1.5)">
+            <rect x="-2" y="0" width="8" height="14" fill="url(#alluminioSatinato)" stroke="#1e293b" stroke-width="0.5" />
+            <rect x="-2" y="15" width="8" height="14" fill="url(#alluminioSatinato)" stroke="#1e293b" stroke-width="0.5" />
+        </g>
+    };
+
+
+    private void TornaAllaCommessa()
+    {
+        int cantiereId = 1;
+        int commessaId = 1;
+        
+        // Mappatura temporanea per i test basata sull'ID elemento
+        if (ElementoId == 103) { cantiereId = 2; commessaId = 3; }
+
+        // Uso corretto, pulito e nativo del NavigationManager di Blazor
+        Navigation.NavigateTo($"/cantiere/{cantiereId}/commessa/{commessaId}");
+    }
+
+
+
+    protected override void OnInitialized()
+    {
+        // 1. Popolamento Tabella Profili (con lunghezze commerciali differenziate)
+        // Sostituisci il vecchio popolamento di test con questo, usando gli ID reali di FP Pro (48 e 12)
+        CatalogoProfili.AddRange(new[] {
+        // SERIE CX650 (ID FP Pro: 48)
+        new ProfiloCatalogo { Id = 1, SerieSerramentoId = 48, CodiceArticolo = "PR-CX-TL", Descrizione = "Telaio Z 65mm TT", TipoProfilo = "Telaio", LunghezzaCommercialeBarra = 6.8, PrezzoAlMetro = 12.50m },
+        new ProfiloCatalogo { Id = 2, SerieSerramentoId = 48, CodiceArticolo = "PR-CX-AN", Descrizione = "Anta Sormonto TT", TipoProfilo = "Anta", LunghezzaCommercialeBarra = 6.8, PrezzoAlMetro = 14.20m },
+        new ProfiloCatalogo { Id = 3, SerieSerramentoId = 48, CodiceArticolo = "PR-CX-INV", Descrizione = "Inversore di Battuta TT", TipoProfilo = "Inversore", LunghezzaCommercialeBarra = 6.8, PrezzoAlMetro = 11.80m },
+        new ProfiloCatalogo { Id = 4, SerieSerramentoId = 48, CodiceArticolo = "PR-CX-T", Descrizione = "Profilo a T Esterno TT", TipoProfilo = "TraversoT", LunghezzaCommercialeBarra = 6.8, PrezzoAlMetro = 13.10m },
+        new ProfiloCatalogo { Id = 5, SerieSerramentoId = 48, CodiceArticolo = "PR-CX-FV", Descrizione = "Fermavetro a scatto TT", TipoProfilo = "Fermavetro", LunghezzaCommercialeBarra = 6.8, PrezzoAlMetro = 4.50m },
+        new ProfiloCatalogo { Id = 6, SerieSerramentoId = 48, CodiceArticolo = "PR-CX-ZC", Descrizione = "Zoccolo Riportato 150mm TT", TipoProfilo = "Zoccolo", LunghezzaCommercialeBarra = 6.8, PrezzoAlMetro = 18.50m },
+
+        // SERIE RX450 (ID FP Pro: 12)
+        new ProfiloCatalogo { Id = 7, SerieSerramentoId = 12, CodiceArticolo = "PR-RX-TL", Descrizione = "Telaio Z Freddo", TipoProfilo = "Telaio", LunghezzaCommercialeBarra = 6.5, PrezzoAlMetro = 7.20m },
+        new ProfiloCatalogo { Id = 8, SerieSerramentoId = 12, CodiceArticolo = "PR-RX-AN", Descrizione = "Anta Sormonto Fredda", TipoProfilo = "Anta", LunghezzaCommercialeBarra = 6.5, PrezzoAlMetro = 8.50m },
+        new ProfiloCatalogo { Id = 9, SerieSerramentoId = 12, CodiceArticolo = "PR-RX-INV", Descrizione = "Inversore Battuta Freddo", TipoProfilo = "Inversore", LunghezzaCommercialeBarra = 6.5, PrezzoAlMetro = 6.90m },
+        new ProfiloCatalogo { Id = 10, SerieSerramentoId = 12, CodiceArticolo = "PR-RX-T", Descrizione = "Profilo a T Freddo", TipoProfilo = "TraversoT", LunghezzaCommercialeBarra = 6.5, PrezzoAlMetro = 7.80m },
+        new ProfiloCatalogo { Id = 11, SerieSerramentoId = 12, CodiceArticolo = "PR-RX-FV", Descrizione = "Fermavetro Clip Freddo", TipoProfilo = "Fermavetro", LunghezzaCommercialeBarra = 6.5, PrezzoAlMetro = 2.80m }
+    });
+
+
+        // 2. Popolamento Tabella Accessori
+        CatalogoAccessori.AddRange(new[] {
+            new AccessorioCatalogo { Id = 1, CodiceArticolo = "AC-CER-FL", Descrizione = "Cerniera Esterna Flash", UnitaMisura = "Pz", PrezzoUnitario = 8.50m },
+            new AccessorioCatalogo { Id = 2, CodiceArticolo = "AC-KIT-CR", Descrizione = "Kit Meccanismo Cremonese", UnitaMisura = "Kit", PrezzoUnitario = 24.00m },
+            new AccessorioCatalogo { Id = 3, CodiceArticolo = "AC-KIT-MA", Descrizione = "Kit Martellina Ovale", UnitaMisura = "Kit", PrezzoUnitario = 18.50m },
+            new AccessorioCatalogo { Id = 4, CodiceArticolo = "AC-KIT-VAS", Descrizione = "Kit Braccetti Chiusura Vasistas", UnitaMisura = "Kit", PrezzoUnitario = 32.00m }
+        });
+
+        // 3. Mappatura Regole Incastro Tecnico
+        MatriceRegole.AddRange(new[] {
+            new RegolaFerramenta { Id = 1, SerieProfilo = "CX650", TipoAperturaFerramenta = "Cremonese", CodiceAccessorioCorrelato = "AC-KIT-CR", LogicaCalcolo = "Fisso", QuantitaMoltiplicatore = 1 },
+            new RegolaFerramenta { Id = 2, SerieProfilo = "CX650", TipoAperturaFerramenta = "Maniglia", CodiceAccessorioCorrelato = "AC-KIT-MA", LogicaCalcolo = "Fisso", QuantitaMoltiplicatore = 1 },
+            new RegolaFerramenta { Id = 3, SerieProfilo = "RX450", TipoAperturaFerramenta = "Cremonese", CodiceAccessorioCorrelato = "AC-KIT-CR", LogicaCalcolo = "Fisso", QuantitaMoltiplicatore = 1 }
+        });
+
+        // Caricamento record fittizio da configurare (Allineati i dati strutturali B2B)
+        if (ElementoId == 101)
+        {
+            elemento = new ElementoInfisso { Id = 101, EtichettaVano = "Aula 10", TipologiaApertura = "2 Ante", SerieProfilo = "CX650", Colore = "RAL 7016 Opaco", Larghezza = 1400, Altezza = 1500, Quantita = 4, NumeroAnte = 2, TelaioSuperiore = true, TelaioInferiore = true, TelaioSinistro = true, TelaioDestro = true };
+        }
+        else if (ElementoId == 102)
+        {
+            elemento = new ElementoInfisso { Id = 102, EtichettaVano = "Corridoio Nord", TipologiaApertura = "Fisso + Vasistas", SerieProfilo = "CX650", Colore = "RAL 7016 Opaco", Larghezza = 900, Altezza = 2200, Quantita = 2, NumeroAnte = 1, HaSopraluce = true, AltezzaSopraluce = 400 };
+        }
+        else if (ElementoId == 103)
+        {
+            elemento = new ElementoInfisso { Id = 103, EtichettaVano = "Bagni Personale", TipologiaApertura = "1 Anta Vasistas", SerieProfilo = "RX450", Colore = "Bianco Raggrinzato", Larghezza = 600, Altezza = 600, Quantita = 5, NumeroAnte = 1, VersoApertura = "Vasistas" };
+        }
+    }
+
+    // =========================================================================
+    // 🧮 MOTORE DI CALCOLO DINAMICO BASATO SUL CATALOGO (LINQ)
+    // =========================================================================
+
+    // Helper di estrazione delle proprietà fisiche degli articoli a database
+    
+
+    
+
+    
+
+    
+
+    // --- CALCOLO METRATURE GEOMETRICHE AL MILLIMETRO ---
+    private int LarghezzaUtileAnta => elemento.HaFiancoluce ? (elemento.Larghezza - elemento.LarghezzaFiancoluce) : elemento.Larghezza;
+    private int AltezzaUtileAnta => elemento.HaSopraluce ? (elemento.Altezza - elemento.AltezzaSopraluce) : elemento.Altezza;
+
+    // Sfrido sul telaio calcolato esclusivamente sui lati attivi
+    private double MetriLineariTelaio => Math.Round(((elemento.TelaioSuperiore ? elemento.Larghezza : 0) + (elemento.TelaioInferiore ? elemento.Larghezza : 0) + (elemento.TelaioSinistro ? elemento.Altezza : 0) + (elemento.TelaioDestro ? elemento.Altezza : 0)) / 1000.0, 2);
+    
+    // Sfrido sulle ante riproporzionato in base al numero di ante attive e alla presenza dello zoccolo
+    private double MetriLineariAnta => Math.Round((
+        (elemento.NumeroAnte * ((LarghezzaUtileAnta - 80) / elemento.NumeroAnte * 2)) +
+        (elemento.NumeroAnte * ((AltezzaUtileAnta - 80) * 2))
+    ) / 1000.0, 2);
+
+    private double MetriLineariFermavetro => Math.Round((((elemento.Larghezza - 140) * 2) + ((elemento.Altezza - 140) * 2)) / 1000.0, 2);
+    private double MetriLineariRiportoCentrale => elemento.NumeroAnte == 2 ? Math.Round((AltezzaUtileAnta - 80) / 1000.0, 2) : 0;
+    private double MetriLineariTraversoSopraluce => elemento.HaSopraluce ? Math.Round(elemento.Larghezza / 1000.0, 2) : 0;
+    private double MetriLineariMontanteFiancoluce => elemento.HaFiancoluce ? Math.Round(elemento.Altezza / 1000.0, 2) : 0;
+    private double MetriLineariZoccolo => elemento.AntaHaZoccoloInferiore ? Math.Round((LarghezzaUtileAnta - 80) / 1000.0, 2) : 0;
+
+    // --- CALCOLO ORDINATIVI COMMERCIALI B2B (Divisione per lunghezza barra di serie) ---
+    private int BarreTelaio => (int)Math.Ceiling(MetriLineariTelaio / OttieniLunghezzaBarra("Telaio"));
+    private int BarreAnta => (int)Math.Ceiling(MetriLineariAnta / OttieniLunghezzaBarra("Anta"));
+    private int BarreFermavetro => (int)Math.Ceiling(MetriLineariFermavetro / OttieniLunghezzaBarra("Fermavetro"));
+    private int BarreRiporto => (int)Math.Ceiling(MetriLineariRiportoCentrale / OttieniLunghezzaBarra("Inversore"));
+    private int BarreTraversiT => (int)Math.Ceiling((MetriLineariTraversoSopraluce + MetriLineariMontanteFiancoluce) / OttieniLunghezzaBarra("TraversoT"));
+    private int BarreZoccolo => (int)Math.Ceiling(MetriLineariZoccolo / OttieniLunghezzaBarra("Zoccolo"));
+
+    // --- LOGICA ACCESSORI ---
+    private int PezziCerniere => elemento.VersoApertura == "Vasistas" ? 2 : 3;
+    private string DescrizioneKitFerramenta => elemento.VersoApertura == "Vasistas" ? "Kit Chiusura Vasistas" : $"Kit Meccanismo {elemento.TipoAperturaFerramenta}";
+
+    // --- LOGICA DI NAVIGAZIONE E AGGIORNAMENTO INTERFACCIA ---
+    private void Ricalcola()
+    {
+        StateHasChanged();
+    }
+
+    private void CambiaVista(string vista)
+    {
+        vistaAttiva = vista;
+    }
+
+    private void OnSerieProfiloChanged(ChangeEventArgs e)
+    {
+        elemento.SerieProfilo = e.Value?.ToString() ?? "CX650";
+        ApplicaFiltriMatrice();
+    }
+
+    private void ApplicaFiltriMatrice()
+    {
+        // Identifichiamo l'ID corretto di FP Pro in base alla stringa selezionata nell'interfaccia
+        int idSerieFpPro = elemento.SerieProfilo == "CX650" ? 48 : (elemento.SerieProfilo == "RX450" ? 12 : 0);
+
+        // Eseguiamo il filtraggio del catalogo profili basandoci sulla chiave numerica del database
+        var profiliDellaSerie = CatalogoProfili.Where(p => p.SerieSerramentoId == idSerieFpPro).ToList();
+        
+        // Forza l'aggiornamento grafico del componente Blazor
+        StateHasChanged();
+    }
+
+
+    private async Task SalvaConfigurazione()
+    {
+        await Task.CompletedTask;
+    }
+
+    // --- HELPER DI RICERCA NEL CATALOGO ALLINEATI AL DATABASE DI FP PRO ---
+    private double OttieniLunghezzaBarra(string tipo)
+    {
+        int idSerieFpPro = elemento.SerieProfilo == "CX650" ? 48 : (elemento.SerieProfilo == "RX450" ? 12 : 0);
+        var profilo = CatalogoProfili.FirstOrDefault(p => p.SerieSerramentoId == idSerieFpPro && p.TipoProfilo == tipo);
+        return profilo?.LunghezzaCommercialeBarra ?? 6.0;
+    }
+
+    private string OttieniCodiceArticolo(string tipo)
+    {
+        int idSerieFpPro = elemento.SerieProfilo == "CX650" ? 48 : (elemento.SerieProfilo == "RX450" ? 12 : 0);
+        var profilo = CatalogoProfili.FirstOrDefault(p => p.SerieSerramentoId == idSerieFpPro && p.TipoProfilo == tipo);
+        return profilo?.CodiceArticolo ?? "COD-ERR";
+    }
+
+    private string OttieniDescrizioneArticolo(string tipo)
+    {
+        int idSerieFpPro = elemento.SerieProfilo == "CX650" ? 48 : (elemento.SerieProfilo == "RX450" ? 12 : 0);
+        var profilo = CatalogoProfili.FirstOrDefault(p => p.SerieSerramentoId == idSerieFpPro && p.TipoProfilo == tipo);
+        return profilo?.Descrizione ?? "Articolo non trovato a catalogo";
+    }
+
+
+}
+
+
