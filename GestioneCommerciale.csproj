@@ -18,9 +18,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Update="wwwroot\images\logo-alq.jpg">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
     <Content Update="wwwroot\images\logo-twin.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

@@ -38,11 +38,10 @@ public class DocumentoOrdine : IDocument
             col.Item().Row(row =>
             {
                 row.RelativeItem().Column(c => {
-                    c.Item().Text("ALQ GENOVA").FontSize(20).ExtraBold().FontColor(Colors.Blue.Medium);
-                    c.Item().Text("Sede Legale: Via E. De Amicis, Milano").FontSize(7).FontColor(Colors.Grey.Medium);
-                    c.Item().Text("Sede Operativa: Via Colano, 9 - Genova Bolzaneto").FontSize(7).FontColor(Colors.Grey.Medium);
-                    c.Item().Text("Tel. +39 010 7491941 - Email: info@alqgenovasrl.com").FontSize(7).FontColor(Colors.Grey.Medium);
-                    c.Item().Text("CF/P.IVA e N° Reg.Imprese MI.12574490962 - REA/CCIAA MI26700419").FontSize(7).FontColor(Colors.Grey.Medium);
+                    c.Item().Text("PROFILATI UMBRIA S.r.l.").FontSize(16).ExtraBold().FontColor(Colors.Blue.Medium);
+                    c.Item().Text("Sede Legale: Via dei Tigli 35 - 06083 - Bastia Umbra (PG)").FontSize(7).FontColor(Colors.Grey.Medium);
+                    c.Item().Text("Tel. +39 075 8012385 - +39 075 8010328 - Email: info@profilatiumbria.it").FontSize(7).FontColor(Colors.Grey.Medium);
+                    c.Item().Text("P.Iva-C.F.05419781009").FontSize(7).FontColor(Colors.Grey.Medium);
                 });
 
                 // BOX DESTINATARIO (Sempre visibile)
@@ -295,11 +294,10 @@ public class DocumentoOrdine : IDocument
         {
             col.Item().LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten1);
             col.Item().AlignCenter().Text(t => {
-                t.Span("ALQ GENOVA S.r.l. - Sede Legale: Via E. De Amicis, Milano | ").FontSize(7);
-                t.Span("Sede Operativa: Genova | ").FontSize(7);
-                t.Span("Sede Amm.: Firenze").FontSize(7);
-            });
-            col.Item().AlignCenter().Text("P.IVA 01234567890 - Tel: 010 7491941").FontSize(7);
+                t.Span("PROFILATI UMBRIA S.r.l. - Sede Legale: Via dei Tigli 35").FontSize(7);
+                t.Span("06083 - Bastia Umbra (PG) | ").FontSize(7);
+        });
+            col.Item().AlignCenter().Text("P.IVA 05419781009 - Tel: 075 8012385").FontSize(7);
             col.Item().AlignRight().Text(x => {
                 x.Span("Pagina ");
                 x.CurrentPageNumber();

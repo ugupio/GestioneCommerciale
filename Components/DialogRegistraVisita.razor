@@ -63,6 +63,11 @@
                 <textarea class="form-control bg-light" @bind="VisitaModello.NoteEsito" style="height: 200px; width:100%; resize:none;"></textarea>
             </div>
 
+            <div class="col-12">
+                <label class="small fw-bold">🏁 CONCLUSIONI</label>
+                <textarea class="form-control bg-light" @bind="VisitaModello.Conclusioni" style="height: 100px; width:100%; resize:none;" placeholder="Sintesi / azioni consigliate"></textarea>
+            </div>
+
             <div class="col-md-6">
                 <div class="form-check form-switch p-2 bg-light rounded shadow-sm">
                     <input class="form-check-input ms-1" type="checkbox" @bind="VisitaModello.RichiedeSeguito" id="swS" />
@@ -92,9 +97,9 @@
     [Parameter] public List<Cliente> ListaClienti { get; set; }
     [Parameter] public string Titolo { get; set; }
 
-    // Riduciamo il rischio Null iniezione diretta invece che Cascading
-    void Salva() => DialogService.Close(true);
-    void Annulla() => DialogService.Close(false);
+    // Restituisci l'oggetto Visita quando si salva, null se annullato, "delete" se eliminato
+    void Salva() => DialogService.Close(VisitaModello);
+    void Annulla() => DialogService.Close(null);
     void Elimina() => DialogService.Close("delete");
     string GetNomeCliente(int id) => ListaClienti?.FirstOrDefault(c => c.IdCliente == id)?.RagSociale ?? "Cliente selezionato";
 

@@ -1,0 +1,60 @@
+@using GestioneCommerciale.Models
+@using Radzen
+@using Radzen.Blazor
+@inject DialogService DialogService
+
+<div class="p-3" style="min-width:360px;">
+	<h5>Programma appuntamento</h5>
+	<div class="mb-2">
+		<label class="small">Data (YYYY-MM-DD)</label>
+		<input type="text" class="form-control form-control-sm" placeholder="2026-01-31" @bind-value="dataString" @bind-value:event="onchange" />
+	</div>
+	<div class="mb-2">
+		<label class="small">Ora (HH:mm)</label>
+		<input type="text" class="form-control form-control-sm" placeholder="09:30" @bind-value="oraString" @bind-value:event="onchange" />
+	</div>
+	<div class="mb-2">
+		<label class="small">Durata (minuti)</label>
+		<input type="number" class="form-control form-control-sm" min="15" max="480" @bind="durata" />
+	</div>
+	<div class="d-flex justify-content-end mt-3">
+		<button class="btn btn-link" @onclick="Cancel">Annulla</button>
+		<button class="btn btn-primary ms-2" @onclick="Save">Salva</button>
+	</div>
+</div>
+
+@code {
+	[Parameter] public DateTime? ParamDataInizio { get; set; }
+	[Parameter] public TimeSpan? ParamOra { get; set; }
+	[Parameter] public int? ParamDurata { get; set; }
+
+	private string dataString = string.Empty;
+	private string oraString = string.Empty;
+	private int durata = 60;
+
+	protected override void OnInitialized()
+	{
+		if (ParamDataInizio.HasValue) dataString = ParamDataInizio.Value.ToString("yyyy-MM-dd");
+		if (ParamOra.HasValue) oraString = ParamOra.Value.ToString(@"hh\:mm");
+		if (ParamDurata.HasValue) durata = ParamDurata.Value;
+	}
+
+	void Save()
+	{
+		if (string.IsNullOrEmpty(dataString))
+		{
+			// require date
+			DialogService.Close(null);
+			return;
+		}
+
+		var date = DateTime.Parse(dataString).Date;
+		TimeSpan time = TimeSpan.Zero;
+		if (!string.IsNullOrEmpty(oraString)) time = TimeSpan.Parse(oraString);
+
+		var appunt = new Appuntamento { DataInizio = date.Add(time), DurataMinuti = durata };
+		DialogService.Close(appunt);
+	}
+
+	void Cancel() => DialogService.Close(null);
+}

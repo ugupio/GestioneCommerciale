@@ -24,6 +24,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddRadzenComponents();
 builder.Services.AddScoped<PianificatoreService>();
 builder.Services.AddScoped<VisitaService>();
+builder.Services.AddScoped<ProdottiService>();
 
 
 var app = builder.Build();

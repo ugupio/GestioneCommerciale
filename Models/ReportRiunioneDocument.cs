@@ -43,13 +43,13 @@ namespace GestioneCommerciale.Models
         void ComposeHeader(QuestPDF.Infrastructure.IContainer container)
         {
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            string pathAlq = Path.Combine(baseDir, "wwwroot", "images", "logo-alq.jpg");
+            string pathAlq = Path.Combine(baseDir, "wwwroot", "images", "profilati.png");
             string pathTwin = Path.Combine(baseDir, "wwwroot", "images", "logo-twin.png");
 
             if (!File.Exists(pathAlq))
             {
                 string projectRoot = Directory.GetParent(baseDir)?.Parent?.Parent?.FullName ?? baseDir;
-                pathAlq = Path.Combine(projectRoot, "wwwroot", "images", "logo-alq.jpg");
+                pathAlq = Path.Combine(projectRoot, "wwwroot", "images", "profilati.png");
                 pathTwin = Path.Combine(projectRoot, "wwwroot", "images", "logo-twin.png");
             }
 

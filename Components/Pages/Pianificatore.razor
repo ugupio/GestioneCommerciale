@@ -25,6 +25,89 @@
         box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
     }
 
+@if (showConflictsModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">Conflitti trovati in Agenda</h5>
+                    <button type="button" class="btn-close" @onclick="CloseConflictsModal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p>Per i seguenti clienti sono già presenti appuntamenti per la data selezionata. Scegli quali salvare comunque.</p>
+                    @if (SaveConflicts != null && SaveConflicts.Any())
+                    {
+                        @foreach (var sc in SaveConflicts)
+                        {
+                            <div class="border rounded p-2 mb-2">
+                                <div class="d-flex align-items-center">
+                                    <input type="checkbox" class="me-3" checked="@sc.Save" @onchange="@(e => sc.Save = (e.Value as bool?) ?? (e.Value?.ToString() == "on"))" />
+                                    <div style="font-weight:800;">Proposta: @sc.Proposed.RagSociale - @sc.Proposed.OrarioArrivo.ToString("HH:mm")</div>
+                                </div>
+                                <div class="mt-2 ms-4">
+                                    <div style="font-weight:700;">Appuntamenti esistenti:</div>
+                                    @foreach (var ex in sc.Existing)
+                                    {
+                                        <div style="font-size:13px;color:#444;">• @ex.Titolo — @ex.DataInizio.ToString("HH:mm") - @ex.DataFine.ToString("HH:mm")</div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseConflictsModal">Annulla</button>
+                    <button class="btn btn-primary" @onclick="ConfirmSaveConflicts">Salva selezionati</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+@if (showPreviewModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Anteprima: tappe proposte</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="ClosePreview"></button>
+                </div>
+
+                <div class="modal-body">
+                    @if (PropostaAnteprima != null && PropostaAnteprima.Any())
+                    {
+                        <div class="list-group">
+                            @foreach (var t in PropostaAnteprima)
+                            {
+                                <div class="list-group-item d-flex align-items-center">
+                                    <input type="checkbox" class="me-3" checked="@t.Selected" @onchange="@(e => OnPreviewToggle(t, e))" />
+                                    <div style="flex:0 0 90px; font-weight:800;">@t.OrarioArrivo.ToString("HH:mm")</div>
+                                    <div style="flex:1;">
+                                        <div style="font-weight:700;">@t.RagSociale</div>
+                                        <div style="font-size:12px; color:#666;">@t.Citta • @t.KmDaPuntoPrecedente.ToString("N1") km</div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div>Nessuna proposta generata.</div>
+                    }
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" @onclick="ClosePreview">Chiudi</button>
+                    <button class="btn btn-primary" @onclick="ApplyPreviewToGiro">Applica al piano</button>
+                    <button class="btn btn-success" @onclick="SavePreviewToAgenda">Salva direttamente in Agenda</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
     .tappa-ora {
         font-weight: bold;
         color: #1e3c72;
@@ -123,91 +206,138 @@
 
 </style>
 
+<style>
+    /* Responsive adjustments for toolbar to avoid horizontal scroll on small screens */
+    .toolbar-premium { flex-wrap: wrap; gap: 8px; }
+    .toolbar-premium > div, .toolbar-premium > button { margin-bottom: 6px; }
 
-<div class="toolbar-premium" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
-    
-    <!-- SINISTRA: Pulsanti Azione -->
-<div style="display: flex; align-items: center; gap: 10px;">
-    <button class="btn-comando-ordine" @onclick='(() => Nav.NavigateTo("/"))' style="height: 52px;">
-        <span>🏠</span><span>HOME</span>
-    </button>
-    <button class="btn-comando-ordine btn-start-verde" @onclick="(() => CalcolaGiro())" style="height: 52px;">
-        <span>⚙️</span><span>CALCOLA</span>
-    </button>
-    <button class="btn-comando-ordine btn-start-azzurro" @onclick="(() => ApriGestioneZone())" style="height: 52px;">
-        <span>🗺️</span><span>ZONE</span>
-    </button>
-    <button class="btn-comando-ordine" @onclick="SalvaAgenda" style="height: 52px;">
-        <span>💾</span><span>SALVA</span>
-    </button>
+    /* Hide text labels on very small screens and keep icons visible */
+    @@media (max-width: 780px) {
+        .btn-comando-ordine { min-width: 54px !important; height: 44px !important; padding: 6px !important; font-size: 11px !important; }
+        .btn-comando-ordine span:nth-child(2) { display: none !important; }
+        .btn-comando-ordine span:first-child { font-size: 1.4rem !important; }
+        .toolbar-premium { padding: 8px; }
+        .toolbar-premium input[type="date"], .toolbar-premium input[type="time"], .toolbar-premium select { width: 100px !important; }
+    }
 
-    <!-- Giorno Pianificazione: Label sopra e Input sotto -->
-    <div style="display: flex; flex-direction: column; justify-content: center; height: 52px;">
-        <label style="font-size: 10px; font-weight: bold; color: #1e3c72; margin-bottom: 2px; text-transform: uppercase;">Giorno Pianificazione:</label>
-        <input type="date" 
-               class="form-control" 
-               style="font-size: 12px; height: 28px; padding: 2px 15px; width: 140px; border-radius: 6px;"
-               value="@DataPianificazione.ToString("yyyy-MM-dd")" 
-               @onchange="@((ChangeEventArgs e) => DataPianificazione = DateTime.Parse(e.Value.ToString()))" 
-                />
-    </div>
-    <button type="button" 
-            class="btn-comando-ordine" 
-            style="height: 28px; font-size: 12px; display: flex; align-items: center; border-radius: 6px;" 
-            @onclick="ApriPopup"> 
-        <i class="oi oi-magnifying-glass me-1"></i> Cerca Clienti per Provincia
-    </button>
-</div>
+    @@media (max-width: 520px) {
+        .btn-comando-ordine { min-width: 48px !important; height: 40px !important; }
+        .toolbar-premium { padding: 6px; }
+        .toolbar-premium > div { width: 100%; display: flex; justify-content: space-between; }
+    }
+</style>
 
 
-    <!-- DESTRA: Setup Partenza e Orari -->
-<div style="display: flex; align-items: center; gap: 15px; background: white; padding: 5px 5px; border-radius: 6px; border: 1px solid #ccc; height: 75px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-    
-    <!-- GRUPPO 1: DOVE (Indirizzo e Zona) -->
-    <div style="display: flex; flex-direction: column; justify-content: center; gap: 2px;">
-        <div style="display: flex; align-items: center; gap: 5px;">
-            <label style="font-size: 8px; font-weight: bold; color: #1e3c72; width: 65px; margin:0; line-height:1;">PARTENZA DA:</label>
-            <input type="text" @bind="IndirizzoPartenza" 
-                   style="border: none; border-bottom: 1px solid #eee; font-size: 11px; width: 220px; outline: none; padding: 0;" 
-                   placeholder="Via Capri 17, Piombino..." />
-            <span @onclick="SalvaComePredefinito" style="cursor:pointer; font-size: 10px;" title="Salva predefinito">📌</span>
+<div class="toolbar-premium" style="display: flex; flex-direction: column; gap:8px; align-items: stretch; padding: 10px 20px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+
+    <!-- RIGA 1: pulsanti e indicatori -->
+    <div class="toolbar-row toolbar-top" style="display:flex; justify-content: space-between; align-items: center; gap:12px;">
+        <div class="actions-left" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <button class="btn-comando-ordine" @onclick='(() => Nav.NavigateTo("/"))' style="height:44px;">
+                <span>🏠</span><span>HOME</span>
+            </button>
+            <button class="btn-comando-ordine btn-start-verde" @onclick="(() => CalcolaGiro())" style="height:44px;">
+                <span>⚙️</span><span>CALCOLA</span>
+            </button>
+            <button class="btn-comando-ordine btn-start-azzurro" @onclick="(() => ApriGestioneZone())" style="height:44px;">
+                <span>🗺️</span><span>ZONE</span>
+            </button>
+            <button class="btn-comando-ordine" @onclick="SalvaAgenda" style="height:44px;">
+                <span>💾</span><span>SALVA</span>
+            </button>
+            <button class="btn-comando-ordine" @onclick="SelectAllTappe" style="height:44px; background:#e6fff7; color:#0b8457;">
+                <span>✔️</span><span>SELEZIONA</span>
+            </button>
+            <button class="btn-comando-ordine" @onclick="DeselectAllTappe" style="height:44px; background:#fff5f5; color:#a71d2a;">
+                <span>✖️</span><span>DESEL</span>
+            </button>
+            <button class="btn-comando-ordine btn-start-azzurro" @onclick="OttimizzaOrdine" style="height:44px;">
+                <span>🧭</span><span>OTTIMIZZA</span>
+            </button>
+            <button class="btn-comando-ordine" @onclick="RiempiGiornata" style="height:44px; background:#fff8e1; color:#7a5901;">
+                <span>🔄</span><span>RIEMPI</span>
+            </button>
         </div>
-        <div style="display: flex; align-items: center; gap: 5px;">
-            <label style="font-size: 8px; font-weight: bold; color: #1e3c72; width: 65px; margin:0; line-height:1;">ZONA:</label>
-            <select @bind="IdZonaSelezionata" style="border: none; background: transparent; font-size: 11px; font-weight: bold; cursor: pointer; outline: none; padding: 0; width: 220px;">
-                <option value="0">Scegli zona...</option>
-                @foreach (var z in ListeZone) {
-                    <option value="@z.IdZona">@z.NomeZona</option>
-                }
-            </select>
-        </div>
-    </div>
 
-    <!-- GRUPPO 2: QUANDO (Orari allargati per visibilità) -->
-    <div style="display: flex; flex-direction: column; justify-content: center; border-left: 1px solid #ddd; padding-left: 15px; gap: 2px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <label style="font-size: 8px; font-weight: bold; color: #1e3c72; width: 40px; margin:0; line-height:1;">PARTENZA:</label>
-            <input type="time" 
-                   value="@OrarioPartenzaPrevisto.ToString(@"hh\:mm")" 
-                   @onchange="@((ChangeEventArgs e) => OrarioPartenzaPrevisto = TimeSpan.Parse(e.Value?.ToString() ?? "08:30"))"
-                   style="border: 1px solid #eee; border-radius:3px; font-size: 12px; font-weight: bold; background: #f9f9f9; width: 85px; padding: 0 2px;" />
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <label style="font-size: 8px; font-weight: bold; color: #1e3c72; width: 40px; margin:0; line-height:1;">RIENTRO:</label>
-            <input type="time" 
-                   value="@OrarioRientroMassimo.ToString(@"hh\:mm")" 
-                   @onchange="@((ChangeEventArgs e) => OrarioRientroMassimo = TimeSpan.Parse(e.Value?.ToString() ?? "18:00"))"
-                   style="border: 1px solid #eee; border-radius:3px; font-size: 12px; font-weight: bold; background: #f9f9f9; width: 85px; padding: 0 2px;" />
+        <div class="actions-right" style="display:flex; align-items:center; gap:12px;">
+            <div style="display:flex; flex-direction:column; justify-content:center; text-align:right;">
+                <div style="font-size:10px; color:#64748b; font-weight:700;">Selezionate</div>
+                <div style="font-size:16px; font-weight:800; color:#1e3c72;">@((GiroProposto?.Count(t => t.Selected) ?? 0)) / @((GiroProposto?.Count) ?? 0)</div>
+            </div>
+            <div style="display:flex; flex-direction:column; justify-content:center; text-align:right;">
+                <div style="font-size:10px; color:#64748b; font-weight:700;">Tempo rimanente</div>
+                <div style="font-size:16px; font-weight:800; color:#1e3c72;">@GetTempoRimanenteString()</div>
+            </div>
+            <div style="display:flex; flex-direction: column; justify-content: center;">
+                <label style="font-size: 10px; font-weight: bold; color: #1e3c72; margin-bottom: 2px; text-transform: uppercase;">Giorno Pianificazione:</label>
+                <input type="date" 
+                       class="form-control" 
+                       style="font-size: 12px; height: 28px; padding: 2px 8px; width: 140px; border-radius: 6px;"
+                       value="@DataPianificazione.ToString("yyyy-MM-dd")" 
+                       @onchange="@((ChangeEventArgs e) => DataPianificazione = DateTime.Parse(e.Value.ToString()))" 
+                        />
+            </div>
         </div>
     </div>
 
-    <!-- RIENTRO PRANZO -->
-    <div style="display: flex; align-items: center; gap: 8px; border-left: 1px solid #ddd; padding-left: 10px;">
-        <input type="checkbox" @bind="IsRientroPranzo" id="pPranzoSmall" style="width: 16px; height: 16px; cursor: pointer;" />
-        <label for="pPranzoSmall" style="font-size: 8px; font-weight: bold; cursor: pointer; line-height: 1; margin:0;">RIENTRO<br>PRANZO</label>
-    </div>
-</div>
+    <!-- RIGA 2: impostazioni partenza, zona, orari e ricerca clienti -->
+    <div class="toolbar-row toolbar-bottom" style="display:flex; justify-content: space-between; align-items: center; gap:12px;">
+        <div style="display:flex; align-items:center; gap:15px;">
+            <div style="display: flex; align-items: center; gap: 8px; background: white; padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; box-shadow: 0 2px 4px rgba(0,0,0,0.03);">
+                <div style="display: flex; flex-direction: column; justify-content: center; gap: 2px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-size: 10px; font-weight: bold; color: #1e3c72; width: 85px; margin:0; line-height:1;">PARTENZA DA:</label>
+                        <input type="text" @bind="IndirizzoPartenza" 
+                               style="border: none; border-bottom: 1px solid #eee; font-size: 12px; width: 260px; outline: none; padding: 0;" 
+                               placeholder="Via Capri 17, Piombino..." />
+                        <span @onclick="SalvaComePredefinito" style="cursor:pointer; font-size: 12px;" title="Salva predefinito">📌</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-size: 10px; font-weight: bold; color: #1e3c72; width: 85px; margin:0; line-height:1;">ZONA:</label>
+                        <select @bind="IdZonaSelezionata" style="border: 1px solid #eee; background: white; font-size: 12px; font-weight: 600; cursor: pointer; padding: 4px 8px; width: 260px;">
+                            <option value="0">Scegli zona...</option>
+                            @foreach (var z in ListeZone) {
+                                <option value="@z.IdZona">@z.NomeZona</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+            </div>
 
+            <div style="display:flex; gap:12px; align-items:center;">
+                <div style="display:flex; flex-direction: column; gap:2px;">
+                    <label style="font-size: 10px; font-weight: bold; color: #1e3c72; margin:0;">PARTENZA</label>
+                    <input type="time" 
+                           value="@OrarioPartenzaPrevisto.ToString(@"hh\:mm")" 
+                           @onchange="@((ChangeEventArgs e) => OrarioPartenzaPrevisto = TimeSpan.Parse(e.Value?.ToString() ?? "08:30"))"
+                           style="border: 1px solid #eee; border-radius:3px; font-size: 12px; font-weight: bold; background: #f9f9f9; width: 100px; padding: 2px 4px;" />
+                </div>
+                <div style="display:flex; flex-direction: column; gap:2px;">
+                    <label style="font-size: 10px; font-weight: bold; color: #1e3c72; margin:0;">RIENTRO</label>
+                    <input type="time" 
+                           value="@OrarioRientroMassimo.ToString(@"hh\:mm")" 
+                           @onchange="@((ChangeEventArgs e) => OrarioRientroMassimo = TimeSpan.Parse(e.Value?.ToString() ?? "18:00"))"
+                           style="border: 1px solid #eee; border-radius:3px; font-size: 12px; font-weight: bold; background: #f9f9f9; width: 100px; padding: 2px 4px;" />
+                </div>
+                <div style="display:flex; flex-direction: column; align-items:center; gap:2px; border-left: 1px solid #eee; padding-left:10px;">
+                    <label style="font-size: 10px; font-weight: bold; color: #1e3c72; margin:0;">PRANZO</label>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <input type="checkbox" @bind="IsRientroPranzo" id="pPranzoSmall" style="width: 18px; height: 18px; cursor: pointer;" />
+                        <label for="pPranzoSmall" style="font-size: 12px; font-weight:700; cursor: pointer;">Rientro</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" 
+                    class="btn-comando-ordine" 
+                    style="height: 40px; font-size: 13px; display: flex; align-items: center; border-radius: 6px; padding: 8px 12px;" 
+                    @onclick="ApriPopup"> 
+                <i class="oi oi-magnifying-glass me-1"></i> Cerca Clienti per Provincia
+            </button>
+        </div>
+    </div>
 
 </div>
 
@@ -220,13 +350,19 @@
             @if (GiroProposto.Any()) {
                 <div class="timeline-container">
                     @foreach (var tappa in GiroProposto) {
-                        <div class="tappa-card">
-                            <div class="tappa-ora">@tappa.OrarioArrivo.ToString("HH:mm")</div>
-                            <div class="tappa-info">
+                        <div class="tappa-card" style="align-items:center;">
+                            <input type="checkbox" class="me-3" checked="@tappa.Selected" @onchange="(e) => OnTappaSelectionChanged(tappa, e)" />
+                            <div style="flex:0 0 80px;">
+                                <div class="tappa-ora">@tappa.OrarioArrivo.ToString("HH:mm")</div>
+                            </div>
+                            <div class="tappa-info" style="flex:1;">
                                 <strong>@tappa.RagSociale</strong>
                                 <div style="font-size: 0.85rem; color: #666;">
                                     📍 @tappa.Citta • 🛣️ @tappa.KmDaPuntoPrecedente.ToString("N1") km
                                 </div>
+                            </div>
+                            <div style="flex:0 0 80px; text-align:right;">
+                                <button class="btn-action-mini" title="Apri in Waze" @onclick="() => NavigaWazeTappa(tappa)">🚙</button>
                             </div>
                         </div>
                     }
@@ -502,15 +638,48 @@
 
 private void SelezionaCliente(Cliente cliente)
     {
-        // 1. Qui inserisci la logica per aggiungere il cliente alla tua pianificazione
-        // Esempio: aggiungi alla lista di visite che stai creando
-        Console.WriteLine($"Hai selezionato: {cliente.RagSociale}");
+        // Aggiunge la tappa selezionata al piano (GiroProposto) e ricalcola gli orari
+        try
+        {
+            var propostaArrivo = DataPianificazione.Date.Add(OrarioPartenzaPrevisto);
+            var nuova = new TappaGiro
+            {
+                IdCliente = cliente.IdCliente,
+                RagSociale = cliente.RagSociale,
+                Citta = cliente.Citta_Legale,
+                KmDaPuntoPrecedente = 0,
+                Lat = null,
+                Lon = null,
+                Selected = true,
+                // Inizializziamo gli orari con la partenza prevista; verranno ricalcolati subito dopo
+                OrarioArrivo = propostaArrivo,
+                OrarioPartenza = propostaArrivo.AddMinutes(20)
+            };
 
-        // 2. Chiudi il popup dopo la selezione
-        mostraPopup = false;
-        
-        // 3. Opzionale: resetta la lista filtrata per la prossima ricerca
-        clientiFiltrati.Clear();
+            // Inserimento in lista rispettando l'ordine cronologico per OrarioArrivo
+            if (GiroProposto == null) GiroProposto = new List<TappaGiro>();
+            int idx = GiroProposto.FindIndex(t => t.OrarioArrivo > nuova.OrarioArrivo);
+            if (idx >= 0)
+            {
+                GiroProposto.Insert(idx, nuova);
+            }
+            else
+            {
+                GiroProposto.Add(nuova);
+            }
+
+            // Chiudiamo il popup e puliamo la lista di ricerca
+            mostraPopup = false;
+            clientiFiltrati.Clear();
+
+            // Ricalcoliamo orari tenendo conto dell'ordine attuale (ora la nuova tappa è nella posizione corretta)
+            RicalcolaOrariDopoSelezione();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Errore selezione cliente: {ex.Message}");
+        }
     }
 
 
@@ -663,19 +832,31 @@ private async Task SalvaComePredefinito()
                   )";
             var clienti = (await db.QueryAsync<Cliente>(sql, new { IdZona = IdZonaSelezionata })).ToList();
 
-            if (clienti != null && clienti.Any())
-            {
-                // 5. CALCOLO LOGICA (PianificatoreService)
-                GiroProposto = PlannerService.CalcolaGiroOttimizzato(
-                clienti, 
-                LatPartenza, 
-                LonPartenza, 
-                IsRientroPranzo, 
-                20, // durata visita
-                OrarioPartenzaPrevisto, // <--- NUOVO PARAMETRO
-                OrarioRientroMassimo    // <--- NUOVO PARAMETRO
-);
-            }
+                if (clienti != null && clienti.Any())
+                {
+                    // 5. CALCOLO LOGICA (PianificatoreService)
+                    GiroProposto = PlannerService.CalcolaGiroOttimizzato(
+                    clienti, 
+                    LatPartenza, 
+                    LonPartenza, 
+                    IsRientroPranzo, 
+                    20, // durata visita
+                    OrarioPartenzaPrevisto, // <--- NUOVO PARAMETRO
+                    OrarioRientroMassimo    // <--- NUOVO PARAMETRO
+                    );
+
+                    // Copia lat/lon nelle tappe e inizializza Selected=true
+                    var clientiById = clienti.ToDictionary(c => c.IdCliente);
+                    foreach (var t in GiroProposto)
+                    {
+                        if (clientiById.TryGetValue(t.IdCliente, out var c))
+                        {
+                            t.Lat = c.Lat;
+                            t.Lon = c.Lon;
+                            t.Selected = true;
+                        }
+                    }
+                }
             else 
             {
                 await JSRuntime.InvokeVoidAsync("alert", "Nessun cliente con coordinate trovato in questa zona!");
@@ -712,9 +893,36 @@ private async Task SalvaComePredefinito()
                 INSERT INTO Agenda (IdCliente, DataInizio, DataFine, Titolo, Tipo, Dettaglio, IsChiuso, Priorita)
                 VALUES (@IdCliente, @DataInizio, @DataFine, @Titolo, 'VISITA', @Dettaglio, 0, 1)";
 
-            foreach (var tappa in GiroProposto)
+            // Prima: raccogliamo le tappe selezionate da salvare
+            var toSave = GiroProposto.Where(t => t.Selected).ToList();
+
+            // Cerchiamo eventuali appuntamenti esistenti per la stessa data e cliente
+            string sqlExisting = @"SELECT IdAgenda, IdCliente, DataInizio, DataFine, Titolo FROM Agenda WHERE CONVERT(date, DataInizio) = @Data";
+            var existing = (await db.QueryAsync(sqlExisting, new { Data = DataPianificazione.Date }))
+                          .Select(r => new { IdAgenda = (int)r.IdAgenda, IdCliente = (int)r.IdCliente, DataInizio = (DateTime)r.DataInizio, DataFine = (DateTime)r.DataFine, Titolo = (string)r.Titolo })
+                          .ToList();
+
+            // Costruiamo conflitti
+            SaveConflicts = new List<ConflictItem>();
+            foreach (var t in toSave)
             {
-                // Uniamo la data scelta dall'utente con l'orario calcolato dall'algoritmo
+                var conflicts = existing.Where(e => e.IdCliente == t.IdCliente).ToList();
+                if (conflicts.Any())
+                {
+                    SaveConflicts.Add(new ConflictItem { Proposed = t, Existing = conflicts.Select(c => new ExistingAgenda { Titolo = c.Titolo, DataInizio = c.DataInizio, DataFine = c.DataFine }).ToList(), Save = true });
+                }
+            }
+
+            if (SaveConflicts.Any())
+            {
+                // Mostriamo modal per scelta all'utente
+                showConflictsModal = true;
+                return;
+            }
+
+            // Nessun conflitto: procediamo con il salvataggio
+            foreach (var tappa in toSave)
+            {
                 DateTime inizioPianificato = DataPianificazione.Date.Add(tappa.OrarioArrivo.TimeOfDay);
                 DateTime finePianificata = DataPianificazione.Date.Add(tappa.OrarioPartenza.TimeOfDay);
 
@@ -737,10 +945,248 @@ private async Task SalvaComePredefinito()
     }
 }
 
+    // Gestione selezione tappe e ricalcolo orari mantenendo l'ordine
+    private void OnTappaSelectionChanged(TappaGiro tappa, ChangeEventArgs e)
+    {
+        bool isChecked = false;
+        if (e.Value is bool b) isChecked = b;
+        else if (e.Value is string s) isChecked = s == "on" || s == "true";
+        tappa.Selected = isChecked;
+
+        RicalcolaOrariDopoSelezione();
+    }
+
+    private void RicalcolaOrariDopoSelezione()
+    {
+        DateTime oraCorrente = DataPianificazione.Date.Add(OrarioPartenzaPrevisto);
+        double latAttuale = LatPartenza;
+        double lonAttuale = LonPartenza;
+
+        foreach (var t in GiroProposto)
+        {
+            if (!t.Selected)
+            {
+                continue;
+            }
+
+            double dist = 0;
+            if (t.Lat.HasValue && t.Lon.HasValue)
+            {
+                dist = CalcolaDistanzaKM(latAttuale, lonAttuale, t.Lat.Value, t.Lon.Value);
+            }
+
+            int minutiViaggio = (int)(dist * 0.9);
+            if (minutiViaggio < 5 && dist > 0.1) minutiViaggio = 5;
+
+            DateTime arrivoPrevisto = oraCorrente.AddMinutes(minutiViaggio);
+            DateTime fineVisita = arrivoPrevisto.AddMinutes(20);
+
+            t.OrarioArrivo = arrivoPrevisto;
+            t.OrarioPartenza = fineVisita;
+
+            oraCorrente = fineVisita;
+            if (t.Lat.HasValue && t.Lon.HasValue)
+            {
+                latAttuale = t.Lat.Value; lonAttuale = t.Lon.Value;
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    // Copia della funzione Haversine per calcolo distanze (km)
+    private double CalcolaDistanzaKM(double lat1, double lon1, double lat2, double lon2)
+    {
+        if (lat1 == 0 || lat2 == 0) return 0;
+
+        double dLat = (lat2 - lat1) * Math.PI / 180;
+        double dLon = (lon2 - lon1) * Math.PI / 180;
+        double a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                   Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180) *
+                   Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        double c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+
+        return 6371 * c;
+    }
+
+    // Azioni toolbar: seleziona/deseleziona tutte e ottimizza ordine
+    private void SelectAllTappe()
+    {
+        if (GiroProposto == null) return;
+        foreach (var t in GiroProposto) t.Selected = true;
+        RicalcolaOrariDopoSelezione();
+    }
+
+    private void DeselectAllTappe()
+    {
+        if (GiroProposto == null) return;
+        foreach (var t in GiroProposto) t.Selected = false;
+        RicalcolaOrariDopoSelezione();
+    }
+
+    private void OttimizzaOrdine()
+    {
+        if (GiroProposto == null || !GiroProposto.Any()) return;
+
+        // Nearest-neighbour greedy sulle tappe selezionate
+        var selezionate = GiroProposto.Where(t => t.Selected).ToList();
+        var nonSelezionate = GiroProposto.Where(t => !t.Selected).ToList();
+
+        var ordered = new List<TappaGiro>();
+        double lat = LatPartenza, lon = LonPartenza;
+
+        while (selezionate.Any())
+        {
+            var next = selezionate.OrderBy(t => CalcolaDistanzaKM(lat, lon, t.Lat ?? lat, t.Lon ?? lon)).First();
+            ordered.Add(next);
+            selezionate.Remove(next);
+            if (next.Lat.HasValue && next.Lon.HasValue) { lat = next.Lat.Value; lon = next.Lon.Value; }
+        }
+
+        GiroProposto = ordered.Concat(nonSelezionate).ToList();
+        RicalcolaOrariDopoSelezione();
+    }
+
+    // RIEMPI GIORNATA: aggiunge clienti finché c'è tempo utile
+    private async Task RiempiGiornata()
+    {
+        if (GiroProposto == null) GiroProposto = new List<TappaGiro>();
+
+        // Carichiamo candidati dalla stessa zona selezionata
+        List<Cliente> pool;
+        using (var db = new SqlConnection(conn))
+        {
+            var sql = @"SELECT c.* FROM Clienti c WHERE c.IdZona = @IdZona AND c.Lat IS NOT NULL";
+            pool = (await db.QueryAsync<Cliente>(sql, new { IdZona = IdZonaSelezionata })).ToList();
+        }
+
+        // Rimuoviamo i clienti già presenti nella proposta
+        var existingIds = GiroProposto.Select(t => t.IdCliente).ToHashSet();
+        var candidates = pool.Where(c => !existingIds.Contains(c.IdCliente)).ToList();
+
+        // Iniziamo dal punto di partenza o dall'ultima tappa selezionata
+        DateTime oraCorrente = DataPianificazione.Date.Add(OrarioPartenzaPrevisto);
+        double lat = LatPartenza, lon = LonPartenza;
+        var lastSelected = GiroProposto.LastOrDefault(t => t.Selected);
+        if (lastSelected != null)
+        {
+            oraCorrente = DataPianificazione.Date.Add(lastSelected.OrarioPartenza.TimeOfDay);
+            if (lastSelected.Lat.HasValue && lastSelected.Lon.HasValue) { lat = lastSelected.Lat.Value; lon = lastSelected.Lon.Value; }
+        }
+
+        int durataVisita = 20; // minuti
+
+        // Greedy: aggiungi il candidato più vicino finché non superi l'orario di rientro
+        while (candidates.Any())
+        {
+            var next = candidates.OrderBy(c => CalcolaDistanzaKM(lat, lon, c.Lat ?? lat, c.Lon ?? lon)).FirstOrDefault();
+            if (next == null) break;
+
+            double dist = CalcolaDistanzaKM(lat, lon, next.Lat ?? lat, next.Lon ?? lon);
+            int minutiViaggio = (int)(dist * 0.9);
+            if (minutiViaggio < 5 && dist > 0.1) minutiViaggio = 5;
+
+            DateTime arrivo = oraCorrente.AddMinutes(minutiViaggio);
+            DateTime fine = arrivo.AddMinutes(durataVisita);
+
+            // Gestione pausa pranzo: aziende chiudono 12:00-14:00
+            var lunchStart = DataPianificazione.Date.AddHours(12);
+            var lunchEnd = DataPianificazione.Date.AddHours(14);
+            // Se la visita finisce durante la pausa pranzo, adattiamo
+            if ((fine > lunchStart && fine < lunchEnd) || (arrivo < lunchEnd && fine > lunchStart))
+            {
+                var ripartenzaPomeriggio = DataPianificazione.Date.AddHours(14);
+                if (IsRientroPranzo)
+                {
+                    // Torniamo a casa per pranzo e ripartiamo alle 14 calcolando il viaggio da casa
+                    double distFromHome = CalcolaDistanzaKM(LatPartenza, LonPartenza, next.Lat ?? lat, next.Lon ?? lon);
+                    int minutiViaggioPomeriggio = (int)(distFromHome * 0.9);
+                    if (minutiViaggioPomeriggio < 5 && distFromHome > 0.1) minutiViaggioPomeriggio = 5;
+                    arrivo = ripartenzaPomeriggio.AddMinutes(minutiViaggioPomeriggio);
+                    fine = arrivo.AddMinutes(durataVisita);
+
+                    // dopo il pranzo la posizione corrente diventa quella del cliente quando partirai
+                }
+                else
+                {
+                    // Rimani sul campo e aspetti le 14:00
+                    arrivo = ripartenzaPomeriggio;
+                    fine = arrivo.AddMinutes(durataVisita);
+                }
+            }
+
+            // tempo per tornare a casa
+            double distRitorno = CalcolaDistanzaKM(next.Lat ?? lat, next.Lon ?? lon, LatPartenza, LonPartenza);
+            int minRitorno = (int)(distRitorno * 0.9);
+
+            DateTime possibileRientro = fine.AddMinutes(minRitorno);
+            DateTime limite = DataPianificazione.Date.Add(OrarioRientroMassimo);
+
+            if (possbileRientroExceeds(limite, possibileRientro)) break;
+
+            // Aggiungiamo la tappa
+            GiroProposto.Add(new TappaGiro
+            {
+                IdCliente = next.IdCliente,
+                RagSociale = next.RagSociale,
+                Citta = next.Citta_Legale,
+                OrarioArrivo = arrivo,
+                OrarioPartenza = fine,
+                KmDaPuntoPrecedente = dist,
+                Lat = next.Lat,
+                Lon = next.Lon,
+                Selected = true
+            });
+
+            // Aggiorniamo stato
+            oraCorrente = fine;
+            if (next.Lat.HasValue && next.Lon.HasValue) { lat = next.Lat.Value; lon = next.Lon.Value; }
+            candidates.Remove(next);
+        }
+
+        // Popoliamo la proposta di anteprima con le nuove tappe (copia profonda minima)
+        PropostaAnteprima = GiroProposto.Select(t => new TappaGiro {
+            IdCliente = t.IdCliente,
+            RagSociale = t.RagSociale,
+            Citta = t.Citta,
+            OrarioArrivo = t.OrarioArrivo,
+            OrarioPartenza = t.OrarioPartenza,
+            KmDaPuntoPrecedente = t.KmDaPuntoPrecedente,
+            Lat = t.Lat,
+            Lon = t.Lon,
+            Selected = t.Selected
+        }).ToList();
+
+        showPreviewModal = true;
+        StateHasChanged();
+    }
+
+    private bool possbileRientroExceeds(DateTime limite, DateTime possibile)
+    {
+        return possibile > limite;
+    }
+
+    private string GetTempoRimanenteString()
+    {
+        if (GiroProposto == null) return "--";
+        var last = GiroProposto.Where(t => t.Selected).LastOrDefault();
+        DateTime now = DataPianificazione.Date.Add(OrarioPartenzaPrevisto);
+        if (last != null) now = DataPianificazione.Date.Add(last.OrarioPartenza.TimeOfDay);
+        var limite = DataPianificazione.Date.Add(OrarioRientroMassimo);
+        var remaining = limite - now;
+        if (remaining.TotalMinutes <= 0) return "00:00";
+        return $"{(int)remaining.TotalHours:D2}:{remaining.Minutes:D2}";
+    }
+
 
 
     
     private List<Zona> zoneInModifica = new();
+
+    // Preview modal state and buffer
+    private bool showPreviewModal = false;
+    private List<TappaGiro> PropostaAnteprima = new();
+
 
     
 
@@ -753,6 +1199,133 @@ private async Task SalvaComePredefinito()
     private void NuovaZona()
     {
         ListeZone.Add(new Zona { NomeZona = "NUOVA ZONA", Descrizione = "" });
+    }
+
+    private void OnPreviewToggle(TappaGiro t, ChangeEventArgs e)
+    {
+        bool val = false;
+        if (e.Value is bool b) val = b;
+        else if (e.Value is string s) val = s == "on" || s == "true";
+        t.Selected = val;
+    }
+
+    private void ClosePreview()
+    {
+        showPreviewModal = false;
+        PropostaAnteprima = null;
+    }
+
+    private void ApplyPreviewToGiro()
+    {
+        if (PropostaAnteprima == null) return;
+        // Applica le selezioni e gli ordini dalla proposta alla GiroProposto
+        GiroProposto = PropostaAnteprima.Select(t => new TappaGiro {
+            IdCliente = t.IdCliente,
+            RagSociale = t.RagSociale,
+            Citta = t.Citta,
+            OrarioArrivo = t.OrarioArrivo,
+            OrarioPartenza = t.OrarioPartenza,
+            KmDaPuntoPrecedente = t.KmDaPuntoPrecedente,
+            Lat = t.Lat,
+            Lon = t.Lon,
+            Selected = t.Selected
+        }).ToList();
+
+        showPreviewModal = false;
+        RicalcolaOrariDopoSelezione();
+    }
+
+    private async Task SavePreviewToAgenda()
+    {
+        if (PropostaAnteprima == null) return;
+        // Prima controlliamo conflitti: esistenti appuntamenti per gli stessi clienti nella stessa data
+        using var db = new System.Data.SqlClient.SqlConnection(conn);
+        string sqlExisting = @"SELECT IdAgenda, IdCliente, DataInizio, DataFine, Titolo FROM Agenda WHERE CONVERT(date, DataInizio) = @Data";
+        var existing = (await db.QueryAsync(sqlExisting, new { Data = DataPianificazione.Date })).Select(r => new { IdAgenda = (int)r.IdAgenda, IdCliente = (int)r.IdCliente, DataInizio = (DateTime)r.DataInizio, DataFine = (DateTime)r.DataFine, Titolo = (string)r.Titolo }).ToList();
+
+        // Costruiamo la lista di conflitti
+        SaveConflicts = new List<ConflictItem>();
+        foreach (var prop in PropostaAnteprima.Where(x => x.Selected))
+        {
+            var conflicts = existing.Where(e => e.IdCliente == prop.IdCliente).ToList();
+            if (conflicts.Any())
+            {
+                SaveConflicts.Add(new ConflictItem { Proposed = prop, Existing = conflicts.Select(c => new ExistingAgenda { Titolo = c.Titolo, DataInizio = c.DataInizio, DataFine = c.DataFine }).ToList(), Save = false });
+            }
+        }
+
+        if (SaveConflicts.Any())
+        {
+            // Mostriamo modal per scelta
+            showConflictsModal = true;
+            return;
+        }
+
+        // Nessun conflitto: salviamo direttamente
+        string sqlInsert = @"INSERT INTO Agenda (IdCliente, DataInizio, DataFine, Titolo, Tipo, Dettaglio, IsChiuso, Priorita) VALUES (@IdCliente, @DataInizio, @DataFine, @Titolo, 'VISITA', @Dettaglio, 0, 1)";
+        foreach (var t in PropostaAnteprima.Where(x => x.Selected))
+        {
+            DateTime inizio = DataPianificazione.Date.Add(t.OrarioArrivo.TimeOfDay);
+            DateTime fine = DataPianificazione.Date.Add(t.OrarioPartenza.TimeOfDay);
+            await db.ExecuteAsync(sqlInsert, new { IdCliente = t.IdCliente, DataInizio = inizio, DataFine = fine, Titolo = $"Visita: {t.RagSociale}", Dettaglio = "Giro riempito automaticamente" });
+        }
+
+        showPreviewModal = false;
+        PropostaAnteprima = null;
+        await JSRuntime.InvokeVoidAsync("alert", "Tappe salvate in Agenda.");
+    }
+
+    // Conflict modal support types & state
+    private bool showConflictsModal = false;
+    private List<ConflictItem> SaveConflicts = new();
+
+    private class ConflictItem
+    {
+        public TappaGiro Proposed { get; set; }
+        public List<ExistingAgenda> Existing { get; set; }
+        // di default le checkbox sono preselezionate
+        public bool Save { get; set; } = true;
+    }
+
+    private class ExistingAgenda { public string Titolo { get; set; } public DateTime DataInizio { get; set; } public DateTime DataFine { get; set; } }
+
+    private void CloseConflictsModal() { showConflictsModal = false; SaveConflicts = new List<ConflictItem>(); }
+
+    private async Task ConfirmSaveConflicts()
+    {
+        using var db = new System.Data.SqlClient.SqlConnection(conn);
+        string sqlInsert = @"INSERT INTO Agenda (IdCliente, DataInizio, DataFine, Titolo, Tipo, Dettaglio, IsChiuso, Priorita) VALUES (@IdCliente, @DataInizio, @DataFine, @Titolo, 'VISITA', @Dettaglio, 0, 1)";
+        foreach (var sc in SaveConflicts.Where(x => x.Save))
+        {
+            var t = sc.Proposed;
+            DateTime inizio = DataPianificazione.Date.Add(t.OrarioArrivo.TimeOfDay);
+            DateTime fine = DataPianificazione.Date.Add(t.OrarioPartenza.TimeOfDay);
+            await db.ExecuteAsync(sqlInsert, new { IdCliente = t.IdCliente, DataInizio = inizio, DataFine = fine, Titolo = $"Visita: {t.RagSociale}", Dettaglio = "Giro riempito automaticamente" });
+        }
+
+        CloseConflictsModal();
+        showPreviewModal = false;
+        PropostaAnteprima = null;
+        await JSRuntime.InvokeVoidAsync("alert", "Salvataggio conflitti completato.");
+    }
+
+    private async Task NavigaWazeTappa(TappaGiro t)
+    {
+        if (t == null) return;
+        // Usa lo stesso metodo usato in NuovaVisita: costruisci ricerca da indirizzo se lat/lon mancanti
+        string ricerca = string.Empty;
+        if (t.Lat.HasValue && t.Lon.HasValue)
+        {
+            ricerca = $"{t.Lat.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)},{t.Lon.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        }
+        else
+        {
+            // Prova a usare l'indirizzo concatenato: qui usiamo campo Citta come fallback
+            ricerca = Uri.EscapeDataString($"{t.RagSociale}, {t.Citta}");
+        }
+
+        // Richiama la funzione JS definita in wwwroot/js/waze.js
+        await JSRuntime.InvokeVoidAsync("waze.open", ricerca);
     }
 
     private async Task SalvaZona(Zona z)

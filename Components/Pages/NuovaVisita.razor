@@ -7,10 +7,13 @@
 @using System.Globalization
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@using Microsoft.AspNetCore.WebUtilities
 @using QuestPDF.Fluent
 @using QuestPDF.Helpers
 @using QuestPDF.Infrastructure
 @inject VisitaService MyVisitaService
+@using Radzen
+@inject DialogService DialogService
 @using System.Data.SqlClient
 
 
@@ -260,6 +263,10 @@
                         <td class="win-label">Esito:</td>
                         <td colspan="3"><textarea class="win-input" style="height:60px; resize:none;" @bind="v.NoteEsito"></textarea></td>
                     </tr>
+                    <tr>
+                        <td class="win-label">Conclusioni:</td>
+                        <td colspan="3"><textarea class="win-input" style="height:100px; resize:none;" @bind="v.Conclusioni" placeholder="Sintesi / azioni consigliate"></textarea></td>
+                    </tr>
                 </table>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-top: 15px; background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #dee2e6;">
@@ -293,6 +300,10 @@
     <div>
         <label class="win-label">Data Prossimo Contatto</label>
         <input type="date" class="win-input" @bind="v.DataProssimoContatto" />
+    </div>
+    <div style="display:flex; align-items:center; gap:8px; margin-left:10px;">
+        <input type="checkbox" @bind="v.CreaInAgenda" id="chkCreaAgendaNew" />
+        <label for="chkCreaAgendaNew" style="font-size:12px;">Crea appuntamento in Agenda</label>
     </div>
 </div>
 
@@ -425,7 +436,16 @@
     protected override async Task OnInitializedAsync() {
         await CaricaClienti();
         await CaricaListaId();
-        if (listaIdVisite.Any()) {
+        // Se è passato un id via query string (es. /nuova-visita?id=123) apri quella visita
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+        if (query.TryGetValue("id", out var idVal) && int.TryParse(idVal, out var qid))
+        {
+            // Carica la visita richiesta
+            await CaricaVisita(qid);
+            indiceCorrente = listaIdVisite.IndexOf(qid);
+        }
+        else if (listaIdVisite.Any()) {
             indiceCorrente = listaIdVisite.Count - 1;
             await CaricaVisita(listaIdVisite[indiceCorrente]);
         } else {
@@ -515,6 +535,11 @@
             using var db = new SqlConnection(conn);
             storicoVisite = (await db.QueryAsync<Visita>("SELECT * FROM Visite WHERE IDCliente = @id ORDER BY DataVisita DESC", new { id = v.IDCliente })).ToList();
             await CaricaClientiVicini();
+            // Se è una nuova visita, suggerisci prossimo contatto basato su frequenza cliente
+            if (v.IDVisita == 0 && clienteSelezionato != null && clienteSelezionato.FrequenzaVisitaGg > 0 && v.DataVisita.HasValue)
+            {
+                v.DataProssimoContatto = v.DataVisita.Value.Date.AddDays(clienteSelezionato.FrequenzaVisitaGg);
+            }
         } else {
             clienteSelezionato = null;
             storicoVisite.Clear();
@@ -567,16 +592,48 @@
     if (v.IDCliente <= 0) { await ShowToast("Seleziona un cliente!"); return; }
     using var db = new SqlConnection(conn);
 
-    if (v.IDVisita == 0) {
+        if (v.IDVisita == 0) {
         var sql = @"INSERT INTO Visite 
-                    (IDCliente, DataVisita, Motivazione, ReferenteIncontrato, NoteEsito, 
+                    (IDCliente, DataVisita, Motivazione, ReferenteIncontrato, NoteEsito, Conclusioni,
                      StatoVisita, TemperaturaCliente, RichiedeSeguito, DataProssimoContatto) 
                     VALUES 
-                    (@IDCliente, @DataVisita, @Motivazione, @ReferenteIncontrato, @NoteEsito, 
+                    (@IDCliente, @DataVisita, @Motivazione, @ReferenteIncontrato, @NoteEsito, @Conclusioni,
                      @StatoVisita, @TemperaturaCliente, @RichiedeSeguito, @DataProssimoContatto); 
                     SELECT CAST(SCOPE_IDENTITY() as int);";
-        
+
         v.IDVisita = await db.ExecuteScalarAsync<int>(sql, v);
+
+        // Se lo stato è 'Programmata' e l'utente ha richiesto la creazione in Agenda,
+        // apriamo una piccola modale per confermare/fornire Data/Ora/Durata (gestita dalla pagina Gestione Visite)
+        try {
+            var rawStato = (v.StatoVisita ?? "").ToString().ToUpperInvariant();
+            bool isProgrammata = rawStato == "2" || rawStato.Contains("PROG");
+
+            if (isProgrammata && v.CreaInAgenda)
+            {
+                var parameters = new Dictionary<string, object?>() {
+                    { "DataInizio", v.DataProssimoContatto },
+                    { "Ora", v.OraProssimoContatto },
+                    { "Durata", v.DurataProssimaVisita }
+                };
+
+                var result = await DialogService.OpenAsync<DialogCreaAppuntamento>("Programma appuntamento", parameters, new DialogOptions() { Width = "420px" });
+
+                if (result is Appuntamento app)
+                {
+                    var nome = clienteSelezionato?.RagSociale ?? "Visita";
+                    // Evitiamo duplicati: controlliamo se esiste già un appuntamento VISITA per lo stesso cliente nella stessa data/ora
+                    string sqlCheck = "SELECT COUNT(1) FROM Agenda WHERE Tipo='VISITA' AND IdCliente=@IdCliente AND DataInizio=@DataInizio";
+                    var exists = await db.ExecuteScalarAsync<int>(sqlCheck, new { IdCliente = v.IDCliente, DataInizio = app.DataInizio });
+                    if (exists == 0)
+                    {
+                        string sqlAgenda = "INSERT INTO Agenda (IdCliente, DataInizio, DataFine, Titolo, Tipo, Dettaglio, IsChiuso, Priorita) VALUES (@IdCliente, @DataInizio, @DataFine, @Titolo, 'VISITA', @Dettaglio, 0, 1)";
+                        await db.ExecuteAsync(sqlAgenda, new { IdCliente = v.IDCliente, DataInizio = app.DataInizio, DataFine = app.DataInizio.AddMinutes(app.DurataMinuti), Titolo = "Visita: " + nome, Dettaglio = v.Motivazione });
+                    }
+                }
+            }
+        }
+        catch { }
     } else {
         var sqlUpdate = @"UPDATE Visite SET 
                           IDCliente=@IDCliente, 
@@ -584,6 +641,7 @@
                           Motivazione=@Motivazione, 
                           ReferenteIncontrato=@ReferenteIncontrato, 
                           NoteEsito=@NoteEsito,
+                          Conclusioni=@Conclusioni,
                           StatoVisita=@StatoVisita, 
                           TemperaturaCliente=@TemperaturaCliente, 
                           RichiedeSeguito=@RichiedeSeguito, 
@@ -591,6 +649,37 @@
                           WHERE IDVisita=@IDVisita";
         
         await db.ExecuteAsync(sqlUpdate, v);
+
+        // Se la visita aggiornata è in stato 'Programmata' e l'utente ha richiesto la creazione in Agenda,
+        // chiediamo data/ora/durata e creiamo l'appuntamento (evitando duplicati)
+        try {
+            var rawStatoUpd = (v.StatoVisita ?? "").ToString().ToUpperInvariant();
+            bool isProgrammataUpd = rawStatoUpd == "2" || rawStatoUpd.Contains("PROG");
+
+            if (isProgrammataUpd && v.CreaInAgenda)
+            {
+                var parametersUpd = new Dictionary<string, object?>() {
+                    { "DataInizio", v.DataProssimoContatto },
+                    { "Ora", v.OraProssimoContatto },
+                    { "Durata", v.DurataProssimaVisita }
+                };
+
+                var resultUpd = await DialogService.OpenAsync<DialogCreaAppuntamento>("Programma appuntamento", parametersUpd, new DialogOptions() { Width = "420px" });
+
+                if (resultUpd is Appuntamento appUpd)
+                {
+                    var nomeUpd = clienteSelezionato?.RagSociale ?? "Visita";
+                    string sqlCheckUpd = "SELECT COUNT(1) FROM Agenda WHERE Tipo='VISITA' AND IdCliente=@IdCliente AND DataInizio=@DataInizio";
+                    var existsUpd = await db.ExecuteScalarAsync<int>(sqlCheckUpd, new { IdCliente = v.IDCliente, DataInizio = appUpd.DataInizio });
+                    if (existsUpd == 0)
+                    {
+                        string sqlAgendaUpd = "INSERT INTO Agenda (IdCliente, DataInizio, DataFine, Titolo, Tipo, Dettaglio, IsChiuso, Priorita) VALUES (@IdCliente, @DataInizio, @DataFine, @Titolo, 'VISITA', @Dettaglio, 0, 1)";
+                        await db.ExecuteAsync(sqlAgendaUpd, new { IdCliente = v.IDCliente, DataInizio = appUpd.DataInizio, DataFine = appUpd.DataInizio.AddMinutes(appUpd.DurataMinuti), Titolo = "Visita: " + nomeUpd, Dettaglio = v.Motivazione });
+                    }
+                }
+            }
+        }
+        catch { }
     }
 
     await AlCambioCliente();

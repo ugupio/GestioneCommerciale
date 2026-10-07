@@ -1,0 +1,58 @@
+@page "/visite/{id:int}"
+@using System.Data.SqlClient
+@using Dapper
+@using GestioneCommerciale.Models
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="card p-3" style="max-width:800px; margin:20px auto; border-radius:12px;">
+	@if (isLoading)
+	{
+		<div>Caricamento visita...</div>
+	}
+	else if (visita == null)
+	{
+		<div class="text-danger">Visita non trovata.</div>
+		<button class="btn btn-secondary mt-3" @onclick="GoBack">Indietro</button>
+	}
+	else
+	{
+		<h4>@(visita.RagSociale ?? "Visita")</h4>
+		<div class="mb-2"><strong>Data:</strong> @visita.DataVisita?.ToString("g")</div>
+		<div class="mb-2"><strong>Stato:</strong> @visita.StatoVisita</div>
+		<div class="mb-2"><strong>Referente:</strong> @visita.ReferenteIncontrato</div>
+		<div class="mb-2"><strong>Note:</strong><div class="mt-1">@visita.NoteEsito</div></div>
+		<div class="mb-2"><strong>Temperatura cliente:</strong> @visita.TemperaturaCliente</div>
+		<div class="mt-3">
+			<button class="btn btn-primary me-2" @onclick="GoBack">Chiudi</button>
+		</div>
+	}
+</div>
+
+@code {
+	[Parameter]
+	public int id { get; set; }
+
+	private Visita? visita;
+	private bool isLoading = true;
+	private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
+
+	protected override async Task OnInitializedAsync()
+	{
+		try
+		{
+			using var db = new SqlConnection(conn);
+			visita = await db.QueryFirstOrDefaultAsync<Visita>("SELECT * FROM Visite WHERE IDVisita = @id", new { id });
+		}
+		catch (Exception ex)
+		{
+			await JS.InvokeVoidAsync("alert", "Errore caricamento visita: " + ex.Message);
+		}
+		finally
+		{
+			isLoading = false;
+		}
+	}
+
+	private void GoBack() => Nav.NavigateTo("/agenda");
+}

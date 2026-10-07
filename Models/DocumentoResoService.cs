@@ -23,7 +23,7 @@ namespace GestioneCommerciale.Models
                         row.RelativeItem().AlignCenter().Column(c => {
                             c.Item().Text("MODELLO RESO MERCE").FontSize(18).ExtraBold();
                         });
-                        row.ConstantItem(100).Image("wwwroot/images/logo-alq.jpg");
+                        row.ConstantItem(100).Image("wwwroot/images/profilati.png");
                     });
 
                     // Sezione Anagrafica (Ora nell'Header per coerenza multi-pagina)
@@ -120,7 +120,7 @@ namespace GestioneCommerciale.Models
                 // --- 3. FOOTER (Sezione Aziendale Impilata) ---
                 page.Footer().Column(f => {
                     f.Item().Border(0.5f).BorderColor("#CCC").Padding(10).Column(c => {
-                        c.Item().Text("DA COMPILARE A CURA ACCETTAZIONE ALQ GENOVA SRL").FontSize(8).Bold().Underline();
+                        c.Item().Text("DA COMPILARE A CURA ACCETTAZIONE PROFILATI UMBRIA SRL").FontSize(8).Bold().Underline();
 
                         c.Item().PaddingTop(8).Row(row => {
                             // ASPETTO (Verticale)
@@ -135,7 +135,7 @@ namespace GestioneCommerciale.Models
 
                             // DESTINAZIONE (Verticale)
                             row.RelativeItem().Column(cd => {
-                                cd.Item().Text("DESTINAZIONE MATERIALE IN ALQ GENOVA SRL").FontSize(8).Bold();
+                                cd.Item().Text("DESTINAZIONE MATERIALE IN PROFILATI UMBRIA SRL").FontSize(8).Bold();
                                 cd.Spacing(2);
                                 cd.Item().Text("○ Materiale messo a rottame").FontSize(8);
                                 cd.Item().Text("○ Materiale messo a reso a fornitore").FontSize(8);

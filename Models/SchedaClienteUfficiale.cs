@@ -13,7 +13,7 @@ public class SchedaClienteUfficiale : IDocument
     public SchedaClienteUfficiale(Cliente cliente, string rootPath)
     {
         C = cliente;
-        _pathLogoAlq = Path.Combine(rootPath, "logo-alq.jpg");
+        _pathLogoAlq = Path.Combine(rootPath, "profilati.png");
         _pathLogoTwin = Path.Combine(rootPath, "logo-twin.png");
     }
 
@@ -48,7 +48,7 @@ public class SchedaClienteUfficiale : IDocument
                 else row.RelativeItem().Text("TWIN SYSTEMS").FontSize(10).Bold();
 
                 if (File.Exists(_pathLogoAlq)) row.RelativeItem().AlignRight().Height(60).Image(_pathLogoAlq);
-                else row.RelativeItem().AlignRight().Text("ALQ GENOVA").FontSize(14).Bold();
+                else row.RelativeItem().AlignRight().Text("PROFILATI UMBRIA").FontSize(14).Bold();
             });
             col.Item().PaddingTop(25).AlignCenter().Text("SCHEDA CLIENTE").FontSize(18).ExtraBold();
         });
@@ -195,15 +195,12 @@ public class SchedaClienteUfficiale : IDocument
         container.Column(col => {
             col.Item().PaddingBottom(8).BorderTop(0.5f).BorderColor(Colors.Grey.Lighten2);
             col.Item().AlignCenter().Column(c => {
-                c.Item().AlignCenter().Text("ALQ GENOVA S.r.l.").FontSize(15).ExtraBold();
+                c.Item().AlignCenter().Text("PROFILATI UMBRIA S.r.l.").FontSize(15).ExtraBold();
                 string[] info = {
-                    "Sede Legale: via Santa Lucia, 5 – 20122 Milano (MI)",
-                    "Sede Operativa: 16162 Genova Bolzaneto (GE) - via Colano, 9/A",
-                    "Sede Operativa: 50013 Campi Bisenzio (FI) - via Gobetti, 3",
-                    "Sede Amministrativa: 13030 Formigliana (VC) S.S. 230 – Fornace Crocicchio",
-                    "Tel. +39 010 7491941 - E-mail: info@alqgenovasrl.com - Pec: alqgenova@pro-pec.it",
-                    "C.F./P.Iva e N. Reg.Imprese MI. 12574490962 - REA/CCIAA MI26700419 - Cap. Soc. €. 150.000,00 i.v."
-                };
+                    "Sede Legale: Via dei Tigli 35 - 06083 - Bastia Umbra (PG)",         
+                    "Tel. +39 075 8012385 - +39 075 8010328 - E-mail: info@profilatiumbria.it",
+                    "P.Iva-C.F.05419781009"
+    };
                 foreach (var line in info) c.Item().AlignCenter().Text(line).FontSize(10);
             });
         });

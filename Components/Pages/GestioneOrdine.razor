@@ -289,18 +289,24 @@
         <!-- SX: PROFILI -->
         <div class="win-group" style="flex: 1.6; border-left: 5px solid #005a9e; background: #f9fcff;">
             <div class="section-title">📦 INSERIMENTO PROFILI</div>
-            <div style="display: grid; grid-template-columns: 100px 1fr 1fr 1fr; gap: 4px; margin-bottom:4px;">
-        <div style="display:flex; gap:2px;">
-            <input class="win-input" placeholder="Codice" @bind="rigaP.CodiceProdotto" @oninput="OnCodiceProfiloInput" style="font-weight:bold; background:#fffde7;" />
-            @if (mostraTastoNuovoProfilo)
-            {
-                <button class="win-btn-cell" @onclick="ApriPopupProdotto" style="background:#28a745; color:white; width:22px; height:21px; padding:0;">+</button>
-            }
-        </div>
-        <input class="win-input" placeholder="Descrizione Profilo" @bind="rigaP.Descrizione" />
-        <input class="win-input" placeholder="Col. Int" @bind="rigaP.ColoreInt" />
-        <input class="win-input" placeholder="Col. Est" @bind="rigaP.ColoreEst" />
-    </div>
+            <div style="margin-bottom:6px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="flex:1;">
+                        <label class="win-label" style="margin-bottom:4px;font-size:11px;">Cerca profili (codice o descrizione)</label>
+                        <AutocompleteProdotti IsAccessorio="false" Placeholder="Cerca profili..." MaxResults="20" OnSelected="@((Prodotti p) => OnProfiloSelected(p))" />
+                    </div>
+                    @if (mostraTastoNuovoProfilo)
+                    {
+                        <button class="win-btn-cell" @onclick="ApriPopupProdotto" style="background:#28a745; color:white; width:28px; height:28px; padding:0;">+</button>
+                    }
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-bottom:4px;">
+                <input class="win-input" placeholder="Descrizione Profilo" @bind="rigaP.Descrizione" />
+                <input class="win-input" placeholder="Col. Int" @bind="rigaP.ColoreInt" />
+                <input class="win-input" placeholder="Col. Est" @bind="rigaP.ColoreEst" />
+            </div>
             <div style="display: flex; gap: 6px; align-items: end;">
                 <div style="width: 50px;"><label class="win-label">Q.tà</label><input type="number" class="win-input" @bind="rigaP.Quantita" /></div>
                 <div style="width: 135px;">
@@ -326,19 +332,20 @@
     <div class="section-title">🛠️ INSERIMENTO ACCESSORI</div>
     
     <!-- RIGA 1: CODICE E DESCRIZIONE -->
-    <div style="display: grid; grid-template-columns: 120px 1fr; gap: 4px; margin-bottom:4px;">
-        <div style="display:flex; gap:2px;">
-            <input class="win-input" placeholder="Cod." 
-                   @bind="rigaA.CodiceProdotto" 
-                   @oninput="OnCodiceAccessorioInput" 
-                   style="font-weight:bold; background:#f0fff0; width: 100%;" />
-            
+    <div style="margin-bottom:6px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+            <div style="flex:1;">
+                <label class="win-label" style="margin-bottom:4px;font-size:11px;">Cerca accessori (codice o descrizione)</label>
+                <AutocompleteProdotti IsAccessorio="true" Placeholder="Cerca accessori..." MaxResults="20" OnSelected="@((Prodotti p) => OnAccessorioSelected(p))" />
+            </div>
             @if (mostraTastoNuovoAccessorio)
             {
-                <button class="win-btn-cell" @onclick="ApriPopupAccessorio" 
-                        style="background:#28a745; color:white; width:22px; height:21px; padding:0; flex-shrink:0;">+</button>
+                <button class="win-btn-cell" @onclick="ApriPopupAccessorio" style="background:#28a745; color:white; width:28px; height:28px; padding:0; flex-shrink:0;">+</button>
             }
         </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr; gap: 4px; margin-bottom:4px;">
         <input class="win-input" placeholder="Descrizione" @bind="rigaA.Descrizione" />
     </div>
 
@@ -930,6 +937,36 @@ else
                 rigaA.Descrizione = "";
                 rigaA.UmRiga = ""; // Puliamo se il codice è errato
             }
+        }
+
+        // Callback invoked when user selects a profile from autocomplete
+        private void OnProfiloSelected(Prodotti p)
+        {
+            if (p == null) return;
+            rigaP.IDProdotto = p.IDProdotto;
+            rigaP.CodiceProdotto = p.CodiceProdotto;
+            rigaP.Descrizione = p.Descrizione;
+            rigaP.PesoAlMetro = p.PesoAlMetro;
+            rigaP.UmRiga = p.UmProdotto;
+            rigaP.PezziPerConfezione = p.PezziPerConfezione;
+            try { rigaP.PrezzoUnitario = p.PrezzoUnitario; } catch { }
+            mostraTastoNuovoProfilo = false;
+            StateHasChanged();
+        }
+
+        // Callback invoked when user selects an accessory from autocomplete
+        private void OnAccessorioSelected(Prodotti p)
+        {
+            if (p == null) return;
+            rigaA.IDProdotto = p.IDProdotto;
+            rigaA.CodiceProdotto = p.CodiceProdotto;
+            rigaA.Descrizione = p.Descrizione;
+            rigaA.FinituraAccessorio = p.FinituraAccessorio;
+            rigaA.UmRiga = p.UmProdotto;
+            rigaA.PezziPerConfezione = p.PezziPerConfezione;
+            try { rigaA.PrezzoUnitario = p.PrezzoUnitario; } catch { }
+            mostraTastoNuovoAccessorio = false;
+            StateHasChanged();
         }
 
 

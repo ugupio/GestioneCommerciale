@@ -36,17 +36,30 @@ namespace GestioneCommerciale.Models
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
 
             // Percorso standard (quello che hai scritto tu)
-            string pathAlq = Path.Combine(baseDir, "wwwroot", "images", "logo-alq.jpg");
+            string pathAlq = Path.Combine(baseDir, "wwwroot", "images", "profilati.png");
             string pathTwin = Path.Combine(baseDir, "wwwroot", "images", "logo-twin.png");
+
+            // Ulteriori fallback comuni: current directory (esecuzione da IDE) e cartella progetto
+            string currentDirCandidate = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "profilati.png");
+            string currentDirTwin = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "logo-twin.png");
 
             // Se non lo trova in bin (perché VS non ha ancora copiato), 
             // risaliamo alla cartella principale del progetto
             if (!File.Exists(pathAlq))
             {
-                // Questo risale di 3 livelli (da bin/Debug/netX a cartella Progetto)
-                string projectRoot = Directory.GetParent(baseDir).Parent.Parent.FullName;
-                pathAlq = Path.Combine(projectRoot, "wwwroot", "images", "logo-alq.jpg");
-                pathTwin = Path.Combine(projectRoot, "wwwroot", "images", "logo-twin.png");
+                // Prova la current directory
+                if (File.Exists(currentDirCandidate)) pathAlq = currentDirCandidate;
+                if (File.Exists(currentDirTwin)) pathTwin = currentDirTwin;
+
+                // Se ancora non trovato, risaliamo alla cartella principale del progetto
+                if (!File.Exists(pathAlq))
+                {
+                    string projectRoot = Directory.GetParent(baseDir).Parent.Parent.FullName;
+                    var projAlq = Path.Combine(projectRoot, "wwwroot", "images", "profilati.png");
+                    var projTwin = Path.Combine(projectRoot, "wwwroot", "images", "logo-twin.png");
+                    if (File.Exists(projAlq)) pathAlq = projAlq;
+                    if (File.Exists(projTwin)) pathTwin = projTwin;
+                }
             }
 
 
@@ -140,6 +153,25 @@ namespace GestioneCommerciale.Models
                              .FontSize(10)
                              .FontColor(v.RichiedeSeguito ? Colors.Red.Medium : Colors.Green.Darken3)
                              .Bold();
+                        });
+                    });
+
+                    // RIGA 3: PROSSIMO CONTATTO | CONCLUSIONI
+                    col.Item().PaddingTop(6).Row(r2 => {
+                        r2.RelativeItem(3).Row(inner => {
+                            inner.ConstantItem(18).Text("📅").FontSize(10);
+                            inner.RelativeItem().Column(c => {
+                                c.Item().Text("PROSSIMO CONTATTO").FontSize(8).Bold();
+                                c.Item().Text(v.DataProssimoContatto.HasValue ? v.DataProssimoContatto.Value.ToString("dd/MM/yyyy") : "Da programmare").FontSize(9);
+                            });
+                        });
+
+                        r2.RelativeItem(5).Row(inner => {
+                            inner.ConstantItem(18).Text("✍️").FontSize(10);
+                            inner.RelativeItem().Column(c => {
+                                c.Item().Text("CONCLUSIONI").FontSize(8).Bold();
+                                c.Item().Text(String.IsNullOrEmpty(v.Conclusioni) ? "-" : v.Conclusioni).FontSize(9);
+                            });
                         });
                     });
                 });

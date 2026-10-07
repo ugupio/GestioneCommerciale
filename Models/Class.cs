@@ -50,6 +50,7 @@ public class Prodotti
     public string FinituraAccessorio { get; set; } = "";
     public decimal LunghezzaVerga { get; set; } = 0;
     public decimal PesoAlMetro { get; set; } = 0;
+    public decimal PrezzoUnitario { get; set; } = 0;
     public string NoteTecniche { get; set; } = "";
     public string UmProdotto { get; set; } = ""; // Esempio: "PZ" o "ML"
     public int PezziPerConfezione { get; set; } = 1; // Default a 1 per evitare divisioni per zero
@@ -147,9 +148,17 @@ public class Visita
     public string Motivazione { get; set; }
     public string ReferenteIncontrato { get; set; }
     public string NoteEsito { get; set; }
+    // Campo libero per riepilogo / conclusioni della visita
+    public string Conclusioni { get; set; }
+    // Se true, al salvataggio viene creata anche una tappa in Agenda per DataProssimoContatto
+    public bool CreaInAgenda { get; set; } = true;
     public int TemperaturaCliente { get; set; } = 2; // Cambia da int a string
     public bool RichiedeSeguito { get; set; }
     public DateTime? DataProssimoContatto { get; set; }
+    // Ora suggerita per il prossimo contatto (opzionale)
+    public TimeSpan? OraProssimoContatto { get; set; }
+    // Durata in minuti per la prossima visita (usata per calcolare DataFine in Agenda)
+    public int DurataProssimaVisita { get; set; } = 60;
     public string RagSociale { get; set; }
 
 }
@@ -254,6 +263,11 @@ public class TappaGiro
     public DateTime OrarioArrivo { get; set; }
     public DateTime OrarioPartenza { get; set; }
     public double KmDaPuntoPrecedente { get; set; }
+    // Coordinate per ricalcolo accurato quando si selezionano/deselezionano tappe
+    public double? Lat { get; set; }
+    public double? Lon { get; set; }
+    // Flag per includere la tappa nel salvataggio (checkbox nell'interfaccia)
+    public bool Selected { get; set; } = true;
 }
 
 public class NominatimResult

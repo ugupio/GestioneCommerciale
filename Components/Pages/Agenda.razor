@@ -6,6 +6,8 @@
 @using Radzen.Blazor
 @using System.Data.SqlClient
 @using Dapper
+@using System.Linq
+@using Microsoft.AspNetCore.Components.Forms
 @inject DialogService DialogService
 @rendermode InteractiveServer
 
@@ -22,6 +24,10 @@
         min-height: 100vh; 
         font-family: 'Segoe UI', sans-serif;
     }
+
+
+
+
 
     /* 2. TITOLO: Bianco con ombra per risaltare sul blu scuro */
     .agenda-header h2 {
@@ -69,7 +75,6 @@
         pointer-events: none !important;
     }
 
-    }
 
     /* 4. SCHEDULER: Effetto "Galleggiamento" sul blu */
     .rz-scheduler {
@@ -108,7 +113,7 @@
     <div class="agenda-header" style="display:flex; align-items: center; margin-bottom: 20px;">
     
     <!-- CONTENITORE PULSANTI: Li tiene vicini tra loro -->
-    <div style="display:flex; gap:10px; flex-shrink: 0;">
+    <div style="display:flex; gap:10px; flex-shrink: 0; align-items:center;">
         <div class="win-btn-cell" @onclick='() => Nav.NavigateTo("/")'>
             <span>🏠</span>
             <span>HOME</span>
@@ -117,6 +122,16 @@
         <div class="win-btn-cell" @onclick="CaricaDatiAgenda">
             <span>🔄</span>
             <span>AGGIORNA</span>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:170px;">
+                <InputDate @bind-Value="DataStampa" class="form-control" />
+            </div>
+            <div class="win-btn-cell" style="height:54px; padding:8px 10px;" @onclick="() => StampaGiornata(DataStampa)">
+                <span style="font-size:1.4rem">🖨️</span>
+                <span style="font-size:0.8rem">STAMPA</span>
+            </div>
         </div>
     </div>
 
@@ -148,10 +163,20 @@
                  > 
 
     <Template Context="item">
-        <div style="display:flex; align-items:center; gap:5px; overflow:hidden; white-space:nowrap;">
-            <span style="font-size: 1.1rem;">@(item.Tipo == "VISITA" ? "🚗" : "📝")</span>
-            <b style="text-overflow:ellipsis; overflow:hidden;">@item.Titolo</b>
-        </div>
+        @if ((item.OriginalObject is Visita) || item.IsChiuso)
+        {
+            <a href='@("/nuova-visita?id=" + item.IdAgenda)' target="_blank" rel="noopener" style="display:flex; align-items:center; gap:6px; color:inherit; text-decoration:none;">
+                <span style="font-size: 1.1rem;">@(item.Tipo == "VISITA" ? "🚗" : "📝")</span>
+                <b style="text-overflow:ellipsis; overflow:hidden;">@item.Titolo</b>
+            </a>
+        }
+        else
+        {
+            <div style="display:flex; align-items:center; gap:5px; overflow:hidden; white-space:nowrap;">
+                <span style="font-size: 1.1rem;">@(item.Tipo == "VISITA" ? "🚗" : "📝")</span>
+                <b style="text-overflow:ellipsis; overflow:hidden;">@item.Titolo</b>
+            </div>
+        }
     </Template>
     
     <ChildContent>
@@ -187,6 +212,7 @@
     RadzenScheduler<ElementoAgenda> scheduler;
     private List<Cliente> ListaClienti { get; set; } = new();
     private Visita nuovaVisita { get; set; } = new();
+    private DateTime? DataStampa { get; set; } = DateTime.Today;
 
 
 
@@ -224,32 +250,34 @@
     // 2. MAPPING STORICO (Tabella Visite)
 foreach (var v in visiteEseguite)
 {
-    var valoreStato = v.StatoVisita?.ToString(); 
-    string statoMappato = "";
+    // Normalizziamo lo stato in ingresso per riconoscere valori diversi (es. "CONCLUSA", "1", "Eseguita")
+    var rawStato = (v.StatoVisita ?? "").ToString().Trim().ToUpperInvariant();
+    string statoMappato;
 
-    // TRADUZIONE SECONDO LA TUA SEQUENZA:
-    if (valoreStato == "1") 
-        statoMappato = "Eseguita";      // Grigio / Barrato
-    else if (valoreStato == "2")
-        statoMappato = "Programmata";   // Blu / Normale
-    else if (valoreStato == "3")
-        statoMappato = "Annullata";     // Rosso / Barrato
-    else 
-        statoMappato = "Programmata";   // Fallback di sicurezza
+    if (rawStato == "1" || rawStato == "ESEGUITA" || rawStato == "CONCLUSA" || rawStato.Contains("ESEG"))
+        statoMappato = "Eseguita";
+    else if (rawStato == "3" || rawStato == "ANNULLATA" || rawStato.Contains("ANNUL"))
+        statoMappato = "Annullata";
+    else
+        statoMappato = "Programmata";
 
     // Forza l'orario alle 09:00 se arriva come 00:00 (fondamentale per viste Day/Week)
     DateTime dataVisita = v.DataVisita ?? DateTime.Now;
     if (dataVisita.Hour == 0 && dataVisita.Minute == 0)
         dataVisita = dataVisita.Date.AddHours(9);
 
+    // Aggiungiamo l'elemento come proveniente da Visite (OriginalObject = v)
     ListaAgenda.Add(new ElementoAgenda {
+        IdAgenda = v.IDVisita, // importante per update/delete sulle Visite
+        IdCliente = v.IDCliente,
         Data = dataVisita,
         DataFine = dataVisita.AddHours(1),
         Titolo = (statoMappato == "Eseguita" ? "✅ " : statoMappato == "Annullata" ? "❌ " : "🚗 ") + (v.RagSociale ?? "Visita"),
         Tipo = "VISITA",
         Stato = statoMappato, // Qui passiamo la parola allo Switch del Render
         IsChiuso = (statoMappato == "Eseguita" || statoMappato == "Annullata"),
-        Dettaglio = v.NoteEsito
+        Dettaglio = v.NoteEsito,
+        OriginalObject = v
     });
 }
 
@@ -260,13 +288,26 @@ foreach (var v in visiteEseguite)
     // 3. MAPPING TASK
     foreach (var a in attivitaTask)
 {
+    // Creiamo anche l'oggetto Attivita per poterlo modificare facilmente in seguito
+    var att = new Attivita {
+        IDAttivita = a.IDAttivita,
+        Descrizione = a.Descrizione,
+        DataScadenza = a.DataScadenza,
+        Completata = a.Completata ?? false,
+        Priorita = a.Priorita ?? 1,
+        IDClienteAttivita = a.IDClienteAttivita
+    };
+
     ListaAgenda.Add(new ElementoAgenda {
+        IdAgenda = a.IDAttivita,
         Data = a.DataScadenza,
         DataFine = a.DataScadenza.AddMinutes(30),
         Titolo = "📝 Task: " + (string.IsNullOrEmpty(a.RagSociale) ? a.Descrizione : a.RagSociale),
         Tipo = "TASK",          // <--- Fondamentale
         Stato = "TASK_ATTIVO",  // <--- Stato neutro
-        IsChiuso = false
+        IsChiuso = false,
+        Dettaglio = a.Descrizione,
+        OriginalObject = att
     });
 }
 
@@ -282,6 +323,7 @@ foreach (var v in visiteEseguite)
             Tipo = g.Tipo ?? "VISITA",
             IsChiuso = false,
             Dettaglio = g.Dettaglio
+            ,OriginalObject = g
         });
     }
     
@@ -379,7 +421,33 @@ foreach (var v in visiteEseguite)
     // 2. Se è un TASK (Ufficio), decidiamo cosa fare (per ora lo blocchiamo o apriamo un altro popup)
     if (item.Tipo == "TASK")
     {
-        await JSRuntime.InvokeVoidAsync("alert", "Gestione Task in arrivo...");
+        // Recuperiamo l'oggetto Attivita se presente
+        var att = item.OriginalObject as Attivita ?? new Attivita {
+            IDAttivita = item.IdAgenda,
+            Descrizione = item.Dettaglio ?? item.Titolo,
+            DataScadenza = item.Data,
+            Completata = item.IsChiuso,
+            Priorita = item.PrioritaOLevel
+        };
+
+        // Apriamo il componente DialogEditTask per modificare il task
+        var parameters = new Dictionary<string, object?>()
+        {
+            { "Task", att },
+            { "ListaClienti", ListaClienti },
+            { "Conn", conn }
+        };
+
+        var dlgResult = await DialogService.OpenAsync<Components.Dialogs.DialogEditTask>("Modifica Task", parameters, new DialogOptions() { Width = "700px", Style = "border-radius: 12px;" });
+
+        if (dlgResult is bool ok && ok)
+        {
+            // Ricarichiamo i dati e aggiorniamo la vista
+            await CaricaDatiAgenda();
+            if (scheduler != null) await scheduler.Reload();
+            StateHasChanged();
+        }
+
         return;
     }
 
@@ -391,6 +459,17 @@ foreach (var v in visiteEseguite)
         TemperaturaCliente = 2 
     };
 
+    // Suggerisci il prossimo contatto in base alla frequenza cliente
+    try {
+        if (nuovaVisita.IDCliente > 0) {
+            using var dbSug = new SqlConnection(conn);
+            var freq = await dbSug.QueryFirstOrDefaultAsync<int?>("SELECT FrequenzaVisitaGg FROM Clienti WHERE IdCliente = @id", new { id = nuovaVisita.IDCliente });
+            if (freq.HasValue && freq.Value > 0 && nuovaVisita.DataVisita.HasValue) {
+                nuovaVisita.DataProssimoContatto = nuovaVisita.DataVisita.Value.Date.AddDays(freq.Value);
+            }
+        }
+    } catch { /* non bloccare se fallisce */ }
+
     // Procedi con l'apertura del Dialog...
     // Apriamo il componente separato
 var result = await DialogService.OpenAsync<DialogRegistraVisita>(item.Titolo, 
@@ -400,6 +479,60 @@ var result = await DialogService.OpenAsync<DialogRegistraVisita>(item.Titolo,
         { "Titolo", item.Titolo } 
     }, 
     new DialogOptions() { Width = "700px", Style = "border-radius: 20px; padding:0;" });
+
+// Gestiamo il risultato del dialog: null = annulla, "delete" = elimina dall'agenda, Visita = salva e registra
+if (result == null)
+{
+    return; // annullato
+}
+
+if (result is string s && s == "delete")
+{
+    await EliminaAppuntamento(item);
+    return;
+}
+
+if (result is Visita visitaResult)
+{
+    // Persistiamo la visita nello storico e chiudiamo la tappa in Agenda
+    using var db = new System.Data.SqlClient.SqlConnection(conn);
+    await db.OpenAsync();
+    using var trans = db.BeginTransaction();
+    try
+    {
+        string sqlVisita = @"
+            INSERT INTO Visite (IDCliente, DataVisita, StatoVisita, Motivazione, ReferenteIncontrato, NoteEsito, Conclusioni, TemperaturaCliente, RichiedeSeguito, DataProssimoContatto) 
+            VALUES (@IDCliente, @DataVisita, @StatoVisita, @Motivazione, @ReferenteIncontrato, @NoteEsito, @Conclusioni, @TemperaturaCliente, @RichiedeSeguito, @DataProssimoContatto)";
+
+        await db.ExecuteAsync(sqlVisita, visitaResult, trans);
+
+        // Aggiorniamo la data ultima visita del cliente
+        await db.ExecuteAsync("UPDATE Clienti SET DataUltimaVisita = @Data WHERE IdCliente = @IdCliente",
+            new { Data = visitaResult.DataVisita, IdCliente = visitaResult.IDCliente }, trans);
+
+        // Segniamo la tappa in agenda come chiusa
+        await db.ExecuteAsync("UPDATE Agenda SET IsChiuso = 1 WHERE IdAgenda = @IdA",
+            new { IdA = item.IdAgenda }, trans);
+
+        trans.Commit();
+
+        item.IsChiuso = true;
+        await CaricaDatiAgenda();
+        if (scheduler != null) await scheduler.Reload();
+        await Notifica("✅ Visita registrata nello storico.");
+        // Creazione automatica di appuntamento gestita nella pagina Gestione Visite (NuovaVisita)
+    }
+    catch (Exception ex)
+    {
+        trans.Rollback();
+        await JSRuntime.InvokeVoidAsync("alert", "Errore durante il salvataggio della visita: " + ex.Message);
+        await GestioneCommerciale.Shared.LocalLogger.LogErrorAsync("RegistraVisita", ex);
+    }
+
+    return;
+}
+
+// Altri possibili tipi ignorati
 
 }
 
@@ -421,21 +554,33 @@ private async Task EliminaAppuntamento(ElementoAgenda appuntamento)
         {
             using (var db = new System.Data.SqlClient.SqlConnection(conn))
             {
-                // Rimuoviamo il record dalla tabella Agenda
-                string sql = "DELETE FROM Agenda WHERE IdAgenda = @Id";
-                await db.ExecuteAsync(sql, new { Id = appuntamento.IdAgenda });
+                // Se l'elemento proviene dalla tabella Visite (OriginalObject valorizzato), cancelliamo da lì
+                var visitaObj = appuntamento.OriginalObject as Visita;
+                if (visitaObj != null)
+                {
+                    string sqlV = "DELETE FROM Visite WHERE IDVisita = @Id";
+                    await db.ExecuteAsync(sqlV, new { Id = appuntamento.IdAgenda });
+                }
+                else
+                {
+                    // Altrimenti rimuoviamo il record dalla tabella Agenda
+                    string sql = "DELETE FROM Agenda WHERE IdAgenda = @Id";
+                    await db.ExecuteAsync(sql, new { Id = appuntamento.IdAgenda });
+                }
             }
 
             // Rimuoviamo l'elemento dalla lista locale e rinfreschiamo lo scheduler
             ListaAgenda.Remove(appuntamento);
             await scheduler.Reload();
-            
-            // Snackbar o notifica di successo (opzionale)
-            System.Diagnostics.Debug.WriteLine("Tappa eliminata con successo.");
+
+            // Notifica di successo
+            await Notifica("🗑️ Tappa eliminata dall'agenda.");
         }
         catch (Exception ex)
         {
+            // Mostriamo messaggio utente e logghiamo l'errore su file per indagine
             await JSRuntime.InvokeVoidAsync("alert", "Errore durante l'eliminazione: " + ex.Message);
+            await GestioneCommerciale.Shared.LocalLogger.LogErrorAsync("EliminaAppuntamento", ex);
         }
     }
 }
@@ -454,9 +599,19 @@ async Task OnAppointmentMove(SchedulerAppointmentMoveEventArgs args)
 
     if (item.Tipo == "VISITA")
     {
-        // Usa l'ID salvato direttamente in ElementoAgenda invece di OriginalObject
-        await db.ExecuteAsync("UPDATE Visite SET DataVisita = @NuovaData WHERE IDVisita = @id", 
-            new { NuovaData = nuovaDataInizio, id = item.IdAgenda }); // Assicurati che IdAgenda sia l'ID corretto
+        // Se l'appuntamento proviene dalla tabella Visite (OriginalObject valorizzato), aggiorniamo Visite
+        var visitaObj = item.OriginalObject as Visita;
+        if (visitaObj != null)
+        {
+            await db.ExecuteAsync("UPDATE Visite SET DataVisita = @NuovaData WHERE IDVisita = @id", 
+                new { NuovaData = nuovaDataInizio, id = item.IdAgenda });
+        }
+        else
+        {
+            // Altrimenti si tratta di una tappa salvata in Agenda
+            await db.ExecuteAsync("UPDATE Agenda SET DataInizio = @NuovaData, DataFine = @NuovaFine WHERE IdAgenda = @id", 
+                new { NuovaData = nuovaDataInizio, NuovaFine = nuovaDataInizio.AddHours(1), id = item.IdAgenda });
+        }
     }
     else
     {
@@ -519,8 +674,8 @@ private async Task SalvaChiusuraCiclo(ElementoAgenda appuntamento, Visita v)
             
             // 1. INSERIMENTO VISITA
             string sqlVisita = @"
-                INSERT INTO Visite (IDCliente, DataVisita, StatoVisita, Motivazione, ReferenteIncontrato, NoteEsito, TemperaturaCliente, RichiedeSeguito, DataProssimoContatto) 
-                VALUES (@IDCliente, @DataVisita, @StatoVisita, @Motivazione, @ReferenteIncontrato, @NoteEsito, @TemperaturaCliente, @RichiedeSeguito, @DataProssimoContatto)";
+                INSERT INTO Visite (IDCliente, DataVisita, StatoVisita, Motivazione, ReferenteIncontrato, NoteEsito, Conclusioni, TemperaturaCliente, RichiedeSeguito, DataProssimoContatto) 
+                VALUES (@IDCliente, @DataVisita, @StatoVisita, @Motivazione, @ReferenteIncontrato, @NoteEsito, @Conclusioni, @TemperaturaCliente, @RichiedeSeguito, @DataProssimoContatto)";
             
             await db.ExecuteAsync(sqlVisita, v);
 
@@ -561,8 +716,8 @@ private async Task RegistraEseguita(ElementoAgenda appuntamento, Visita v)
             try {
                 // 1. Inserimento Visita con tutti i tuoi campi
                 string sqlVisita = @"
-                    INSERT INTO Visite (IDCliente, DataVisita, StatoVisita, ReferenteIncontrato, NoteEsito, TemperaturaCliente, RichiedeSeguito) 
-                    VALUES (@IDCliente, @DataVisita, @StatoVisita, @ReferenteIncontrato, @NoteEsito, @TemperaturaCliente, @RichiedeSeguito)";
+                    INSERT INTO Visite (IDCliente, DataVisita, StatoVisita, ReferenteIncontrato, NoteEsito, Conclusioni, TemperaturaCliente, RichiedeSeguito, DataProssimoContatto) 
+                    VALUES (@IDCliente, @DataVisita, @StatoVisita, @ReferenteIncontrato, @NoteEsito, @Conclusioni, @TemperaturaCliente, @RichiedeSeguito, @DataProssimoContatto)";
                 
                 await db.ExecuteAsync(sqlVisita, v, trans);
 
@@ -584,6 +739,61 @@ private async Task RegistraEseguita(ElementoAgenda appuntamento, Visita v)
             }
         }
     }
+}
+
+private async Task StampaGiornata(DateTime? dataSelezionata)
+{
+    var date = dataSelezionata?.Date ?? DateTime.Today;
+
+    var items = ListaAgenda.Where(i => i.Data.Date == date).OrderBy(i => i.Data).ToList();
+
+    var sb = new System.Text.StringBuilder();
+    sb.AppendLine("<html><head><meta charset=\"utf-8\" /><title>Report Giornata</title>");
+    sb.AppendLine("<style>");
+    sb.AppendLine("body{font-family:Segoe UI, sans-serif;margin:20px;color:#222}");
+    sb.AppendLine(".header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}");
+    sb.AppendLine(".title{font-size:20px;font-weight:700}");
+    sb.AppendLine("table{width:100%;border-collapse:collapse;margin-top:10px}");
+    sb.AppendLine("th,td{border:1px solid #e6e6e6;padding:8px;text-align:left}");
+    sb.AppendLine("th{background:#f6f9ff}");
+    sb.AppendLine(".tipo{width:80px}");
+    sb.AppendLine(".ora{width:120px}");
+    sb.AppendLine(".note{color:#555}");
+    sb.AppendLine("</style></head><body>");
+
+    sb.AppendLine($"<div class=\"header\"><div class=\"title\">Agenda: {date:dddd dd/MM/yyyy}</div><div>Generato: {DateTime.Now:dd/MM/yyyy HH:mm}</div></div>");
+
+    sb.AppendLine("<table>");
+    sb.AppendLine("<thead><tr><th class=\"ora\">Ora</th><th class=\"tipo\">Tipo</th><th>Titolo</th><th>Cliente</th><th>Stato / Priorità</th><th>Note</th></tr></thead>");
+    sb.AppendLine("<tbody>");
+
+    if (!items.Any())
+    {
+        sb.AppendLine("<tr><td colspan=\"6\" style=\"text-align:center;padding:20px;color:#666\">Nessun appuntamento o task per questa giornata.</td></tr>");
+    }
+    else
+    {
+        foreach (var it in items)
+        {
+            var ora = it.Data.ToString("HH:mm");
+            var tipo = it.Tipo ?? "";
+            var cliente = it.IdCliente.HasValue ? ListaClienti.FirstOrDefault(c => c.IdCliente == it.IdCliente)?.RagSociale : "";
+            var stato = it.Stato ?? "";
+            var prior = it.PrioritaOLevel > 0 ? it.PrioritaOLevel.ToString() : "-";
+            var note = System.Net.WebUtility.HtmlEncode(it.Dettaglio ?? "");
+
+            sb.AppendLine($"<tr><td class=\"ora\">{ora}</td><td class=\"tipo\">{tipo}</td><td>{System.Net.WebUtility.HtmlEncode(it.Titolo)}</td><td>{System.Net.WebUtility.HtmlEncode(cliente)}</td><td>{System.Net.WebUtility.HtmlEncode(stato)} / {prior}</td><td class=\"note\">{note}</td></tr>");
+        }
+    }
+
+    sb.AppendLine("</tbody></table>");
+    sb.AppendLine("</body></html>");
+
+    var html = sb.ToString();
+
+    var defineFn = "if(!window.openPrintWindow){window.openPrintWindow=function(html){var w=window.open('','_blank');w.document.write(html);w.document.close();w.focus();setTimeout(function(){w.print();},300);}}";
+    await JSRuntime.InvokeVoidAsync("eval", defineFn);
+    await JSRuntime.InvokeVoidAsync("openPrintWindow", html);
 }
 
 void OnSlotRender(SchedulerSlotRenderEventArgs args)
