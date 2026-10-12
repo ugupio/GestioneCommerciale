@@ -43,16 +43,43 @@ public class VisitaService
         }
     }
 
-    public async Task<List<Cliente>> GetClientiPerProvincia(string provincia)
+    // Recupera clienti per provincia o per id zona. Se minDaysSinceLastVisit > 0 esclude
+    // clienti con DataUltimaVisita più recente di quel valore (in giorni).
+    public async Task<List<Cliente>> GetClientiPerProvincia(string provincia, int minDaysSinceLastVisit = 0, int? idZona = null)
     {
         using (var db = new SqlConnection(conn))
         {
-            string sql = @"SELECT IdCliente, RagSociale, Citta_Legale, Prov_Legale 
-                       FROM Clienti 
-                       WHERE Prov_Legale = @Prov 
-                       ORDER BY RagSociale";
+            string sql = @"
+                SELECT IdCliente,
+                       RagSociale,
+                       Referente,
+                       Ind_legale,
+                       CAP_Legale,
+                       Citta_Legale,
+                       Prov_Legale,
+                       Telefono,
+                       Email,
+                       Lat,
+                       Lon,
+                       IdZona,
+                       FrequenzaVisitaGg,
+                       DataUltimaVisita
+                FROM Clienti
+                WHERE (
+                        (@IdZona IS NOT NULL AND IdZona = @IdZona)
+                        OR
+                        (@Prov IS NOT NULL AND UPPER(LTRIM(RTRIM(Prov_Legale))) = UPPER(LTRIM(RTRIM(@Prov))))
+                      )
+                  AND Lat IS NOT NULL AND Lon IS NOT NULL
+                  AND Lat <> 0 AND Lon <> 0
+                  AND (
+                        @MinDays = 0
+                        OR DataUltimaVisita IS NULL
+                        OR DataUltimaVisita <= DATEADD(day, -@MinDays, CAST(GETDATE() AS date))
+                      )
+                ORDER BY RagSociale";
 
-            var result = await db.QueryAsync<Cliente>(sql, new { Prov = provincia });
+            var result = await db.QueryAsync<Cliente>(sql, new { Prov = provincia, IdZona = idZona, MinDays = minDaysSinceLastVisit });
             return result.ToList();
         }
     }

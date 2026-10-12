@@ -83,7 +83,9 @@
 
 	private void SelectItem(Prodotti p)
 	{
-		SearchText = p.CodiceProdotto + " - " + p.Descrizione;
+		// selezionato: svuota il campo di ricerca per una nuova selezione
+		SearchTextBacking = string.Empty;
+		SearchText = string.Empty;
 		ShowDropdown = false;
 		Results.Clear();
 		SelectedIndex = -1;

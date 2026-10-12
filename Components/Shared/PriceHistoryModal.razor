@@ -1,0 +1,229 @@
+@using System.Data.SqlClient
+@using Dapper
+@using GestioneCommerciale.Models
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+// Presence probe: helps detect whether the component is instantiated at all (renders hidden div)
+<div id="phm-presence" style="display:none;">PriceHistoryModal component present</div>
+
+@* For debugging: always instantiate the component so lifecycle runs; markup still gated on Visible when showing modal UI *@
+@{
+	<!-- component instantiated -->
+}
+
+@if (Visible && Prodotto != null)
+{
+	<div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); z-index: 1040;"></div>
+	<div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1050; width: 90%; max-width: 1200px; background: rgba(255,255,255,0.95); box-shadow: 0 8px 32px rgba(0,0,0,0.37); border-radius:8px; border:2px solid #005a9e; overflow:hidden;">
+		<div style="background:#005a9e; color:white; padding:12px 18px; display:flex; justify-content:space-between; align-items:center;">
+			<h5 style="margin:0; font-size:18px; font-weight:bold;">🔍 Storico Prezzi: @Prodotto.CodiceProdotto</h5>
+			<div style="display:flex; gap:8px; align-items:center;">
+				<button class="win-btn-tablet" style="background:#28a745; color:white; border:none;" @onclick="AddManualRow">➕ Prezzo manuale</button>
+				<button class="win-btn-tablet" style="background:#c42b1c; color:white; border:none; min-width:40px; min-height:40px;" @onclick="Close">✕</button>
+			</div>
+		</div>
+
+		<div style="padding:20px; max-height:80vh; overflow:auto;">
+			<div style="margin-bottom:12px;">
+				<input class="form-control form-control-lg" placeholder="Filtra per colore o finitura" @bind="filter" @bind:event="oninput" />
+			</div>
+
+			<table class="table table-hover align-middle">
+				<thead>
+					<tr>
+						<th>Data</th>
+						<th>Cliente</th>
+						<th>Colori / Finitura</th>
+						<th class="text-end">Prezzo Unit.</th>
+						<th class="text-center">Sconto %</th>
+						<th class="text-end">Prezzo Netto</th>
+						<th class="text-end">Quantità</th>
+						<th class="text-center">U.M.</th>
+						<th class="text-center">Azioni</th>
+					</tr>
+				</thead>
+				<tbody>
+					@foreach (var r in rows)
+					{
+						if (r is ManualPriceRow m)
+						{
+							<tr>
+								<td><input type="date" class="form-control" @bind="m.Data" /></td>
+								<td><input class="form-control" @bind="m.Cliente" /></td>
+								<td style="min-width:220px;"><div style="display:flex; gap:6px;"><input class="form-control" placeholder="Col.Int" @bind="m.ColoreInt" /><input class="form-control" placeholder="Col.Est" @bind="m.ColoreEst" /></div><input class="form-control mt-1" placeholder="Finitura" @bind="m.Finitura" /></td>
+								<td class="text-end"><input type="number" step="0.01" class="form-control text-end" @bind="m.PrezzoUnitario" /></td>
+								<td class="text-center"><input type="number" step="0.1" class="form-control text-center" @bind="m.Sconto" /></td>
+								<td class="text-end">€ @m.PrezzoNetto.ToString("N3")</td>
+								<td class="text-end"><input type="number" step="0.01" class="form-control text-end" @bind="m.Quantita" /></td>
+								<td class="text-center"><input class="form-control" style="width:80px; margin:0 auto;" @bind="m.Um" /></td>
+								<td class="text-center">
+									@if (m.IsEditing)
+									{
+										<button class="btn btn-sm btn-success" @onclick="() => SaveManual(m)">Salva</button>
+										<button class="btn btn-sm btn-secondary" @onclick="() => CancelManual(m)">Annulla</button>
+									}
+									else
+									{
+										<button class="btn btn-sm btn-primary" @onclick="() => EditManual(m)">Modifica</button>
+										<button class="btn btn-sm btn-danger" @onclick="() => DeleteManual(m)">Elimina</button>
+									}
+								</td>
+							</tr>
+						}
+						else
+						{
+							<tr>
+								<td>@(((DateTime)r.DataOrdine).ToShortDateString())</td>
+								<td style="font-weight:bold; text-transform:uppercase;">@r.RagSociale</td>
+								<td><span style="color:#005a9e; font-weight:500;">@r.ColoreInt</span> <span style="color:#666;">@r.ColoreEst</span><i style="display:block; font-size:0.8em; color:#777;">@r.FinituraAccessorio</i></td>
+								<td class="text-end">€ @(Convert.ToDecimal(r.PrezzoUnitario).ToString("N2"))</td>
+								<td class="text-center">@(r.Sconto != null ? Convert.ToDecimal(r.Sconto).ToString("N1") : "0,0")%</td>
+								<td class="text-end">€ @(r.PrezzoNetto != null ? Convert.ToDecimal(r.PrezzoNetto).ToString("N3") : "0,000")</td>
+								<td class="text-end">@(Convert.ToDecimal(r.Quantita).ToString("N2"))</td>
+								<td class="text-center small">@r.UmRiga</td>
+								<td class="text-center">-</td>
+							</tr>
+						}
+					}
+				</tbody>
+			</table>
+		</div>
+
+		<div style="background:rgba(0,0,0,0.05); padding:12px; text-align:center;">
+			<button class="win-btn-tablet" style="width:100%; max-width:300px; font-weight:bold;" @onclick="Close">CHIUDI</button>
+		</div>
+	</div>
+}
+
+@code {
+	[Parameter] public Prodotti Prodotto { get; set; }
+	[Parameter] public bool Visible { get; set; }
+	[Parameter] public EventCallback OnClose { get; set; }
+	[Parameter] public bool TestMode { get; set; } = false;
+
+	protected override async Task OnInitializedAsync()
+	{
+		try { await JS.InvokeVoidAsync("console.log", "PriceHistoryModal OnInitialized"); } catch { }
+		try { System.Diagnostics.Debug.WriteLine("PriceHistoryModal OnInitialized (server)"); } catch { }
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			try { await JS.InvokeVoidAsync("console.log", "PriceHistoryModal OnAfterRender firstRender"); } catch { }
+			try { System.Diagnostics.Debug.WriteLine("PriceHistoryModal OnAfterRender firstRender (server)"); } catch { }
+		}
+	}
+
+	private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
+	private List<dynamic> rows = new();
+	private string filter = "";
+
+	private class ManualPriceRow
+	{
+		public bool IsManual => true;
+		public bool IsEditing { get; set; } = true;
+		public DateTime Data { get; set; } = DateTime.Today;
+		public string Cliente { get; set; } = "Listino";
+		public string ColoreInt { get; set; } = "";
+		public string ColoreEst { get; set; } = "";
+		public string Finitura { get; set; } = "";
+		public decimal PrezzoUnitario { get; set; } = 0;
+		public decimal Sconto { get; set; } = 0;
+		public decimal PrezzoNetto => Math.Round(PrezzoUnitario * (1 - (Sconto / 100m)), 3);
+		public decimal Quantita { get; set; } = 0;
+		public string Um { get; set; } = "PZ";
+	}
+
+	protected override async Task OnParametersSetAsync()
+	{
+		try { await JS.InvokeVoidAsync("console.log", $"PriceHistoryModal OnParametersSet Visible={Visible} Prodotto={Prodotto?.CodiceProdotto}"); } catch { }
+		try { System.Diagnostics.Debug.WriteLine($"PriceHistoryModal OnParametersSet Visible={Visible} Prodotto={Prodotto?.CodiceProdotto}"); } catch { }
+		if (Visible && Prodotto != null)
+		{
+			if (TestMode)
+			{
+				// Populate a fake row for UI testing without DB
+				rows.Clear();
+				rows.Add(new {
+					DataOrdine = DateTime.Today,
+					RagSociale = "(TEST MODE)",
+					Quantita = 0m,
+					ColoreInt = "",
+					ColoreEst = "",
+					FinituraAccessorio = "",
+					Cel1 = "",
+					UmRiga = Prodotto?.UmProdotto ?? "PZ",
+					PrezzoUnitario = Prodotto?.PrezzoUnitario ?? 0m,
+					Sconto = 0m,
+					PrezzoNetto = (Prodotto?.PrezzoUnitario ?? 0m),
+					IDOrdine = 0
+				});
+				try { await JS.InvokeVoidAsync("console.log", $"PriceHistoryModal TestMode populated rows={rows.Count}"); } catch { }
+			}
+			else
+			{
+				try
+				{
+					await LoadHistory();
+					try { await JS.InvokeVoidAsync("console.log", $"PriceHistoryModal loaded rows={rows.Count}"); } catch { }
+				}
+				catch (Exception ex)
+				{
+					try { await JS.InvokeVoidAsync("console.error", $"PriceHistoryModal LoadHistory exception: {ex.Message}"); } catch { }
+					// Provide a visible error row so the component can still render
+					rows.Clear();
+					rows.Add(new {
+						DataOrdine = DateTime.Today,
+						RagSociale = "(ERROR)",
+						Quantita = 0m,
+						ColoreInt = "",
+						ColoreEst = "",
+						FinituraAccessorio = ex.Message,
+						Cel1 = "",
+						UmRiga = Prodotto?.UmProdotto ?? "PZ",
+						PrezzoUnitario = 0m,
+						Sconto = 0m,
+						PrezzoNetto = 0m,
+						IDOrdine = 0
+					});
+				}
+			}
+		}
+	}
+
+	private async Task LoadHistory()
+	{
+		// Normal DB load
+		rows.Clear();
+		using var db = new SqlConnection(conn);
+		string sql = @"SELECT O.DataOrdine, C.RagSociale, D.Quantita, D.ColoreInt, D.ColoreEst, D.FinituraAccessorio, C.Cel1, D.UmRiga, D.PrezzoUnitario, D.ScontoRiga AS Sconto, CAST(D.PrezzoUnitario * (1 - (ISNULL(D.ScontoRiga,0)/100)) AS DECIMAL(18,3)) AS PrezzoNetto, D.IDOrdine FROM Dettaglio_Ordini D JOIN Ordini O ON D.IDOrdine = O.IDOrdine JOIN Clienti C ON O.IDCliente = C.IdCliente WHERE LTRIM(RTRIM(D.CodiceProdotto)) = LTRIM(RTRIM(@Codice)) ORDER BY O.DataOrdine DESC";
+		var res = await db.QueryAsync(sql, new { Codice = Prodotto.CodiceProdotto });
+		rows = res.ToList();
+		try { await JS.InvokeVoidAsync("console.log", $"PriceHistoryModal LoadHistory returned {rows.Count} rows"); } catch { }
+	}
+
+	private void AddManualRow()
+	{
+		var m = new ManualPriceRow
+		{
+			Data = DateTime.Today,
+			Cliente = "Listino",
+			PrezzoUnitario = Prodotto?.PrezzoUnitario ?? 0,
+			Um = Prodotto?.UmProdotto ?? "PZ"
+		};
+		rows.Insert(0, m);
+	}
+
+	private void EditManual(ManualPriceRow m) => m.IsEditing = true;
+	private void SaveManual(ManualPriceRow m) { m.IsEditing = false; }
+	private void CancelManual(ManualPriceRow m) { if (m.PrezzoUnitario == 0 && m.Quantita == 0) rows.Remove(m); else m.IsEditing = false; }
+	private async Task DeleteManual(ManualPriceRow m) { if (await JS.InvokeAsync<bool>("confirm", "Eliminare la voce manuale?")) { rows.Remove(m); } }
+
+	private async Task Close()
+	{
+		await OnClose.InvokeAsync();
+	}
+}

@@ -306,6 +306,14 @@
                         </div>
                     </div>
 
+                    <!-- Prezzo anagrafico -->
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="win-label d-block text-start">Prezzo unitario (anagrafica):</label>
+                            <input type="number" step="0.01" class="win-input" @bind="prodottoInModifica.PrezzoUnitario" />
+                        </div>
+                    </div>
+
                     @* Riga Tipo e U.M. Base *@
                     <div class="row mb-2">
                         <div class="col-6">
@@ -410,135 +418,122 @@
 
 
 
+<!-- DEBUG: mostraModalRadar state (temporaneo) -->
+<div style="position:fixed; right:12px; bottom:12px; background:rgba(255,255,255,0.95); border:1px solid #ccc; padding:8px 10px; z-index:2147483000; font-size:12px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+    <div style="font-weight:700; color:#005a9e;">DEBUG - Modal state</div>
+    <div>mostraModalRadar: @mostraModalRadar</div>
+    <div>Prodotto selezionato: @(prodottoSelezionatoRadar?.CodiceProdotto ?? "(null)")</div>
+</div>
+
+@* Modale storico prezzi definitiva gestita dal parent. *@
 @if (mostraModalRadar)
 {
-    <!-- Sfondo oscurante con effetto sfocatura (Blur) -->
-    <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
-                background: rgba(0, 0, 0, 0.3); backdrop-filter: blur(4px); z-index: 1040;"></div>
-
-    <!-- Popup in stile Windows Glass -->
-    <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-                z-index: 1050; width: 90%; max-width: 1200px; 
-                background: rgba(255, 255, 255, 0.85);
-                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-                border-radius: 8px; border: 2px solid #005a9e; overflow: hidden;">
-        
-        <!-- Header -->
-        <div style="background: #005a9e; color: white; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center;">
-            <h5 style="margin: 0; font-size: 18px; font-weight: bold;">🔍 Analisi Commerciale: @prodottoSelezionatoRadar?.CodiceProdotto</h5>
-            <button class="win-btn-tablet" style="background: #c42b1c; color: white; border: none; min-width: 40px; min-height: 40px;" 
-                    @onclick="() => mostraModalRadar = false">✕</button>
-        </div>
-        
-        <div style="padding: 20px; max-height: 80vh; overflow-y: auto;">
-            
-            <!-- SEZIONE BI: BOX KPI PER TABLET -->
-            @if (statsPrezzi != null)
-            {
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 20px;">
-                    <div style="background: rgba(0, 90, 158, 0.1); border-left: 6px solid #005a9e; padding: 12px; border-radius: 4px;">
-                        <div style="font-size: 11px; color: #555; text-transform: uppercase;">Prezzo Medio</div>
-                        <div style="font-size: 20px; font-weight: bold; color: #005a9e;">€ @((statsPrezzi?.Media as double?)?.ToString("N2") ?? "0,00")</div>
-                    </div>
-                    <div style="background: rgba(40, 167, 69, 0.1); border-left: 6px solid #28a745; padding: 12px; border-radius: 4px;">
-                        <div style="font-size: 11px; color: #555; text-transform: uppercase;">Prezzo Max</div>
-                        <div style="font-size: 20px; font-weight: bold; color: #28a745;">€ @statsPrezzi.Massimo?.ToString("N2")</div>
-                    </div>
-                    <div style="background: rgba(220, 53, 69, 0.1); border-left: 6px solid #dc3545; padding: 12px; border-radius: 4px;">
-                        <div style="font-size: 11px; color: #555; text-transform: uppercase;">Prezzo Min</div>
-                        <div style="font-size: 20px; font-weight: bold; color: #dc3545;">€ @statsPrezzi.Minimo?.ToString("N2")</div>
-                    </div>
-                    <div style="background: rgba(108, 117, 125, 0.1); border-left: 6px solid #6c757d; padding: 12px; border-radius: 4px;">
-                        <div style="font-size: 11px; color: #555; text-transform: uppercase;">Volume Totale</div>
-                        <div style="font-size: 20px; font-weight: bold; color: #333;">@((statsPrezzi?.VolumeTotale as decimal?)?.ToString("N0") ?? "0") <small style="font-size: 12px;">@prodottoSelezionatoRadar?.UmProdotto</small></div>
+    <div class="win-modal-backdrop">
+        <div class="win-popup p-3" style="width: 980px; max-width: 96vw;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <div style="font-size:16px; font-weight:700; color:#005a9e;">📊 Storico Prezzi Prodotto</div>
+                    <div style="font-size:12px;">
+                        <b>@(prodottoSelezionatoRadar?.CodiceProdotto ?? "-")</b> - @(prodottoSelezionatoRadar?.Descrizione ?? "Prodotto non selezionato")
                     </div>
                 </div>
-            }
-
-            <!-- Barra di ricerca -->
-            <div style="margin-bottom: 15px;">
-                <input type="text" class="form-control form-control-lg" 
-                       style="background: rgba(255, 255, 255, 0.6); border: 2px solid #005a9e; height: 50px;"
-                       placeholder="Filtra per colore o finitura..." 
-                       @bind="filtroColoreRadar" @bind:event="oninput" @onkeyup="EseguiRicercaRadar" />
+                <button class="btn btn-sm btn-secondary" @onclick="() => mostraModalRadar = false">Chiudi</button>
             </div>
 
-            <!-- Tabella Risultati -->
-            <table class="table table-hover align-middle" style="background: transparent;">
-                <thead style="background: rgba(0, 0, 0, 0.05);">
-                    <tr>
-    <th>Data</th>
-    <th>Cliente</th>
-    <th>Colori / Finitura</th>
-    <th class="text-end">Prezzo Unit.</th> 
-    <th class="text-center" style="color: #e67e22;">Sconto %</th> <!-- NUOVO -->
-    <th class="text-end fw-bold" style="color: #27ae60;">Prezzo Netto</th> <!-- NUOVO -->
-    <th class="text-end">Quantità</th>
-    <th class="text-center">U.M.</th>
-    <th class="text-center">Contatti</th>
-</tr>
-                </thead>
-                <tbody>
-    @foreach (var r in listaRisultatiRadar)
-    {
-        <tr style="background: rgba(255, 255, 255, 0.4); border-bottom: 1px solid #ddd;">
-            <!-- Data -->
-            <td>@(((DateTime)r.DataOrdine).ToShortDateString())</td>
-            
-            <!-- Ragione Sociale -->
-            <td style="font-weight: bold; text-transform: uppercase;">@r.RagSociale?.ToString()</td>
-            
-            <!-- Colori e Finitura -->
-            <td>
-                <span style="color: #005a9e; font-weight: 500;">@r.ColoreInt?.ToString()</span> 
-                <span style="color: #666;">@r.ColoreEst?.ToString()</span> 
-                <i style="display: block; font-size: 0.8em; color: #777;">@r.FinituraAccessorio?.ToString()</i>
-            </td>
-            
-            <!-- Prezzo Unitario (Listino) -->
-            <td class="text-end" style="color: #666;">
-                € @(r.PrezzoUnitario != null ? Convert.ToDecimal(r.PrezzoUnitario).ToString("N2") : "0,00")
-            </td>
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <input class="win-input" style="max-width:260px;" placeholder="Filtro colore/finitura..." @bind="filtroColoreRadar" />
+                <button class="btn btn-sm btn-primary" @onclick="AggiungiPrezzoManuale">➕ Riga Manuale</button>
+                <span class="ms-auto" style="font-size:11px; color:#555;">Righe: <b>@RigheRadarFiltrate().Count()</b></span>
+            </div>
 
-            <!-- NUOVO: Sconto % -->
-            <td class="text-center" style="color: #e67e22; font-weight: bold;">
-                @(r.Sconto != null ? Convert.ToDecimal(r.Sconto).ToString("N1") : "0,0")%
-            </td>
-
-            <!-- NUOVO: Prezzo Netto (Scontato) - 3 Decimali -->
-            <td class="text-end fw-bold" style="color: #28a745;">
-                € @(r.PrezzoNetto != null ? Convert.ToDecimal(r.PrezzoNetto).ToString("N3") : "0,000")
-            </td>
-            
-            <!-- Quantità -->
-            <td class="text-end fw-bold">
-                @(Convert.ToDecimal(r.Quantita).ToString("N2"))
-            </td>
-            
-            <!-- Unità di Misura -->
-            <td class="text-center small">@r.UmRiga?.ToString()</td>
-            
-            <!-- Contatti -->
-            <td class="text-center">
-                @if (!string.IsNullOrEmpty(r.Cel1?.ToString()))
-                {
-                    <a href="tel:@r.Cel1?.ToString()" class="win-btn-tablet" 
-                       style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center; width: 45px; height: 45px; padding: 0;">
-                        📞
-                    </a>
-                }
-            </td>
-        </tr>
-    }
-</tbody>
-
-            </table>
-        </div>
-
-        <!-- Footer per Tablet -->
-        <div style="background: rgba(0, 0, 0, 0.05); padding: 15px; text-align: center;">
-            <button class="win-btn-tablet" style="width: 100%; max-width: 300px; font-weight: bold;" 
-                    @onclick="() => mostraModalRadar = false">CHIUDI ANALISI</button>
+            <div style="max-height: 62vh; overflow:auto;">
+                <table class="win-grid">
+                    <thead>
+                        <tr>
+                            <th style="width:95px;">Data</th>
+                            <th>Cliente</th>
+                            <th style="width:90px;" class="text-end">Quantità</th>
+                            <th style="width:65px;">U.M.</th>
+                            <th style="width:170px;">Colore</th>
+                            <th style="width:130px;">Finitura</th>
+                            <th style="width:90px;" class="text-end">Prezzo</th>
+                            <th style="width:80px;" class="text-end">Sconto%</th>
+                            <th style="width:90px;" class="text-end">Netto</th>
+                            <th style="width:90px;" class="text-center">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (RigheRadarFiltrate().Any())
+                        {
+                            @foreach (var r in RigheRadarFiltrate())
+                            {
+                                <tr>
+                                    @if (r is ManualPriceRow m && m.IsEditing)
+                                    {
+                                        <td>
+                                            <input type="date" class="win-input" @bind="m.DataOrdine" />
+                                        </td>
+                                        <td>
+                                            <input class="win-input" @bind="m.RagSociale" />
+                                        </td>
+                                        <td class="text-end">
+                                            <input type="number" step="0.001" class="win-input text-end" @bind="m.Quantita" />
+                                        </td>
+                                        <td>
+                                            <input class="win-input" @bind="m.UmRiga" />
+                                        </td>
+                                        <td>
+                                            <div style="display:flex; gap:6px;">
+                                                <input class="win-input" placeholder="Colore int." @bind="m.ColoreInt" />
+                                                <input class="win-input" placeholder="Colore est." @bind="m.ColoreEst" />
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <input class="win-input" @bind="m.FinituraAccessorio" />
+                                        </td>
+                                        <td class="text-end">
+                                            <input type="number" step="0.001" class="win-input text-end" @bind="m.PrezzoUnitario" />
+                                        </td>
+                                        <td class="text-end">
+                                            <input type="number" step="0.01" class="win-input text-end" @bind="m.Sconto" />
+                                        </td>
+                                        <td class="text-end fw-bold">@m.PrezzoNetto.ToString("N3")</td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm btn-success" @onclick="async () => await SalvaManualRow(m)">✔</button>
+                                            <button class="btn btn-sm btn-secondary" @onclick="() => AnnullaEditManualRow(m)">✖</button>
+                                        </td>
+                                    }
+                                    else
+                                    {
+                                        <td>@GetDataOrdineRow(r).ToString("dd/MM/yyyy")</td>
+                                        <td>@GetRagSocialeRow(r)</td>
+                                        <td class="text-end">@GetQuantitaRow(r).ToString("N3")</td>
+                                        <td>@GetUmRigaRow(r)</td>
+                                        <td>@GetColoreRow(r)</td>
+                                        <td>@GetFinituraRow(r)</td>
+                                        <td class="text-end">@GetPrezzoUnitarioRow(r).ToString("N3")</td>
+                                        <td class="text-end">@GetScontoRow(r).ToString("N2")</td>
+                                        <td class="text-end fw-bold">@GetPrezzoNettoRow(r).ToString("N3")</td>
+                                        <td class="text-center">
+                                            @if (r is ManualPriceRow mm)
+                                            {
+                                                <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => EditManualRow(mm)">✏️</button>
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => EliminaManualRow(mm)">🗑️</button>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="10" class="text-center text-muted">Nessun dato disponibile.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 }
@@ -559,11 +554,36 @@
     private Prodotti prodottoInModifica = new();
     private bool codiceDuplicato = false;
 
+    // Inline test modal helper
+    private void CloseInlineTest()
+    {
+        mostraModalRadar = false;
+    }
+
     // Gestione Radar Stock (Rinominate per evitare duplicati)
     private bool mostraModalRadar = false; 
     private string filtroColoreRadar = ""; 
     private Prodotti prodottoSelezionatoRadar;
-    private IEnumerable<dynamic> listaRisultatiRadar = new List<dynamic>();
+    private List<dynamic> listaRisultatiRadar = new List<dynamic>();
+    // Model per righe manuali inserite nella modal (solo in-memory)
+    private class ManualPriceRow
+    {
+        public bool IsManual { get; set; } = true;
+        public bool IsEditing { get; set; } = true;
+        public int PriceHistoryId { get; set; } = 0;
+        public DateTime DataOrdine { get; set; } = DateTime.Today;
+        public string RagSociale { get; set; } = "Listino";
+        public decimal Quantita { get; set; } = 0;
+        public string ColoreInt { get; set; } = "";
+        public string ColoreEst { get; set; } = "";
+        public string FinituraAccessorio { get; set; } = "";
+        public string Cel1 { get; set; } = "";
+        public string UmRiga { get; set; } = "PZ";
+        public decimal PrezzoUnitario { get; set; } = 0;
+        public decimal Sconto { get; set; } = 0;
+        public decimal PrezzoNetto => Math.Round(PrezzoUnitario * (1 - (Sconto / 100m)), 3);
+        public int IDOrdine { get; set; } = 0; // zero indica voce manuale
+    }
     private string messaggioInfo = "";
     private dynamic statsPrezzi;
     private string biMedia = "---";
@@ -574,7 +594,68 @@ private string biVolume = "0";
 
     protected override async Task OnInitializedAsync()
     {
+        // Assicuriamo che la tabella per lo storico esista prima di qualunque operazione
+        await EnsurePriceHistoryTableExistsAsync();
+        // Assicuriamo che la colonna PrezzoUnitario esista nella tabella Prodotti
+        await EnsureProdottiPrezzoColumnExistsAsync();
         await RicaricaLista();
+    }
+
+    private async Task EnsurePriceHistoryTableExistsAsync()
+    {
+        try
+        {
+            using var db = new SqlConnection(conn);
+            var sql = @"IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[PriceHistory]') AND type = 'U')
+BEGIN
+    CREATE TABLE dbo.PriceHistory (
+        PriceHistoryId INT IDENTITY(1,1) PRIMARY KEY,
+        CodiceProdotto NVARCHAR(100) NOT NULL,
+        DataOrdine DATE NOT NULL,
+        RagSociale NVARCHAR(250) NOT NULL,
+        Quantita DECIMAL(18,3) NOT NULL DEFAULT 0,
+        UmRiga NVARCHAR(20) NULL,
+        ColoreInt NVARCHAR(100) NULL,
+        ColoreEst NVARCHAR(100) NULL,
+        FinituraAccessorio NVARCHAR(200) NULL,
+        PrezzoUnitario DECIMAL(18,6) NOT NULL DEFAULT 0,
+        Sconto DECIMAL(5,2) NOT NULL DEFAULT 0,
+        PrezzoNetto DECIMAL(18,6) NOT NULL DEFAULT 0,
+        Note NVARCHAR(400) NULL,
+        InseritoDa NVARCHAR(100) NULL,
+        InseritoIl DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+END
+IF NOT EXISTS (SELECT name FROM sys.indexes WHERE name = 'IX_PriceHistory_Codice_Data' AND object_id = OBJECT_ID('dbo.PriceHistory'))
+BEGIN
+    CREATE INDEX IX_PriceHistory_Codice_Data ON dbo.PriceHistory(CodiceProdotto, InseritoIl DESC);
+END";
+
+            await db.ExecuteAsync(sql);
+        }
+        catch (Exception ex)
+        {
+            // Non blocchiamo l'inizializzazione: mostriamo un messaggio semplice
+            try { messaggioInfo = "Attenzione: impossibile creare la tabella PriceHistory: " + ex.Message; } catch { }
+        }
+    }
+
+    private async Task EnsureProdottiPrezzoColumnExistsAsync()
+    {
+        try
+        {
+            using var db = new SqlConnection(conn);
+            var sql = @"IF COL_LENGTH('dbo.Prodotti', 'PrezzoUnitario') IS NULL
+BEGIN
+    ALTER TABLE dbo.Prodotti ADD PrezzoUnitario DECIMAL(18,6) NOT NULL CONSTRAINT DF_Prodotti_PrezzoUnitario DEFAULT(0);
+END";
+
+            await db.ExecuteAsync(sql);
+        }
+        catch (Exception ex)
+        {
+            try { messaggioInfo = "Attenzione: impossibile aggiungere la colonna PrezzoUnitario a Prodotti: " + ex.Message; } catch { }
+        }
     }
 
     private async Task<bool> VerificaCodiceEsistente(string codice)
@@ -645,6 +726,7 @@ private async Task RicaricaLista()
         CodiceProdotto = p.CodiceProdotto,
         Descrizione = p.Descrizione,
         IsAccessorio = p.IsAccessorio,
+        PrezzoUnitario = p.PrezzoUnitario,
         PesoAlMetro = p.PesoAlMetro,
         LunghezzaVerga = p.LunghezzaVerga,
         UmProdotto = p.UmProdotto,
@@ -688,8 +770,8 @@ private async Task SalvaModifiche()
     
     if (prodottoInModifica.IDProdotto == 0) // INSERT
     {
-        sql = @"INSERT INTO Prodotti (CodiceProdotto, Descrizione, IsAccessorio, PesoAlMetro, LunghezzaVerga, UmProdotto, NoteTecniche, FinituraAccessorio, PezziPerConfezione, UmSecondaria) 
-                VALUES (@CodiceProdotto, @Descrizione, @IsAccessorio, @PesoAlMetro, @LunghezzaVerga, @UmProdotto, @NoteTecniche, @FinituraAccessorio, @PezziPerConfezione, @UmSecondaria)";
+        sql = @"INSERT INTO Prodotti (CodiceProdotto, Descrizione, IsAccessorio, PesoAlMetro, LunghezzaVerga, UmProdotto, NoteTecniche, FinituraAccessorio, PezziPerConfezione, UmSecondaria, PrezzoUnitario) 
+                VALUES (@CodiceProdotto, @Descrizione, @IsAccessorio, @PesoAlMetro, @LunghezzaVerga, @UmProdotto, @NoteTecniche, @FinituraAccessorio, @PezziPerConfezione, @UmSecondaria, @PrezzoUnitario)";
     }
     else // UPDATE
     {
@@ -703,7 +785,8 @@ private async Task SalvaModifiche()
                 NoteTecniche = @NoteTecniche,
                 FinituraAccessorio = @FinituraAccessorio,
                 PezziPerConfezione = @PezziPerConfezione,
-                UmSecondaria = @UmSecondaria
+                UmSecondaria = @UmSecondaria,
+                PrezzoUnitario = @PrezzoUnitario
                 WHERE IDProdotto = @IDProdotto";
     }
     
@@ -727,26 +810,14 @@ private async Task SalvaModifiche()
         testoRicerca = e.Value?.ToString() ?? "";
     }
     private async Task ApriModalRadar(Prodotti p)
-{
-    prodottoSelezionatoRadar = p;
-    filtroColoreRadar = ""; 
-    
-    await EseguiRicercaRadar();
-
-    if (listaRisultatiRadar != null && listaRisultatiRadar.Any())
     {
+        // Apri sempre la modale dello storico prezzi, anche se non ci sono vendite precedenti.
+        prodottoSelezionatoRadar = p;
+        filtroColoreRadar = "";
+        await EseguiRicercaRadar();
         mostraModalRadar = true;
-        // Per ora non chiamiamo CalcolaBIPrezzi per evitare crash
-    }
-    else
-    {
-        messaggioInfo = $"ℹ️ Nessuno storico vendite per: {p.CodiceProdotto}";
         StateHasChanged();
-        await Task.Delay(2500);
-        messaggioInfo = "";
     }
-    StateHasChanged();
-}
 
 
 
@@ -759,6 +830,7 @@ private async Task EseguiRicercaRadar()
     string sql = @"
         SELECT 
             O.DataOrdine, 
+            D.IDOrdine,
             C.RagSociale, 
             D.Quantita, 
             D.ColoreInt, 
@@ -778,7 +850,165 @@ private async Task EseguiRicercaRadar()
 
     var result = await db.QueryAsync(sql, new { Codice = prodottoSelezionatoRadar.CodiceProdotto });
     listaRisultatiRadar = result.ToList();
+    // Carichiamo anche le righe manuali da PriceHistory e le inseriamo in testa
+        try
+        {
+            var manualsFromDb = (await db.QueryAsync(@"SELECT PriceHistoryId AS PriceHistoryId, CodiceProdotto, DataOrdine, RagSociale, Quantita, UmRiga, ColoreInt, ColoreEst, FinituraAccessorio, PrezzoUnitario, Sconto, PrezzoNetto FROM PriceHistory WHERE LTRIM(RTRIM(CodiceProdotto)) = LTRIM(RTRIM(@Codice)) ORDER BY InseritoIl DESC", new { Codice = prodottoSelezionatoRadar.CodiceProdotto }))
+            .Select(d => new ManualPriceRow
+            {
+                PriceHistoryId = (int)(d.PriceHistoryId ?? 0),
+                DataOrdine = d.DataOrdine ?? DateTime.Today,
+                RagSociale = d.RagSociale ?? "Listino",
+                Quantita = d.Quantita ?? 0m,
+                UmRiga = d.UmRiga ?? prodottoSelezionatoRadar?.UmProdotto ?? "PZ",
+                ColoreInt = d.ColoreInt ?? "",
+                ColoreEst = d.ColoreEst ?? "",
+                FinituraAccessorio = d.FinituraAccessorio ?? "",
+                PrezzoUnitario = d.PrezzoUnitario ?? 0m,
+                Sconto = d.Sconto ?? 0m,
+                IsEditing = false
+            }).Cast<dynamic>().ToList();
+
+        if (manualsFromDb.Any()) listaRisultatiRadar.InsertRange(0, manualsFromDb);
+    }
+    catch { /* ignore if table not present yet */ }
+    // Manteniamo eventuali righe manuali già aggiunte: se presenti, riattacchiamole in testa
+    var manuals = listaRisultatiRadar.Where(x => x is ManualPriceRow).ToList();
+    listaRisultatiRadar = listaRisultatiRadar.Where(x => !(x is ManualPriceRow)).ToList();
+    if (manuals.Any()) listaRisultatiRadar.InsertRange(0, manuals);
 }
+
+    private void AggiungiPrezzoManuale()
+    {
+        var nuovo = new ManualPriceRow
+        {
+            DataOrdine = DateTime.Today,
+            RagSociale = "Listino",
+            PrezzoUnitario = prodottoSelezionatoRadar?.PrezzoUnitario ?? 0,
+            Sconto = 0,
+            UmRiga = prodottoSelezionatoRadar?.UmProdotto ?? "PZ",
+            Quantita = 0,
+            IsEditing = true
+        };
+
+        listaRisultatiRadar.Insert(0, nuovo);
+    }
+
+    private void EditManualRow(ManualPriceRow r)
+    {
+        if (r == null) return;
+        r.IsEditing = true;
+    }
+
+    private async Task SalvaManualRow(ManualPriceRow r)
+    {
+        if (r == null) return;
+        // Validazioni semplici
+        if (r.PrezzoUnitario < 0) r.PrezzoUnitario = 0;
+        if (r.Quantita < 0) r.Quantita = 0;
+        // Calcolo netto e persistenza su DB
+        r.IsEditing = false;
+        try
+        {
+            using var db = new SqlConnection(conn);
+            // Ensure table exists (in case this page was not inizialized earlier)
+            var ensureSql = @"IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[PriceHistory]') AND type = 'U')
+BEGIN
+    CREATE TABLE dbo.PriceHistory (
+        PriceHistoryId INT IDENTITY(1,1) PRIMARY KEY,
+        CodiceProdotto NVARCHAR(100) NOT NULL,
+        DataOrdine DATE NOT NULL,
+        RagSociale NVARCHAR(250) NOT NULL,
+        Quantita DECIMAL(18,3) NOT NULL DEFAULT 0,
+        UmRiga NVARCHAR(20) NULL,
+        ColoreInt NVARCHAR(100) NULL,
+        ColoreEst NVARCHAR(100) NULL,
+        FinituraAccessorio NVARCHAR(200) NULL,
+        PrezzoUnitario DECIMAL(18,6) NOT NULL DEFAULT 0,
+        Sconto DECIMAL(5,2) NOT NULL DEFAULT 0,
+        PrezzoNetto DECIMAL(18,6) NOT NULL DEFAULT 0,
+        Note NVARCHAR(400) NULL,
+        InseritoDa NVARCHAR(100) NULL,
+        InseritoIl DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+END
+IF NOT EXISTS (SELECT name FROM sys.indexes WHERE name = 'IX_PriceHistory_Codice_Data' AND object_id = OBJECT_ID('dbo.PriceHistory'))
+BEGIN
+    CREATE INDEX IX_PriceHistory_Codice_Data ON dbo.PriceHistory(CodiceProdotto, InseritoIl DESC);
+END";
+            try { db.Execute(ensureSql); } catch { /* non blocking */ }
+
+            if (r.PriceHistoryId == 0)
+            {
+                var insertSql = @"INSERT INTO PriceHistory (CodiceProdotto, DataOrdine, RagSociale, Quantita, UmRiga, ColoreInt, ColoreEst, FinituraAccessorio, PrezzoUnitario, Sconto, PrezzoNetto, InseritoDa)
+                                   VALUES (@CodiceProdotto, @DataOrdine, @RagSociale, @Quantita, @UmRiga, @ColoreInt, @ColoreEst, @FinituraAccessorio, @PrezzoUnitario, @Sconto, @PrezzoNetto, @InseritoDa);
+                                   SELECT CAST(SCOPE_IDENTITY() as int);";
+                var id = db.ExecuteScalar<int>(insertSql, new
+                {
+                    CodiceProdotto = prodottoSelezionatoRadar?.CodiceProdotto ?? "",
+                    r.DataOrdine,
+                    r.RagSociale,
+                    r.Quantita,
+                    r.UmRiga,
+                    r.ColoreInt,
+                    r.ColoreEst,
+                    r.FinituraAccessorio,
+                    r.PrezzoUnitario,
+                    r.Sconto,
+                    PrezzoNetto = r.PrezzoNetto,
+                    InseritoDa = Environment.UserName
+                });
+                r.PriceHistoryId = id;
+                try { await JS.InvokeVoidAsync("console.log", $"PriceHistory: inserita riga id={id} codice={prodottoSelezionatoRadar?.CodiceProdotto} prezzo={r.PrezzoUnitario}"); } catch { }
+            }
+            else
+            {
+                var upd = @"UPDATE PriceHistory SET DataOrdine=@DataOrdine, RagSociale=@RagSociale, Quantita=@Quantita, UmRiga=@UmRiga, ColoreInt=@ColoreInt, ColoreEst=@ColoreEst, FinituraAccessorio=@FinituraAccessorio, PrezzoUnitario=@PrezzoUnitario, Sconto=@Sconto, PrezzoNetto=@PrezzoNetto WHERE PriceHistoryId=@PriceHistoryId";
+                db.Execute(upd, new
+                {
+                    r.DataOrdine,
+                    r.RagSociale,
+                    r.Quantita,
+                    r.UmRiga,
+                    r.ColoreInt,
+                    r.ColoreEst,
+                    r.FinituraAccessorio,
+                    r.PrezzoUnitario,
+                    r.Sconto,
+                    PrezzoNetto = r.PrezzoNetto,
+                    r.PriceHistoryId
+                });
+                try { await JS.InvokeVoidAsync("console.log", $"PriceHistory: aggiornata riga id={r.PriceHistoryId} codice={prodottoSelezionatoRadar?.CodiceProdotto} prezzo={r.PrezzoUnitario}"); } catch { }
+            }
+        }
+        catch (Exception ex)
+        {
+            messaggioInfo = "Errore salvataggio storico: " + ex.Message;
+        }
+        StateHasChanged();
+    }
+
+    private void AnnullaEditManualRow(ManualPriceRow r)
+    {
+        if (r == null) return;
+        // Se nuovo e annulli, rimuovi
+        if (r.IDOrdine == 0 && (r.PrezzoUnitario == 0m && string.IsNullOrWhiteSpace(r.FinituraAccessorio) && r.Quantita == 0))
+        {
+            listaRisultatiRadar.Remove(r);
+        }
+        else
+        {
+            r.IsEditing = false;
+        }
+    }
+
+    private async Task EliminaManualRow(ManualPriceRow r)
+    {
+        if (r == null) return;
+        if (!await JS.InvokeAsync<bool>("confirm", "Eliminare la voce manuale?")) return;
+        listaRisultatiRadar.Remove(r);
+        StateHasChanged();
+    }
 
 
 
@@ -789,6 +1019,95 @@ private async Task CalcolaBIPrezzi(string codice)
     biMedia = biMinimo = biMassimo = "0,00";
     biVolume = "0";
     await Task.CompletedTask;
+}
+
+private IEnumerable<dynamic> RigheRadarFiltrate()
+{
+    if (string.IsNullOrWhiteSpace(filtroColoreRadar)) return listaRisultatiRadar;
+    var f = filtroColoreRadar.Trim();
+    return listaRisultatiRadar.Where(r =>
+        GetColoreRow(r).Contains(f, StringComparison.OrdinalIgnoreCase) ||
+        GetFinituraRow(r).Contains(f, StringComparison.OrdinalIgnoreCase));
+}
+
+private DateTime GetDataOrdineRow(object r)
+{
+    if (r is ManualPriceRow m) return m.DataOrdine;
+    if (r is IDictionary<string, object> d && d.TryGetValue("DataOrdine", out var v) && v != null) return Convert.ToDateTime(v);
+    return DateTime.Today;
+}
+
+private string GetRagSocialeRow(object r)
+{
+    if (r is ManualPriceRow m) return m.RagSociale ?? "";
+    if (r is IDictionary<string, object> d && d.TryGetValue("RagSociale", out var v) && v != null) return v.ToString() ?? "";
+    return "";
+}
+
+private decimal GetQuantitaRow(object r)
+{
+    if (r is ManualPriceRow m) return m.Quantita;
+    if (r is IDictionary<string, object> d && d.TryGetValue("Quantita", out var v) && v != null) return Convert.ToDecimal(v);
+    return 0m;
+}
+
+private string GetUmRigaRow(object r)
+{
+    if (r is ManualPriceRow m) return m.UmRiga ?? "";
+    if (r is IDictionary<string, object> d && d.TryGetValue("UmRiga", out var v) && v != null) return v.ToString() ?? "";
+    return "";
+}
+
+private string GetColoreRow(object r)
+{
+    if (r is ManualPriceRow m)
+    {
+        var ci = m.ColoreInt ?? "";
+        var ce = m.ColoreEst ?? "";
+        if (string.IsNullOrWhiteSpace(ci) && string.IsNullOrWhiteSpace(ce)) return "";
+        if (string.IsNullOrWhiteSpace(ce)) return ci;
+        if (string.IsNullOrWhiteSpace(ci)) return ce;
+        return $"{ci} / {ce}";
+    }
+    if (r is IDictionary<string, object> d)
+    {
+        var ci = d.TryGetValue("ColoreInt", out var v1) && v1 != null ? v1.ToString() ?? "" : "";
+        var ce = d.TryGetValue("ColoreEst", out var v2) && v2 != null ? v2.ToString() ?? "" : "";
+        if (string.IsNullOrWhiteSpace(ci) && string.IsNullOrWhiteSpace(ce)) return "";
+        if (string.IsNullOrWhiteSpace(ce)) return ci;
+        if (string.IsNullOrWhiteSpace(ci)) return ce;
+        return $"{ci} / {ce}";
+    }
+    return "";
+}
+
+private string GetFinituraRow(object r)
+{
+    if (r is ManualPriceRow m) return m.FinituraAccessorio ?? "";
+    if (r is IDictionary<string, object> d && d.TryGetValue("FinituraAccessorio", out var v) && v != null) return v.ToString() ?? "";
+    return "";
+}
+
+private decimal GetPrezzoUnitarioRow(object r)
+{
+    if (r is ManualPriceRow m) return m.PrezzoUnitario;
+    if (r is IDictionary<string, object> d && d.TryGetValue("PrezzoUnitario", out var v) && v != null) return Convert.ToDecimal(v);
+    return 0m;
+}
+
+private decimal GetScontoRow(object r)
+{
+    if (r is ManualPriceRow m) return m.Sconto;
+    if (r is IDictionary<string, object> d && d.TryGetValue("Sconto", out var v) && v != null) return Convert.ToDecimal(v);
+    return 0m;
+}
+
+private decimal GetPrezzoNettoRow(object r)
+{
+    if (r is ManualPriceRow m) return m.PrezzoNetto;
+    var pu = GetPrezzoUnitarioRow(r);
+    var sc = GetScontoRow(r);
+    return Math.Round(pu * (1 - (sc / 100m)), 3);
 }
 
 

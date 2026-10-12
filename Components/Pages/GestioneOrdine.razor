@@ -38,6 +38,12 @@
         transition: all 0.2s;
     }
 
+    private void OnFonteChanged(ChangeEventArgs e)
+    {
+        var v = e?.Value?.ToString() ?? "anagrafica";
+        SetFontePrezzo(v);
+    }
+
     .input-grid-mini:hover, .input-grid-mini:focus {
         border-bottom: 1px dashed #ccc;
         background: rgba(255, 255, 255, 0.5);
@@ -146,6 +152,71 @@
          <span>▶</span><span>SUCC.</span>
     </button>
 </div>
+
+@* Modal elegante per confermare prezzo e mostrare finitura/data *@
+@if (mostraModalPrezzo)
+{
+    <div class="win-modal-backdrop">
+        <div class="win-popup">
+            <div class="popup-body">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="flex-grow:1;">
+                        <div style="font-weight:700; font-size:14px; color:#005a9e;">Conferma prezzo</div>
+                        <div style="margin-top:6px; font-size:13px; color:#333;"><strong>Codice:</strong> @prodottoSelezionatoPerModal?.CodiceProdotto</div>
+                        <div style="margin-top:4px; font-size:13px; color:#333;"><strong>Descrizione:</strong> @prodottoSelezionatoPerModal?.Descrizione</div>
+                        <div style="margin-top:8px;">
+                            <small style="color:#666">Seleziona la fonte del prezzo</small>
+                            <div class="list-group mt-2">
+                                <label class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div style="display:flex; gap:12px; align-items:center;">
+                                        <input type="radio" name="fontePrezzo" checked=@(sceltaFontePrezzo=="anagrafica") @onclick='() => SetFontePrezzo("anagrafica")' />
+                                        <div>
+                                            <div><strong>Anagrafica</strong></div>
+                                            <div class="text-muted small">Prezzo anagrafica: @prodottoSelezionatoPerModal?.PrezzoUnitario.ToString("C2")</div>
+                                        </div>
+                                    </div>
+                                </label>
+
+                                <label class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div style="display:flex; gap:12px; align-items:center;">
+                                        <input type="radio" name="fontePrezzo" checked=@(sceltaFontePrezzo=="ordine") @onclick='() => SetFontePrezzo("ordine")' />
+                                        <div>
+                                            <div><strong>Ordine</strong></div>
+                                            <div class="text-muted small">Prezzo: @(prezzoFromOrdine.HasValue ? prezzoFromOrdine.Value.ToString("C2") : "-") • Data: @(dataFromOrdine?.ToString("dd/MM/yyyy") ?? "-")</div>
+                                            <div class="text-muted small">Finitura: @(string.IsNullOrWhiteSpace(finituraFromOrdine) ? "-" : finituraFromOrdine)</div>
+                                        </div>
+                                    </div>
+                                </label>
+
+                                <label class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div style="display:flex; gap:12px; align-items:center;">
+                                        <input type="radio" name="fontePrezzo" checked=@(sceltaFontePrezzo=="history") @onclick='() => SetFontePrezzo("history")' />
+                                        <div>
+                                            <div><strong>Manuale</strong></div>
+                                            <div class="text-muted small">Prezzo: @(prezzoFromHistory.HasValue ? prezzoFromHistory.Value.ToString("C2") : "-") • Data: @(dataFromHistory?.ToString("dd/MM/yyyy") ?? "-")</div>
+                                            <div class="text-muted small">Finitura: @(string.IsNullOrWhiteSpace(finituraFromHistory) ? "-" : finituraFromHistory)</div>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <div class="mt-2">
+                                <small style="color:#666">Prezzo selezionato</small>
+                                <div style="font-weight:600; color:#28a745">@prezzoModal.ToString("C2") @if(!string.IsNullOrWhiteSpace(umModal)) { <span style="font-weight:600;">@umModal</span> }</div>
+                                <div style="font-size:0.8rem; color:#666;">(@(dataPrezzoModal?.ToString("dd/MM/yyyy") ?? "-") ) • Finitura: <span style="font-weight:600;">@(string.IsNullOrWhiteSpace(finituraModal) ? "-" : finituraModal)</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
+                    <button class="win-btn" style="background:#6c757d; color:white;" @onclick="AnnullaModalPrezzo">ANNULLA</button>
+                    <button class="win-btn" style="background:#28a745; color:white;" @onclick="ConfermaInserisciPrezzo">INSERISCI PREZZO</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 
         <div style="background: #eef5fb; border: 1px solid #b8d9f5; padding: 6px 12px; width: 130px; height: 60px;  text-align:right; border-radius: 8px; display: inline-block; line-height: 1.2;">
@@ -695,6 +766,183 @@ else
         caricamentoCompletato = true;
     }
 
+    // --- Modal conferma prezzo ---
+    private bool mostraModalPrezzo = false;
+    private decimal prezzoModal = 0m;
+    private DateTime? dataPrezzoModal = null;
+    private string finituraModal = "";
+    private string umModal = "";
+    private string modalTarget = ""; // "profilo" o "accessorio"
+    private Prodotti prodottoSelezionatoPerModal;
+    // Dettagli fonti prezzi
+    private decimal? prezzoFromOrdine = null;
+    private DateTime? dataFromOrdine = null;
+    private string finituraFromOrdine = null;
+
+    private decimal? prezzoFromHistory = null;
+    private DateTime? dataFromHistory = null;
+    private string finituraFromHistory = null;
+    private string umFromOrdine = null;
+    private string umFromHistory = null;
+
+    private string sceltaFontePrezzo = "anagrafica"; // values: "anagrafica","ordine","history"
+
+    private void SetFontePrezzo(string fonte)
+    {
+        sceltaFontePrezzo = fonte;
+        // Aggiorna prezzoModal e finituraModal in base alla scelta
+        if (fonte == "anagrafica")
+        {
+            prezzoModal = prodottoSelezionatoPerModal?.PrezzoUnitario ?? 0m;
+            dataPrezzoModal = null;
+            // Per l'anagrafica: se è profilo e ha colori nell'anagrafica (non gestato ora), preferiamo FinituraAccessorio
+            finituraModal = prodottoSelezionatoPerModal?.FinituraAccessorio ?? "";
+            umModal = prodottoSelezionatoPerModal?.UmProdotto ?? "";
+        }
+        else if (fonte == "ordine")
+        {
+            if (prezzoFromOrdine.HasValue) prezzoModal = prezzoFromOrdine.Value;
+            dataPrezzoModal = dataFromOrdine;
+            finituraModal = finituraFromOrdine ?? finituraModal;
+            umModal = umFromOrdine ?? prodottoSelezionatoPerModal?.UmProdotto ?? "";
+        }
+        else if (fonte == "history")
+        {
+            if (prezzoFromHistory.HasValue) prezzoModal = prezzoFromHistory.Value;
+            dataPrezzoModal = dataFromHistory;
+            finituraModal = finituraFromHistory ?? finituraModal;
+            umModal = umFromHistory ?? prodottoSelezionatoPerModal?.UmProdotto ?? "";
+        }
+    }
+
+    // Formatter per mostrare la finitura corretta: profilo -> ColoreInt / ColoreEst, accessorio -> FinituraAccessorio
+    private string FormatFinitura(bool isAccessorio, string coloreInt, string coloreEst, string finituraAccessorio)
+    {
+        if (isAccessorio)
+            return finituraAccessorio?.Trim() ?? "";
+        coloreInt = (coloreInt ?? "").Trim();
+        coloreEst = (coloreEst ?? "").Trim();
+        if (!string.IsNullOrEmpty(coloreInt) && !string.IsNullOrEmpty(coloreEst))
+            return $"{coloreInt} / {coloreEst}";
+        return string.IsNullOrEmpty(coloreInt) ? coloreEst : coloreInt;
+    }
+
+    private async Task CaricaUltimoPrezzoEMostraModal(Prodotti p, string target)
+    {
+        prodottoSelezionatoPerModal = p;
+        modalTarget = target;
+        finituraModal = p.FinituraAccessorio ?? "";
+        prezzoModal = p.PrezzoUnitario;
+        dataPrezzoModal = null;
+        try
+        {
+            using var db = new SqlConnection(conn);
+
+            // Ultimo prezzo da ordini reali
+            var sqlOrdine = @"SELECT TOP 1 D.PrezzoUnitario AS Prezzo, O.DataOrdine AS DataPrezzo, D.FinituraAccessorio, D.ColoreInt, D.ColoreEst, D.IsAccessorio, D.UmRiga
+                        FROM Dettaglio_Ordini D
+                        JOIN Ordini O ON D.IDOrdine = O.IDOrdine
+                        WHERE D.IDProdotto = @id
+                        ORDER BY O.DataOrdine DESC";
+
+            var ordineRow = await db.QueryFirstOrDefaultAsync<dynamic>(sqlOrdine, new { id = p.IDProdotto });
+
+            DateTime? dataOrdinePrezzo = null;
+            decimal? prezzoOrdine = null;
+            string finituraOrdine = null;
+            if (ordineRow != null)
+            {
+                try { prezzoOrdine = Convert.ToDecimal(ordineRow.Prezzo); } catch { prezzoOrdine = null; }
+                try { dataOrdinePrezzo = ordineRow.DataPrezzo != null ? Convert.ToDateTime(ordineRow.DataPrezzo) : (DateTime?)null; } catch { dataOrdinePrezzo = null; }
+                try { finituraOrdine = ordineRow.FinituraAccessorio; } catch { finituraOrdine = null; }
+            }
+
+            // Ultimo prezzo manuale da PriceHistory
+            var sqlHistory = @"SELECT TOP 1 PrezzoUnitario AS Prezzo, DataOrdine, InseritoIl, COALESCE(DataOrdine, InseritoIl) AS DataPrezzo, FinituraAccessorio, CodiceProdotto, UmRiga, ColoreInt, ColoreEst, IsAccessorio
+                               FROM PriceHistory
+                               WHERE LTRIM(RTRIM(CodiceProdotto)) = LTRIM(RTRIM(@cod))
+                               ORDER BY COALESCE(DataOrdine, InseritoIl) DESC";
+
+            var historyRow = await db.QueryFirstOrDefaultAsync<dynamic>(sqlHistory, new { cod = p.CodiceProdotto });
+
+            DateTime? dataHistoryPrezzo = null;
+            decimal? prezzoHistory = null;
+            string finituraHistory = null;
+            if (historyRow != null)
+            {
+                try { prezzoHistory = Convert.ToDecimal(historyRow.Prezzo); } catch { prezzoHistory = null; }
+                try { dataHistoryPrezzo = historyRow.DataPrezzo != null ? Convert.ToDateTime(historyRow.DataPrezzo) : (DateTime?)null; } catch { dataHistoryPrezzo = null; }
+                try { finituraHistory = historyRow.FinituraAccessorio; } catch { finituraHistory = null; }
+                try { umFromHistory = historyRow.UmRiga; } catch { umFromHistory = null; }
+                try { await JS.InvokeVoidAsync("console.log", $"CaricaUltimoPrezzo: historyRow prezzo={prezzoHistory} data={dataHistoryPrezzo} codice={historyRow.CodiceProdotto}"); } catch { }
+            }
+            else
+            {
+                try { await JS.InvokeVoidAsync("console.log", $"CaricaUltimoPrezzo: historyRow NULL for codice {p.CodiceProdotto}"); } catch { }
+            }
+
+            // Salviamo i valori recuperati nelle fonti visualizzate nel modal
+            prezzoFromOrdine = prezzoOrdine;
+            dataFromOrdine = dataOrdinePrezzo;
+            finituraFromOrdine = finituraOrdine;
+            // umFromOrdine già impostata sopra
+
+            prezzoFromHistory = prezzoHistory;
+            dataFromHistory = dataHistoryPrezzo;
+            finituraFromHistory = finituraHistory;
+            // umFromHistory già impostata sopra
+
+            // Default: scegli la fonte più recente, ma lasciamo la scelta all'utente
+            if (prezzoHistory.HasValue && dataHistoryPrezzo.HasValue && (!dataOrdinePrezzo.HasValue || dataHistoryPrezzo >= dataOrdinePrezzo))
+            {
+                sceltaFontePrezzo = "history";
+            }
+            else if (prezzoOrdine.HasValue)
+            {
+                sceltaFontePrezzo = "ordine";
+            }
+            else
+            {
+                sceltaFontePrezzo = "anagrafica";
+            }
+
+            // Assicura coerenza prezzo/finitura con la scelta iniziale
+            SetFontePrezzo(sceltaFontePrezzo);
+        }
+        catch { /* ignore DB errors, user sees default prezzo dal prodotto */ }
+
+        mostraModalPrezzo = true;
+        StateHasChanged();
+    }
+
+    private void AnnullaModalPrezzo()
+    {
+        mostraModalPrezzo = false;
+        prodottoSelezionatoPerModal = null;
+        StateHasChanged();
+    }
+
+    private void ConfermaInserisciPrezzo()
+    {
+        // Applichiamo il prezzo in base alla scelta effettuata dall'utente
+        decimal prezzoDaUsare = prezzoModal;
+        if (sceltaFontePrezzo == "ordine" && prezzoFromOrdine.HasValue) prezzoDaUsare = prezzoFromOrdine.Value;
+        if (sceltaFontePrezzo == "history" && prezzoFromHistory.HasValue) prezzoDaUsare = prezzoFromHistory.Value;
+
+        if (modalTarget == "profilo")
+        {
+            rigaP.PrezzoUnitario = prezzoDaUsare;
+        }
+        else if (modalTarget == "accessorio")
+        {
+            rigaA.PrezzoUnitario = prezzoDaUsare;
+        }
+
+        mostraModalPrezzo = false;
+        prodottoSelezionatoPerModal = null;
+        StateHasChanged();
+    }
+
 
 
     @code {
@@ -940,7 +1188,7 @@ else
         }
 
         // Callback invoked when user selects a profile from autocomplete
-        private void OnProfiloSelected(Prodotti p)
+        private async Task OnProfiloSelected(Prodotti p)
         {
             if (p == null) return;
             rigaP.IDProdotto = p.IDProdotto;
@@ -949,13 +1197,16 @@ else
             rigaP.PesoAlMetro = p.PesoAlMetro;
             rigaP.UmRiga = p.UmProdotto;
             rigaP.PezziPerConfezione = p.PezziPerConfezione;
-            try { rigaP.PrezzoUnitario = p.PrezzoUnitario; } catch { }
+
+            // Carica informazioni prezzo/finitura dallo storico e mostra modal di conferma
+            await CaricaUltimoPrezzoEMostraModal(p, "profilo");
+
             mostraTastoNuovoProfilo = false;
             StateHasChanged();
         }
 
         // Callback invoked when user selects an accessory from autocomplete
-        private void OnAccessorioSelected(Prodotti p)
+        private async Task OnAccessorioSelected(Prodotti p)
         {
             if (p == null) return;
             rigaA.IDProdotto = p.IDProdotto;
@@ -964,7 +1215,10 @@ else
             rigaA.FinituraAccessorio = p.FinituraAccessorio;
             rigaA.UmRiga = p.UmProdotto;
             rigaA.PezziPerConfezione = p.PezziPerConfezione;
-            try { rigaA.PrezzoUnitario = p.PrezzoUnitario; } catch { }
+
+            // Carica informazioni prezzo/finitura dallo storico e mostra modal di conferma
+            await CaricaUltimoPrezzoEMostraModal(p, "accessorio");
+
             mostraTastoNuovoAccessorio = false;
             StateHasChanged();
         }

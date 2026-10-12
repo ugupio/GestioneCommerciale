@@ -167,8 +167,8 @@ public class DocumentoOrdine : IDocument
                     if (!isStampaProfili) { header.Cell().Element(CellStyle).Text("FINITURA ACC.").FontSize(7).SemiBold(); }
                 });
 
-                // 4. CICLO FISSO DI 17 RIGHE (Per layout costante)
-                for (int i = 1; i <= 17; i++)
+                // 4. CICLO FISSO DI 15 RIGHE (Per layout costante)
+                for (int i = 1; i <= 15; i++)
                 {
                     var r = Ordine.Righe.ElementAtOrDefault(i - 1);
                     decimal valoreRigaStampa = 0;
