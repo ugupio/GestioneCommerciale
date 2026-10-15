@@ -1,0 +1,49 @@
+@using Radzen
+@using GestioneCommerciale.Services
+@inject Radzen.DialogService DialogService
+
+@code {
+	[Parameter] public IEnumerable<dynamic> Items { get; set; } = new List<dynamic>();
+	[Inject] public ReminderService ReminderService { get; set; }
+
+	private async Task SegnaGestito(int logId)
+	{
+		await ReminderService.MarkGestitoAsync(logId);
+		// refresh local list
+		Items = await ReminderService.GetPendingPromemoriaAsync();
+		StateHasChanged();
+	}
+}
+
+<div style="min-width:680px; padding:18px;">
+	<h5>Promemoria pendenti</h5>
+	<div style="margin-top:12px;">
+		@if (Items == null || !Items.Any())
+		{
+			<div class="text-muted">Nessun promemoria pendente.</div>
+		}
+		else
+		{
+			<table class="table">
+				<thead>
+					<tr><th>DataPromemoria</th><th>Cliente</th><th>DataProssimoContatto</th><th>Metodo</th><th></th></tr>
+				</thead>
+				<tbody>
+					@foreach(var it in Items)
+					{
+						<tr>
+							<td>@((DateTime)it.DataPromemoria)</td>
+							<td>@(it.RagSociale ?? "-")</td>
+							<td>@(it.DataProssimoContatto?.ToString() ?? "-")</td>
+							<td>@(it.Metodo ?? "-")</td>
+							<td><button class="btn btn-sm btn-success" @onclick="() => SegnaGestito((int)it.LogId)">Segna gestito</button></td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</div>
+	<div style="display:flex; justify-content:flex-end; margin-top:12px;">
+		<button class="btn btn-outline-secondary" @onclick="() => DialogService.Close(false)">Chiudi</button>
+	</div>
+</div>

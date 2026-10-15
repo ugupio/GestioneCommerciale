@@ -159,6 +159,44 @@
     margin-bottom: 2px;
 }
 
+    /* Modal popup (overlay) */
+    .win-modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0,0,0,0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 20000;
+    }
+
+    .win-popup {
+        width: 520px;
+        max-width: calc(100% - 40px);
+        background: #f8f9fa;
+        border: 1px solid #6c757d;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    .win-popup .win-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        background: #005a9e;
+        color: white;
+    }
+
+    .popup-body {
+        padding: 14px;
+        background: #fff;
+    }
+
 </style>
 
 <div class="win-form">
@@ -239,7 +277,7 @@
                     <tr>
                         <td style="width:15%" class="win-label">Cliente:</td>
                         <td>
-                            <div style="display:flex; gap:2px;">
+                            <div style="display:flex; gap:2px; align-items:center;">
                                 <select class="win-input fw-bold" @bind="v.IDCliente" @bind:after="AlCambioCliente">
                                     <option value="0">-- Seleziona --</option>
                                     @foreach (var cl in clienti) {
@@ -248,6 +286,7 @@
                                 </select>
                                 <button type="button" class="btn-waze-sm" title="Naviga" 
                                         disabled="@(clienteSelezionato == null)" @onclick="() => NavigaWaze(clienteSelezionato)">🚙</button>
+                                <button type="button" class="btn-waze-sm" title="Nuovo cliente" style="margin-left:4px;" @onclick="ApriPopupNuovoCliente">➕</button>
                             </div>
                         </td>
                         <td style="width:15%" class="win-label">Data Visita:</td>
@@ -407,6 +446,83 @@
 </div>
 
 @if (mostraMessaggio) { <div class="toast-msg">@testoNotifica</div> }
+@if (visualizzaPopupCliente)
+{
+    <div class="win-modal-backdrop">
+        <div class="win-popup">
+            <div class="win-header d-flex justify-content-between">
+                <span>REGISTRAZIONE NUOVO CLIENTE</span>
+                <span style="cursor:pointer" @onclick="() => visualizzaPopupCliente = false">×</span>
+            </div>
+
+            <div class="popup-body">
+                <label class="win-label d-block text-start">Ragione Sociale</label>
+                <input class="win-input fw-bold" @bind="nuovoCliente.RagSociale" @oninput="VerificaDuplicatoCliente" placeholder="Nome cliente..." />
+
+                <div class="mb-3">
+                    <label class="win-label d-block text-start">Indirizzo (opz.)</label>
+                    <input class="win-input" @bind="nuovoCliente.Ind_legale" placeholder="Via..." />
+                </div>
+
+                <div class="row mb-3" style="display:flex; gap:8px;">
+                    <div style="flex:1">
+                        <label class="win-label d-block text-start">Telefono (opz.)</label>
+                        <input class="win-input" @bind="nuovoCliente.Telefono" />
+                    </div>
+                    <div style="flex:1">
+                        <label class="win-label d-block text-start">Cellulare (opz.)</label>
+                        <input class="win-input" @bind="nuovoCliente.Cel1" />
+                    </div>
+                    <div style="flex:1">
+                        <label class="win-label d-block text-start">Email (opz.)</label>
+                        <input class="win-input" @bind="nuovoCliente.Email" />
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:8px; margin-top:6px;">
+                    <div style="flex:1">
+                        <label class="win-label d-block text-start">P.IVA (opz.)</label>
+                        <input class="win-input" @bind="nuovoCliente.PIva" @oninput="VerificaDuplicatoCliente" placeholder="Partita IVA..." />
+                    </div>
+                    <div style="flex:1">
+                        <label class="win-label d-block text-start">Cod. Fiscale (opz.)</label>
+                        <input class="win-input" @bind="nuovoCliente.CodFiscale" />
+                    </div>
+                </div>
+                <div style="display:flex; gap:8px; margin-top:6px;">
+                    <div style="flex:1">
+                        <label class="win-label d-block text-start">Città</label>
+                        <input class="win-input" @bind="nuovoCliente.Citta_Legale" />
+                    </div>
+                    <div style="width:80px">
+                        <label class="win-label d-block text-start">CAP</label>
+                        <input class="win-input" @bind="nuovoCliente.CAP_Legale" />
+                    </div>
+                    <div style="width:80px">
+                        <label class="win-label d-block text-start">Prov.</label>
+                        <input class="win-input" @bind="nuovoCliente.Prov_Legale" />
+                    </div>
+                </div>
+
+                @if (clienteDuplicato)
+                {
+                    <div style="margin-top:8px; padding:8px; background:#fff3cd; border:1px solid #ffeeba; color:#856404;">
+                        ⚠️ Cliente duplicato rilevato in archivio (ID: @clienteDuplicatoId).
+                        <div style="margin-top:6px;">
+                            <button class="win-btn" style="height:34px;" @onclick="() => SelezionaClienteEsistente()">Usa cliente esistente</button>
+                            <button class="win-btn" style="height:34px;" @onclick="() => clienteDuplicato = false">Ignora</button>
+                        </div>
+                    </div>
+                }
+
+                <div class="mt-4 d-flex justify-content-end gap-2">
+                    <button class="win-btn" style="height:40px; background:#005a9e; color:white;" @onclick="SalvaNuovoCliente">💾 REGISTRA</button>
+                    <button class="win-btn" style="height:40px;" @onclick="() => visualizzaPopupCliente = false">❌ ANNULLA</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     private Visita v = new() { 
@@ -418,6 +534,11 @@
     private Cliente clienteSelezionato;
     private List<Cliente> clienti = new();
     private List<Cliente> clientiVicini = new();
+    // Popup nuovo cliente
+    private bool visualizzaPopupCliente = false;
+    private Cliente nuovoCliente = new();
+    private bool clienteDuplicato = false;
+    private int clienteDuplicatoId = 0;
     private List<Visita> storicoVisite = new();
     private string tipoFiltroGiro = "provincia";
     private string snapshotOriginale = "";
@@ -494,6 +615,93 @@
     private async Task CaricaClienti() {
         using var db = new SqlConnection(conn);
         clienti = (await db.QueryAsync<Cliente>("SELECT * FROM Clienti ORDER BY RagSociale")).ToList();
+    }
+
+    private void ApriPopupNuovoCliente()
+    {
+        nuovoCliente = new Cliente();
+        clienteDuplicato = false;
+        clienteDuplicatoId = 0;
+        visualizzaPopupCliente = true;
+    }
+
+    private async Task VerificaDuplicatoCliente(ChangeEventArgs e)
+    {
+        clienteDuplicato = false;
+        clienteDuplicatoId = 0;
+
+        if (string.IsNullOrWhiteSpace(nuovoCliente.RagSociale) && string.IsNullOrWhiteSpace(nuovoCliente.PIva))
+            return;
+
+        using var db = new SqlConnection(conn);
+        if (!string.IsNullOrWhiteSpace(nuovoCliente.PIva))
+        {
+            var idPiva = await db.QueryFirstOrDefaultAsync<int?>("SELECT TOP 1 IdCliente FROM Clienti WHERE PIva = @piva", new { piva = nuovoCliente.PIva.Trim() });
+            if (idPiva.HasValue)
+            {
+                clienteDuplicato = true;
+                clienteDuplicatoId = idPiva.Value;
+                return;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(nuovoCliente.RagSociale))
+        {
+            var idRag = await db.QueryFirstOrDefaultAsync<int?>("SELECT TOP 1 IdCliente FROM Clienti WHERE LTRIM(RTRIM(RagSociale)) = @rag", new { rag = nuovoCliente.RagSociale.Trim() });
+            if (idRag.HasValue)
+            {
+                clienteDuplicato = true;
+                clienteDuplicatoId = idRag.Value;
+                return;
+            }
+        }
+    }
+
+    private void SelezionaClienteEsistente()
+    {
+        if (clienteDuplicato && clienteDuplicatoId > 0)
+        {
+            v.IDCliente = clienteDuplicatoId;
+            visualizzaPopupCliente = false;
+            _ = AlCambioCliente();
+        }
+    }
+
+    private async Task SalvaNuovoCliente()
+    {
+        if (string.IsNullOrWhiteSpace(nuovoCliente.RagSociale))
+        {
+            await JS.InvokeVoidAsync("alert", "Inserire la Ragione Sociale del cliente.");
+            return;
+        }
+
+        if (clienteDuplicato && clienteDuplicatoId > 0)
+        {
+            bool usaEsistente = await JS.InvokeAsync<bool>("confirm", "Cliente già presente. Vuoi selezionare il cliente esistente invece di crearne uno nuovo?");
+            if (usaEsistente)
+            {
+                v.IDCliente = clienteDuplicatoId;
+                visualizzaPopupCliente = false;
+                await AlCambioCliente();
+                return;
+            }
+        }
+
+        using var db = new SqlConnection(conn);
+        try
+        {
+            string sql = @"INSERT INTO Clienti (RagSociale, IsNuovo, Ind_legale, Citta_Legale, CAP_Legale, Prov_Legale, Telefono, Email, PIva) OUTPUT INSERTED.IdCliente VALUES (@RagSociale, 1, @Ind_legale, @Citta_Legale, @CAP_Legale, @Prov_Legale, @Telefono, @Email, @PIva)";
+            var newId = await db.QuerySingleAsync<int>(sql, new { nuovoCliente.RagSociale, nuovoCliente.Ind_legale, nuovoCliente.Citta_Legale, nuovoCliente.CAP_Legale, nuovoCliente.Prov_Legale, nuovoCliente.Telefono, nuovoCliente.Email, nuovoCliente.PIva });
+
+            await CaricaClienti();
+            v.IDCliente = newId;
+            visualizzaPopupCliente = false;
+            await AlCambioCliente();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", "Errore salvataggio cliente: " + ex.Message);
+        }
     }
 
     private async Task CaricaListaId() {

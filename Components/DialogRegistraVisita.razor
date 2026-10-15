@@ -3,91 +3,200 @@
 @using GestioneCommerciale.Models
 @inject DialogService DialogService
 
-<div class="popup-premium-container" style="background: #ffffff; min-width: 650px;">
+<style>
+    .visit-modal {
+        background: #ffffff;
+        /* Responsive width: up to 1000px but never exceed viewport with margin */
+        width: min(1000px, calc(100vw - 40px));
+        max-width: calc(100vw - 40px);
+        min-width: 480px;
+        box-sizing: border-box;
+        border-radius: 12px;
+        box-shadow: 0 12px 36px rgba(18,38,63,0.12);
+        /* position modal centered and fixed to viewport to avoid page scrollbars */
+        position: fixed;
+        top: 5vh;
+        left: 50%;
+        transform: translateX(-50%);
+        max-height: 90vh;
+        overflow: auto;
+        font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial;
+        color: #233044;
+        z-index: 1200;
+    }
+    .visit-header {
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        padding: 18px 20px;
+        color: white;
+        display:flex;
+        align-items:center;
+        gap:15px;
+    }
+    .visit-title { font-weight:800; text-transform:uppercase; margin:0; }
+    .visit-subtitle { margin:0; font-size:12px; opacity:0.9 }
+    /* Layout fixes to avoid horizontal overflow */
+    /* Body scroll area sized relative to modal to avoid double scrollbars */
+    .visit-body { padding:18px; box-sizing: border-box; }
+    /* Calculate body max-height subtracting header/footer space (approx 140px) */
+    .visit-body { max-height: calc(90vh - 140px); overflow:auto; }
+    .visit-modal { overflow-x: hidden; }
+    .visit-body .container-fluid { padding-left: 12px; padding-right: 12px; }
+    .visit-body .row { gap: 0.75rem; }
+    .visit-body .col-md-6 { flex: 0 0 50%; max-width: 50%; min-width: 0; }
+    .visit-body .col-md-4 { flex: 0 0 33.3333%; max-width: 33.3333%; min-width: 0; }
+    .visit-body .col-md-8 { flex: 0 0 66.6667%; max-width: 66.6667%; min-width: 0; }
+    /* Ensure form controls never force horizontal scroll */
+    .visit-body input,
+    .visit-body select,
+    .visit-body textarea,
+    .visit-body .form-control,
+    .visit-body .form-select,
+    .visit-body .rz-dropdown,
+    .visit-body .radzen-dropdown {
+        width: 100% !important;
+        box-sizing: border-box !important;
+        min-width: 0 !important;
+    }
+    .visit-footer { display:flex; align-items:center; padding:14px 18px; border-top:1px solid #eef3f7; background:#fbfdff; }
+    .visit-footer .left { margin-right:auto; }
+    .btn-save-visit { background: linear-gradient(180deg,#06a77d,#058c67); color:#fff; border:none; }
+    .btn-cancel-visit { background:transparent; border:1px solid #d6dce2; }
+    .form-control { border-radius:8px; border:1px solid #e6edf3; }
+    /* Compact controls: align widths to client dropdown (60%) */
+    .client-dropdown { max-width: 60%; width: 60%; }
+    .field-full { max-width: 60%; width: 60%; box-sizing: border-box; }
+    .short-textarea { height: 70px !important; max-width: 60%; width: 60%; resize: none !important; }
+    .short-conclusions { height: 48px !important; max-width: 60%; width: 60%; resize: none !important; }
+    .checkbox-row { display:flex !important; justify-content: flex-start !important; align-items:center !important; gap:0.75rem !important; width:100% !important; padding-left:12px !important; }
+    .no-wrap { white-space: nowrap; }
+    .flag-col { margin-top: -0.6rem; display:flex; align-items:center; }
+    .no-wrap { white-space: nowrap; }
+</style>
+
+<div class="visit-modal">
     <!-- HEADER -->
-    <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 15px 20px; color: white; margin: -1rem -1rem 15px -1rem; display:flex; align-items:center; gap:15px;">
-        <span style="font-size: 2rem;">🤝</span>
+    <div class="visit-header">
+        <span style="font-size:2rem">🤝</span>
         <div>
-            <h5 style="margin:0; font-weight:800; text-transform: uppercase;">Report Visita</h5>
-            <p style="margin:0; font-size: 12px; opacity: 0.8;">Cliente: <strong>@Titolo</strong></p>
+            <h5 class="visit-title">Report Visita</h5>
+            <p class="visit-subtitle">Cliente: <strong>@Titolo</strong></p>
         </div>
     </div>
 
-    <div class="container-fluid p-3">
-        <div class="row g-3">
-            @if (VisitaModello.IDCliente <= 0)
-            {
-                <label style="font-size: 10px; font-weight: bold; color: #d63031; text-transform: uppercase; margin-bottom: 4px; display: block;">⚠️ Associa Cliente reale:</label>
-                <RadzenDropDown TValue="int" @bind-Value="VisitaModello.IDCliente"
-                                Data="@ListaClienti" TextProperty="RagSociale" ValueProperty="IdCliente"
-                                AllowFiltering="true" Placeholder="Cerca cliente..."
-                                style="width: 100%; border-radius: 8px;" />
-            }
-            else
-            {
-                <div style="display:flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <label style="font-size: 10px; font-weight: bold; color: #1e3c72; text-transform: uppercase; display: block;">🏢 Cliente Selezionato:</label>
-                        <span class="fw-bold text-primary">@GetNomeCliente(VisitaModello.IDCliente)</span>
+    <div class="visit-body">
+        <div class="container-fluid p-0">
+            <div class="row g-3">
+                @if (VisitaModello.IDCliente <= 0)
+                {
+                    <label style="font-size: 10px; font-weight: bold; color: #d63031; text-transform: uppercase; margin-bottom: 4px; display: block;">⚠️ Associa Cliente reale:</label>
+                    <RadzenDropDown class="client-dropdown" TValue="int" @bind-Value="VisitaModello.IDCliente"
+                                    Data="@ListaClienti" TextProperty="RagSociale" ValueProperty="IdCliente"
+                                    AllowFiltering="true" Placeholder="Cerca cliente..."
+                                    style="border-radius: 8px;" />
+                }
+                else
+                {
+                    <div style="display:flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <label style="font-size: 10px; font-weight: bold; color: #1e3c72; text-transform: uppercase; display: block;">🏢 Cliente Selezionato:</label>
+                            <span class="fw-bold text-primary">@GetNomeCliente(VisitaModello.IDCliente)</span>
+                        </div>
+                        @if (Titolo.Contains("manuale") || Titolo.Contains("Task")) @* Permetti il cambio solo se era un inserimento manuale *@
+                        {
+                            <button class="btn btn-sm btn-link" style="font-size: 10px;" @onclick="() => VisitaModello.IDCliente = 0">Cambia</button>
+                        }
                     </div>
-                    @if (Titolo.Contains("manuale") || Titolo.Contains("Task")) @* Permetti il cambio solo se era un inserimento manuale *@
-                    {
-                        <button class="btn btn-sm btn-link" style="font-size: 10px;" @onclick="() => VisitaModello.IDCliente = 0">Cambia</button>
-                    }
+                }
+
+                <div class="col-md-6">
+                    <label class="small fw-bold">👤 REFERENTE</label>
+                    <input class="form-control form-control-sm bg-light" @bind="VisitaModello.ReferenteIncontrato" />
                 </div>
-            }
+                <div class="col-md-6">
+                    <label class="small fw-bold">📊 ESITO</label>
+                    <select class="form-select form-select-sm bg-light" @bind="VisitaModello.StatoVisita">
+                        <option value="CONCLUSA">✅ Conclusa</option>
+                        <option value="NEGATIVA">❌ Negativa</option>
+                    </select>
+                </div>
 
-            <div class="col-md-6">
-                <label class="small fw-bold">👤 REFERENTE</label>
-                <input class="form-control form-control-sm bg-light" @bind="VisitaModello.ReferenteIncontrato" />
-            </div>
-            <div class="col-md-6">
-                <label class="small fw-bold">📊 ESITO</label>
-                <select class="form-select form-select-sm bg-light" @bind="VisitaModello.StatoVisita">
-                    <option value="CONCLUSA">✅ Conclusa</option>
-                    <option value="NEGATIVA">❌ Negativa</option>
-                </select>
-            </div>
+                <div class="col-md-6">
+                    <label class="small fw-bold">📅 DATA & ORA VISITA</label>
+                    <input type="datetime-local" class="form-control form-control-sm bg-light"
+                           value="@VisitaModello.DataVisita?.ToString("yyyy-MM-ddTHH:mm")"
+                           @onchange="@(e => { if(DateTime.TryParse(e.Value?.ToString(), out var d)) VisitaModello.DataVisita = d; })" />
+                    <small class="text-muted">Data e ora in cui è avvenuta/la visita (usata anche per posizionare l'appuntamento)</small>
+                </div>
 
-            <div class="col-md-8">
-                <label class="small fw-bold">🎯 MOTIVAZIONE</label>
-                <input class="form-control form-control-sm bg-light" @bind="VisitaModello.Motivazione" />
-            </div>
-            <div class="col-md-4">
-                <label class="small fw-bold">🔥 FEELING (1-5)</label>
-                <input type="number" min="1" max="5" class="form-control form-control-sm bg-light" @bind="VisitaModello.TemperaturaCliente" />
+                <div class="col-md-8">
+                    <label class="small fw-bold">🎯 MOTIVAZIONE</label>
+                    <input class="form-control form-control-sm bg-light" @bind="VisitaModello.Motivazione" />
+                </div>
+                <div class="col-md-4 d-flex align-items-center">
+                    <label class="small fw-bold mb-0 me-2">🔥 FEELING (1-5)</label>
+                    <input type="number" min="1" max="5" class="form-control form-control-sm bg-light" style="width:80px;" @bind="VisitaModello.TemperaturaCliente" />
+                </div>
+
+                <div class="col-12">
+                    <label class="small fw-bold">📝 RELAZIONE DETTAGLIATA</label>
+                    <div>
+                        <textarea class="form-control bg-light short-textarea field-full" @bind="VisitaModello.NoteEsito"></textarea>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <label class="small fw-bold">🏁 CONCLUSIONI</label>
+                    <div>
+                        <textarea class="form-control bg-light short-conclusions field-full" @bind="VisitaModello.Conclusioni" placeholder="Sintesi / azioni consigliate"></textarea>
+                    </div>
+                </div>
+
+            <div class="col-12 mt-2">
+                <div class="row g-2">
+                    <div class="col-md-6 d-flex align-items-center">
+                        <label class="small fw-bold mb-0 me-2" for="swS">RICHIEDE SEGUITO</label>
+                        <div class="form-check form-check-inline mb-0">
+                            <input class="form-check-input" type="checkbox" id="swS" @bind="VisitaModello.RichiedeSeguito" />
+                        </div>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-center">
+                        <label class="small fw-bold mb-0 me-2" for="chkCreaAgenda">CREA APPUNTAMENTO IN AGENDA</label>
+                        <div class="form-check form-check-inline mb-0">
+                            <input class="form-check-input" type="checkbox" id="chkCreaAgenda" @bind="VisitaModello.CreaInAgenda" />
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="col-12">
-                <label class="small fw-bold">📝 RELAZIONE DETTAGLIATA</label>
-                <textarea class="form-control bg-light" @bind="VisitaModello.NoteEsito" style="height: 200px; width:100%; resize:none;"></textarea>
-            </div>
-
-            <div class="col-12">
-                <label class="small fw-bold">🏁 CONCLUSIONI</label>
-                <textarea class="form-control bg-light" @bind="VisitaModello.Conclusioni" style="height: 100px; width:100%; resize:none;" placeholder="Sintesi / azioni consigliate"></textarea>
-            </div>
-
-            <div class="col-md-6">
-                <div class="form-check form-switch p-2 bg-light rounded shadow-sm">
-                    <input class="form-check-input ms-1" type="checkbox" @bind="VisitaModello.RichiedeSeguito" id="swS" />
-                    <label class="form-check-label ms-2 small fw-bold" for="swS">RICHIEDE SEGUITO</label>
+                <div class="field-full">
+                    <small class="text-muted d-block mb-2">Crea una tappa in Agenda per questa visita</small>
+                    <div class="row g-2">
+                        <div class="col-md-7">
+                            <label class="small fw-bold d-block">Data/Ora Appuntamento</label>
+                            <input type="datetime-local" class="form-control form-control-sm"
+                                   value="@VisitaModello.DataProssimoContatto?.ToString("yyyy-MM-ddTHH:mm")"
+                                   @onchange="@(e => { VisitaModello.DataProssimoContatto = string.IsNullOrEmpty(e.Value?.ToString()) ? (DateTime?)null : DateTime.Parse(e.Value.ToString()); })" />
+                        </div>
+                        <div class="col-md-5">
+                            <label class="small fw-bold d-block">⏱️ Durata (minuti)</label>
+                            <input type="number" min="15" class="form-control form-control-sm" @bind="VisitaModello.DurataProssimaVisita" />
+                        </div>
+                    </div>
+                    <small class="text-muted d-block mt-2">Se lasci vuoto useremo 60 minuti di default.</small>
                 </div>
             </div>
-            <div class="col-md-6">
-                <label class="small fw-bold">📅 PROSSIMO CONTATTO</label>
-                <input type="date" class="form-control form-control-sm bg-light"
-                       value="@VisitaModello.DataProssimoContatto?.ToString("yyyy-MM-dd")"
-                       @onchange="@((ChangeEventArgs e) => VisitaModello.DataProssimoContatto = string.IsNullOrEmpty(e.Value?.ToString()) ? null : DateTime.Parse(e.Value.ToString()))" />
             </div>
         </div>
     </div>
 
-    <div style="display:flex; justify-content: space-between; padding: 15px; border-top: 1px solid #eee; background: #f8f9fa;">
-        <button type="button" class="btn btn-outline-danger btn-sm" @onclick="Elimina">🗑️ ELIMINA</button>
-        <div style="display:flex; gap: 10px;">
-            <button type="button" class="btn btn-link btn-sm text-muted" @onclick="Annulla">ANNULLA</button>
-            <button type="button" class="btn btn-success btn-sm px-4" disabled="@(VisitaModello.IDCliente <= 0)" @onclick="Salva">SALVA 💾</button>
+    <div class="visit-footer">
+        <div class="left">
+            <button type="button" class="btn btn-outline-danger btn-sm" @onclick="Elimina">🗑️ ELIMINA</button>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button type="button" class="btn btn-cancel-visit btn-sm" @onclick="Annulla">Annulla</button>
+            <button type="button" class="btn btn-save-visit btn-sm px-4" disabled="@(VisitaModello.IDCliente <= 0)" @onclick="Salva">Salva</button>
         </div>
     </div>
 </div>
@@ -97,10 +206,9 @@
     [Parameter] public List<Cliente> ListaClienti { get; set; }
     [Parameter] public string Titolo { get; set; }
 
-    // Restituisci l'oggetto Visita quando si salva, null se annullato, "delete" se eliminato
     void Salva() => DialogService.Close(VisitaModello);
     void Annulla() => DialogService.Close(null);
     void Elimina() => DialogService.Close("delete");
-    string GetNomeCliente(int id) => ListaClienti?.FirstOrDefault(c => c.IdCliente == id)?.RagSociale ?? "Cliente selezionato";
 
+    string GetNomeCliente(int id) => ListaClienti?.FirstOrDefault(c => c.IdCliente == id)?.RagSociale ?? "Cliente selezionato";
 }

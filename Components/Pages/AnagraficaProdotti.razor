@@ -1006,6 +1006,45 @@ END";
     {
         if (r == null) return;
         if (!await JS.InvokeAsync<bool>("confirm", "Eliminare la voce manuale?")) return;
+        // Determine a persistent id in a robust way (ManualPriceRow.PriceHistoryId or dynamic property)
+        int idToDelete = 0;
+        try
+        {
+            idToDelete = r.PriceHistoryId;
+        }
+        catch { /* ignore */ }
+
+        // Also support cases where the item in the list is a dynamic/IDictionary loaded from DB
+        if (idToDelete == 0 && r is IDictionary<string, object> dict && dict.TryGetValue("PriceHistoryId", out var v) && v != null)
+        {
+            try { idToDelete = Convert.ToInt32(v); } catch { idToDelete = 0; }
+        }
+
+        if (idToDelete != 0)
+        {
+            try
+            {
+                using var db = new SqlConnection(conn);
+                var deleted = await db.ExecuteAsync("DELETE FROM PriceHistory WHERE PriceHistoryId = @id", new { id = idToDelete });
+                if (deleted == 0)
+                {
+                    await JS.InvokeVoidAsync("alert", "Attenzione: nessuna riga eliminata in DB (id non trovato).");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                try { await JS.InvokeVoidAsync("alert", "Errore eliminazione da DB: " + ex.Message); } catch { }
+                return; // abort removal from UI if DB delete failed
+            }
+
+            // After successful DB delete reload the results to reflect DB state
+            await EseguiRicercaRadar();
+            StateHasChanged();
+            return;
+        }
+
+        // If no persistent id, just remove the in-memory row
         listaRisultatiRadar.Remove(r);
         StateHasChanged();
     }

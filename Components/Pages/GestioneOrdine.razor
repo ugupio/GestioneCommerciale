@@ -38,6 +38,75 @@
         transition: all 0.2s;
     }
 
+
+@if (visualizzaPopupCliente)
+{
+    <div class="win-modal-backdrop">
+        <div class="win-popup">
+            <div class="win-header d-flex justify-content-between">
+                <span>REGISTRAZIONE NUOVO CLIENTE</span>
+                <span style="cursor:pointer" @onclick="() => visualizzaPopupCliente = false">×</span>
+            </div>
+
+            <div class="popup-body">
+                <label class="win-label d-block text-start">Ragione Sociale</label>
+                <input class="win-input fw-bold" @bind="nuovoCliente.RagSociale" @oninput="VerificaDuplicatoCliente" placeholder="Nome cliente..." />
+
+                <div class="mb-3">
+                    <label class="win-label d-block text-start">Indirizzo (opz.)</label>
+                    <input class="win-input" @bind="nuovoCliente.Ind_legale" placeholder="Via..." />
+                </div>
+
+                <div class="row mb-3" style="display:flex; gap:8px;">
+                    <div style="flex:1">
+                        <label class="win-label d-block text-start">Telefono (opz.)</label>
+                        <input class="win-input" @bind="nuovoCliente.Telefono" />
+                    </div>
+                    <div style="flex:1">
+                        <label class="win-label d-block text-start">Email (opz.)</label>
+                        <input class="win-input" @bind="nuovoCliente.Email" />
+                    </div>
+                </div>
+
+                <div style="margin-top:6px;">
+                    <label class="win-label d-block text-start">P.IVA (opz.)</label>
+                    <input class="win-input" @bind="nuovoCliente.PIva" @oninput="VerificaDuplicatoCliente" placeholder="Partita IVA..." />
+                </div>
+                <div style="display:flex; gap:8px; margin-top:6px;">
+                    <div style="flex:1">
+                        <label class="win-label d-block text-start">Città</label>
+                        <input class="win-input" @bind="nuovoCliente.Citta_Legale" />
+                    </div>
+                    <div style="width:80px">
+                        <label class="win-label d-block text-start">CAP</label>
+                        <input class="win-input" @bind="nuovoCliente.CAP_Legale" />
+                    </div>
+                    <div style="width:80px">
+                        <label class="win-label d-block text-start">Prov.</label>
+                        <input class="win-input" @bind="nuovoCliente.Prov_Legale" />
+                    </div>
+                </div>
+
+                @if (clienteDuplicato)
+                {
+                    <div style="margin-top:8px; padding:8px; background:#fff3cd; border:1px solid #ffeeba; color:#856404;">
+                        ⚠️ Cliente duplicato rilevato in archivio (ID: @clienteDuplicatoId).
+                        <div style="margin-top:6px;">
+                            <button class="win-btn" style="height:34px;" @onclick="() => SelezionaClienteEsistente()">Usa cliente esistente</button>
+                            <button class="win-btn" style="height:34px;" @onclick="() => clienteDuplicato = false">Ignora</button>
+                        </div>
+                    </div>
+                }
+
+                <div class="mt-4 d-flex justify-content-end gap-2">
+                    <button class="win-btn" style="height:40px; background:#005a9e; color:white;" @onclick="SalvaNuovoCliente">💾 REGISTRA</button>
+                    <button class="win-btn" style="height:40px;" @onclick="() => visualizzaPopupCliente = false">❌ ANNULLA</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
     private void OnFonteChanged(ChangeEventArgs e)
     {
         var v = e?.Value?.ToString() ?? "anagrafica";
@@ -288,12 +357,15 @@
         <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px;">
             <div>
                 <label class="win-label">Cliente</label>
-                <select class="win-input" @onchange="OnClienteChanged">
-                    <option value="0">-- Seleziona Cliente --</option>
-                    @foreach (var c in listaClienti) { 
-                        <option value="@c.IdCliente" selected="@(ordine.IDCliente == c.IdCliente)">@c.RagSociale</option> 
-                    }
-                </select>
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <select class="win-input" style="flex:1" @onchange="OnClienteChanged">
+                        <option value="0">-- Seleziona Cliente --</option>
+                        @foreach (var c in listaClienti) { 
+                            <option value="@c.IdCliente" selected="@(ordine.IDCliente == c.IdCliente)">@c.RagSociale</option> 
+                        }
+                    </select>
+                    <button class="win-btn" title="Nuovo cliente" style="height:30px; padding:4px 8px;" @onclick="() => ApriPopupNuovoCliente()">➕</button>
+                </div>
             </div>
             
             <div><label class="win-label">Data Ordine</label><input type="date" class="win-input" @bind="ordine.DataOrdine" /></div>
@@ -361,15 +433,12 @@
         <div class="win-group" style="flex: 1.6; border-left: 5px solid #005a9e; background: #f9fcff;">
             <div class="section-title">📦 INSERIMENTO PROFILI</div>
             <div style="margin-bottom:6px;">
-                <div style="display:flex; align-items:center; gap:8px;">
+                <div style="display:flex; align-items:flex-end; gap:8px;">
                     <div style="flex:1;">
                         <label class="win-label" style="margin-bottom:4px;font-size:11px;">Cerca profili (codice o descrizione)</label>
-                        <AutocompleteProdotti IsAccessorio="false" Placeholder="Cerca profili..." MaxResults="20" OnSelected="@((Prodotti p) => OnProfiloSelected(p))" />
+                        <AutocompleteProdotti IsAccessorio="false" Placeholder="Cerca profili..." MaxResults="20" OnSelected="@((Prodotti p) => OnProfiloSelected(p))" OnNoResults="@( (bool nr) => mostraTastoNuovoProfilo = nr )" OnTextChanged="@( (string t) => ricercaProfilo = t )" />
                     </div>
-                    @if (mostraTastoNuovoProfilo)
-                    {
-                        <button class="win-btn-cell" @onclick="ApriPopupProdotto" style="background:#28a745; color:white; width:28px; height:28px; padding:0;">+</button>
-                    }
+                    <button class="win-btn-cell" title="Nuovo profilo" @onclick="() => ApriPopupProdotto()" style="background:#28a745; color:white; width:28px; height:28px; padding:0;">+</button>
                 </div>
             </div>
 
@@ -404,15 +473,12 @@
     
     <!-- RIGA 1: CODICE E DESCRIZIONE -->
     <div style="margin-bottom:6px;">
-        <div style="display:flex; align-items:center; gap:8px;">
+        <div style="display:flex; align-items:flex-end; gap:8px;">
             <div style="flex:1;">
                 <label class="win-label" style="margin-bottom:4px;font-size:11px;">Cerca accessori (codice o descrizione)</label>
-                <AutocompleteProdotti IsAccessorio="true" Placeholder="Cerca accessori..." MaxResults="20" OnSelected="@((Prodotti p) => OnAccessorioSelected(p))" />
+                <AutocompleteProdotti IsAccessorio="true" Placeholder="Cerca accessori..." MaxResults="20" OnSelected="@((Prodotti p) => OnAccessorioSelected(p))" OnNoResults="@( (bool nr) => mostraTastoNuovoAccessorio = nr )" OnTextChanged="@( (string t) => ricercaAccessorio = t )" />
             </div>
-            @if (mostraTastoNuovoAccessorio)
-            {
-                <button class="win-btn-cell" @onclick="ApriPopupAccessorio" style="background:#28a745; color:white; width:28px; height:28px; padding:0; flex-shrink:0;">+</button>
-            }
+            <button class="win-btn-cell" title="Nuovo accessorio" @onclick="() => ApriPopupAccessorio()" style="background:#28a745; color:white; width:28px; height:28px; padding:0; flex-shrink:0;">+</button>
         </div>
     </div>
 
@@ -736,6 +802,8 @@ else
     private DettaglioOrdine rigaP = new() { IsAccessorio = false, Quantita = 1, LunghezzaVerga = 6.50m };
     private DettaglioOrdine rigaA = new() { IsAccessorio = true, Quantita = 1 };
     private List<Cliente> listaClienti = new();
+    private string ricercaProfilo = string.Empty;
+    private string ricercaAccessorio = string.Empty;
     private List<int> listaIdOrdini = new();
     private int indiceCorrente = -1;
     private string testoNotifica = "";
@@ -751,12 +819,61 @@ else
     private bool mostraTastoNuovoOrdine = false;
     private bool mostraTastoNuovoProfilo = false;
     private bool visualizzaPopupProdotto = false;
+    private bool visualizzaPopupCliente = false;
+    private Cliente nuovoCliente = new();
+    private bool clienteDuplicato = false;
+    private int clienteDuplicatoId = 0;
     private Prodotti nuovoProdottoListino = new();
     private string snapshotInizialeRiga = "";
     private bool mostraTastoNuovoAccessorio = false;
     private bool codiceDuplicatoOrdine = false;
     private List<Attivita> taskPendenti = new();
     List<Attivita> tuttiITaskAperti = new();
+
+    private void ApriPopupNuovoCliente()
+    {
+        nuovoCliente = new Cliente();
+        visualizzaPopupCliente = true;
+    }
+
+    private async Task SalvaNuovoCliente()
+    {
+        if (string.IsNullOrWhiteSpace(nuovoCliente.RagSociale))
+        {
+            await JS.InvokeVoidAsync("alert", "Inserire la Ragione Sociale del cliente.");
+            return;
+        }
+
+        if (clienteDuplicato && clienteDuplicatoId > 0)
+        {
+            // Se rilevato duplicato, proponi di usare il cliente esistente
+            bool usaEsistente = await JS.InvokeAsync<bool>("confirm", "Cliente già presente. Vuoi selezionare il cliente esistente invece di crearne uno nuovo?");
+            if (usaEsistente)
+            {
+                ordine.IDCliente = clienteDuplicatoId;
+                visualizzaPopupCliente = false;
+                StateHasChanged();
+                return;
+            }
+        }
+
+        using var db = new SqlConnection(conn);
+        try
+        {
+            string sql = @"INSERT INTO Clienti (RagSociale, IsNuovo, Ind_legale, Citta_Legale, CAP_Legale, Prov_Legale, Telefono, Email, PIva) OUTPUT INSERTED.IdCliente VALUES (@RagSociale, 1, @Ind_legale, @Citta_Legale, @CAP_Legale, @Prov_Legale, @Telefono, @Email, @PIva)";
+            var newId = await db.QuerySingleAsync<int>(sql, new { nuovoCliente.RagSociale, nuovoCliente.Ind_legale, nuovoCliente.Citta_Legale, nuovoCliente.CAP_Legale, nuovoCliente.Prov_Legale, nuovoCliente.Telefono, nuovoCliente.Email, nuovoCliente.PIva });
+
+            listaClienti = (await db.QueryAsync<Cliente>("SELECT IdCliente, RagSociale FROM Clienti ORDER BY RagSociale")).ToList();
+            ordine.IDCliente = newId;
+            visualizzaPopupCliente = false;
+            StateHasChanged();
+            await JS.InvokeVoidAsync("console.log", $"Nuovo cliente inserito id={newId}");
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", "Errore salvataggio cliente: " + ex.Message);
+        }
+    }
     [Parameter] public int id { get; set; }
     private string snapshotOriginale = "";
     private void SalvaStatoIniziale()
@@ -1054,13 +1171,61 @@ else
             codiceDuplicatoOrdine = conteggio > 0;
         }
 
+    private async Task VerificaDuplicatoCliente(ChangeEventArgs e)
+    {
+        // Aggiorna binding prima di controllare
+        // i valori sono legati via @bind quindi nuovoCliente sarà aggiornato
+        clienteDuplicato = false;
+        clienteDuplicatoId = 0;
+
+        if (string.IsNullOrWhiteSpace(nuovoCliente.RagSociale) && string.IsNullOrWhiteSpace(nuovoCliente.PIva))
+            return;
+
+        using var db = new SqlConnection(conn);
+
+        // Se c'è partita IVA, usiamola come chiave primaria di ricerca
+        if (!string.IsNullOrWhiteSpace(nuovoCliente.PIva))
+        {
+            var idPiva = await db.QueryFirstOrDefaultAsync<int?>("SELECT TOP 1 IdCliente FROM Clienti WHERE PIva = @piva", new { piva = nuovoCliente.PIva.Trim() });
+            if (idPiva.HasValue)
+            {
+                clienteDuplicato = true;
+                clienteDuplicatoId = idPiva.Value;
+                return;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(nuovoCliente.RagSociale))
+        {
+            var idRag = await db.QueryFirstOrDefaultAsync<int?>("SELECT TOP 1 IdCliente FROM Clienti WHERE LTRIM(RTRIM(RagSociale)) = @rag", new { rag = nuovoCliente.RagSociale.Trim() });
+            if (idRag.HasValue)
+            {
+                clienteDuplicato = true;
+                clienteDuplicatoId = idRag.Value;
+                return;
+            }
+        }
+    }
+
+    private void SelezionaClienteEsistente()
+    {
+        if (clienteDuplicato && clienteDuplicatoId > 0)
+        {
+            ordine.IDCliente = clienteDuplicatoId;
+            visualizzaPopupCliente = false;
+        }
+    }
+
 
         private void ApriPopupProdotto()
         {
             // Prepariamo l'oggetto per il listino usando quello che hai già scritto nella riga
+            // Se l'utente ha digitato qualcosa nella ricerca, usiamolo per precompilare il codice
+            var codicePrefill = !string.IsNullOrWhiteSpace(ricercaProfilo) ? ricercaProfilo : rigaP.CodiceProdotto;
+
             nuovoProdottoListino = new Prodotti 
     { 
-        CodiceProdotto = rigaP.CodiceProdotto, //Prende solo il codice che stavi scrivendo
+        CodiceProdotto = codicePrefill, //Prende il codice che stavi scrivendo o la ricerca
         Descrizione = "",
         PesoAlMetro = 0m,
         LunghezzaVerga = 6.5m, // Default, l'utente può cambiarlo
@@ -1227,9 +1392,11 @@ else
 
         private void ApriPopupAccessorio()
         {
+            var codicePrefill = !string.IsNullOrWhiteSpace(ricercaAccessorio) ? ricercaAccessorio : rigaA.CodiceProdotto;
+
             nuovoProdottoListino = new Prodotti 
     { 
-        CodiceProdotto = rigaA.CodiceProdotto, // Mantiene solo il codice che stavi scrivendo
+        CodiceProdotto = codicePrefill, // Mantiene il codice che stavi scrivendo o la ricerca
         Descrizione = "",
         FinituraAccessorio = "",
         IsAccessorio = true,
@@ -1644,6 +1811,16 @@ StateHasChanged();
     {
         await JS.InvokeVoidAsync("alert", "Inserire una descrizione!");
         return;
+    }
+
+    // Verifica duplicato codice prodotto
+    if (!string.IsNullOrWhiteSpace(nuovoProdottoListino.CodiceProdotto))
+    {
+        if (await VerificaCodiceEsistente(nuovoProdottoListino.CodiceProdotto))
+        {
+            await JS.InvokeVoidAsync("alert", "Codice prodotto già presente in archivio. Impossibile creare duplicato.");
+            return;
+        }
     }
 
     using var db = new SqlConnection(conn);

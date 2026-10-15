@@ -1,0 +1,301 @@
+@inject GestioneCommerciale.Services.ReminderService ReminderService
+@inject GestioneCommerciale.Services.SettingsService SettingsService
+@inject Radzen.DialogService DialogService
+@inject Radzen.NotificationService NotificationService
+@inject NavigationManager Nav
+@inject ILogger<Microsoft.AspNetCore.Components.ComponentBase> Logger
+@inject IJSRuntime JSRuntime
+
+@using System.Data.SqlClient
+@using Dapper
+@using Radzen
+
+<style>
+	.mr-panel {
+		background: rgba(255,255,255,0.98);
+		border-radius: 14px;
+		padding: 14px;
+		box-shadow: 0 12px 36px rgba(14,30,60,0.12);
+		font-family: 'Segoe UI', sans-serif;
+		color: #233044;
+	}
+	.mr-header { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+	.mr-title { font-weight:800; color:#1e3c72; margin:0; }
+	.mr-sub { color:#556987; font-size:0.9rem; }
+	.reminder-card {
+		background: linear-gradient(180deg,#ffffff,#f7fbff);
+		border-radius:12px;
+		padding:12px;
+		box-shadow:0 14px 30px rgba(14,30,60,0.08);
+		border-left:4px solid #00b4d8;
+		transition: transform 0.12s ease, box-shadow 0.12s ease;
+	}
+	.reminder-card:hover { transform: translateY(-4px); box-shadow:0 20px 40px rgba(14,30,60,0.12); }
+	.reminder-actions button { min-width:44px; height:36px; padding:6px; border-radius:8px; }
+	.reminder-meta { color:#5b6b80; font-size:0.9rem; }
+	.pending-card {
+		background:linear-gradient(180deg,#ffffff,#fffdfa);
+		border-radius:10px;
+		padding:10px;
+		box-shadow:0 10px 28px rgba(18,38,63,0.05);
+		display:flex; justify-content:space-between; align-items:center;
+		border-left:4px solid #ffd166;
+	}
+	.icon-btn { background:transparent; border:1px solid #e6edf3; padding:6px 8px; border-radius:8px; cursor:pointer; font-size:1rem; }
+	.icon-btn:hover { background:#eef7ff; border-color:#cfeffd; }
+	.icon-primary { background:#00b4d8; color:white; border:none; }
+	.icon-danger { background:#ef476f; color:white; border:none; }
+	.badge-count { background:#00b4d8; color:white; padding:6px 10px; border-radius:999px; font-weight:700; font-size:0.85rem; }
+</style>
+
+<div class="mr-panel">
+	<div class="mr-header">
+		<div style="flex:1;">
+			<h4 class="mr-title">Promemoria</h4>
+			<div class="mr-sub">Controlla e programma promemoria clientes</div>
+		</div>
+		<div style="display:flex; align-items:center; gap:10px;">
+			<div class="badge-count">@((dueItems?.Count ?? 0))</div>
+			<button class="rz-button rz-primary" @onclick="LoadAll">Aggiorna elenco</button>
+		</div>
+	</div>
+
+	<div style="display:flex; gap:20px; align-items:flex-start;">
+		<div style="flex:1; min-width:280px;">
+			<h5 style="margin-bottom:8px">Promemoria dalle Visite</h5>
+
+			@if (isLoadingDue)
+			{
+				<div>Caricamento...</div>
+			}
+			else if (dueItems == null || dueItems.Count == 0)
+			{
+				<div class="text-muted">Nessun promemoria previsto entro la soglia.</div>
+			}
+			else
+			{
+				<div style="display:flex; flex-direction:column; gap:10px;">
+					@foreach (var it in dueItems)
+					{
+						<div class="reminder-card">
+							<div style="display:flex; justify-content:space-between; gap:12px; align-items:center;">
+								<div>
+									<div style="font-weight:700; color:#0f2b4a;">@it.DataProssimoContatto.ToString("g")</div>
+									<div style="margin-top:4px;"><a href='@($"/nuova-visita?id={it.IDVisita}")' target="_blank">Visita @it.IDVisita</a></div>
+									<div class="reminder-meta">@it.RagSociale</div>
+								</div>
+								<div class="reminder-actions" style="display:flex; gap:8px; align-items:center;">
+									<button class="icon-btn" title="Programma visita" @onclick="() => OpenScheduleVisita(it)">⏰</button>
+									<button class="icon-btn" title="Aggiungi ai promemoria" @onclick="() => AddToLog(it.IDVisita, it.DataProssimoContatto)">📌</button>
+								</div>
+							</div>
+						</div>
+					}
+				</div>
+			}
+		</div>
+
+		<div style="flex:1; min-width:320px;">
+			<h5>Promemoria pendenti</h5>
+
+			@if (isLoadingPending)
+			{
+				<div>Caricamento...</div>
+			}
+			else if (pendingItems == null)
+			{
+				<div class="text-muted">Premi "Aggiorna" per caricare.</div>
+			}
+			else if (!pendingItems.Any())
+			{
+				<div class="text-muted">Nessun promemoria pendente.</div>
+			}
+			else
+			{
+				<div style="display:flex; flex-direction:column; gap:10px;">
+					@foreach (var p in pendingItems)
+					{
+						<div class="pending-card">
+							<div style="display:flex; gap:12px; align-items:center;">
+								<div style="width:6px; height:40px; background:#ffd166; border-radius:4px; margin-right:8px;"></div>
+								<div>
+									<div style="font-weight:700; color:#0f2b4a;">@(((DateTime?)p.DataPromemoria)?.ToString("g") ?? "")</div>
+									<div style="margin-top:4px;"><a href='@($"/nuova-visita?id={p.IDVisita}")' target="_blank">Visita @p.IDVisita</a> <span class="reminder-meta">- @((string?)p.RagSociale ?? "")</span></div>
+								</div>
+							</div>
+							<div style="display:flex; gap:8px; align-items:center;">
+								<input type="checkbox" @onchange="async (e) => await MarkDone(p.LogId)" />
+								<button class="icon-btn icon-primary" title="Segna come fatto" @onclick="() => ConfirmMarkDone(p.LogId)" aria-label="Segna come fatto">
+									<!-- check SVG -->
+									<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+										<path d="M20 6L9 17l-5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+									</svg>
+								</button>
+							</div>
+						</div>
+					}
+				</div>
+			}
+		</div>
+	</div>
+</div>
+
+@code {
+	private List<GestioneCommerciale.Models.ReminderItem>? dueItems;
+	private List<dynamic>? pendingItems;
+	private bool isLoadingDue = false;
+	private bool isLoadingPending = false;
+	private string conn = @"Server=.\SQLEXPRESS;Database=GestAgenti;Trusted_Connection=True;TrustServerCertificate=True;";
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadAll();
+	}
+
+	private async Task LoadAll()
+	{
+		await LoadDue();
+		await LoadPending();
+	}
+
+	private async Task LoadDue()
+	{
+		try
+		{
+			isLoadingDue = true;
+			var settings = await SettingsService.GetReminderSettingsAsync();
+			dueItems = await ReminderService.GetDueRemindersAsync(settings);
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError(ex, "Errore caricamento promemoria dalle visite");
+		}
+		finally { isLoadingDue = false; }
+	}
+
+	private async Task LoadPending()
+	{
+		try
+		{
+			isLoadingPending = true;
+			var list = await ReminderService.GetPendingPromemoriaAsync();
+			pendingItems = list.Select(x => (dynamic)x).ToList();
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError(ex, "Errore caricamento promemoria pendenti");
+			pendingItems = new List<dynamic>();
+		}
+		finally { isLoadingPending = false; }
+	}
+
+	private async Task AddToLog(int idVisita, DateTime dataPromemoria)
+	{
+		try
+		{
+			var res = await ReminderService.CreateLogIfNotExistsAsync(idVisita, dataPromemoria, "MANUAL");
+			if (res > 0)
+			{
+				await LoadAll();
+			}
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError(ex, "Errore aggiunta promemoria al log");
+		}
+	}
+
+	private async Task MarkDone(int logId)
+	{
+		try
+		{
+			await ReminderService.MarkGestitoAsync(logId);
+			await LoadAll();
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError(ex, "Errore segnando promemoria come gestito");
+		}
+	}
+
+	private async Task ConfirmMarkDone(int logId)
+	{
+		try
+		{
+			var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Segnare questo promemoria come fatto?");
+				if (confirmed) await MarkDone(logId);
+				else
+				{
+					// mostra notifica annullata
+					NotificationService.Notify(new Radzen.NotificationMessage { Severity = NotificationSeverity.Info, Summary = "Annullato", Detail = "Operazione annullata", Duration = 3000 });
+				}
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError(ex, "Errore conferma promemoria");
+		}
+	}
+
+	private async Task OpenScheduleVisita(GestioneCommerciale.Models.ReminderItem item)
+	{
+		try
+		{
+			List<GestioneCommerciale.Models.Cliente> listaClienti;
+			using (var db = new SqlConnection(conn))
+			{
+				listaClienti = (await db.QueryAsync<GestioneCommerciale.Models.Cliente>("SELECT IdCliente, RagSociale FROM Clienti ORDER BY RagSociale")).ToList();
+			}
+
+			var nuova = new GestioneCommerciale.Models.Visita
+			{
+				IDCliente = item.IDCliente,
+				DataVisita = item.DataProssimoContatto,
+				DataProssimoContatto = item.DataProssimoContatto,
+				StatoVisita = "2",
+				CreaInAgenda = true,
+				DurataProssimaVisita = 60,
+				RagSociale = item.RagSociale
+			};
+
+			var parameters = new Dictionary<string, object?>()
+			{
+				{ "VisitaModello", nuova },
+				{ "ListaClienti", listaClienti },
+				{ "Titolo", $"Programma visita {item.RagSociale}" }
+			};
+
+			var result = await DialogService.OpenAsync<Components.DialogRegistraVisita>("Programma Visita", parameters, new Radzen.DialogOptions() { Width = "700px", Style = "border-radius: 20px; padding:0;" });
+
+			if (result is GestioneCommerciale.Models.Visita visitaResult)
+			{
+				using var db = new SqlConnection(conn);
+				var id = await db.ExecuteScalarAsync<int>(@"INSERT INTO Visite (IDCliente, DataVisita, StatoVisita, Motivazione, ReferenteIncontrato, NoteEsito, Conclusioni, TemperaturaCliente, RichiedeSeguito, DataProssimoContatto) 
+													VALUES (@IDCliente, @DataVisita, @StatoVisita, @Motivazione, @ReferenteIncontrato, @NoteEsito, @Conclusioni, @TemperaturaCliente, @RichiedeSeguito, @DataProssimoContatto); SELECT CAST(SCOPE_IDENTITY() as int);", visitaResult);
+
+				try
+				{
+					var rawStato = (visitaResult.StatoVisita ?? "").ToString().ToUpperInvariant();
+					bool isProgrammata = rawStato == "2" || rawStato.Contains("PROG");
+					if (isProgrammata && visitaResult.CreaInAgenda && visitaResult.DataProssimoContatto.HasValue)
+					{
+						string sqlCheck = "SELECT COUNT(1) FROM Agenda WHERE Tipo='VISITA' AND IdCliente=@IdCliente AND DataInizio=@DataInizio";
+						var exists = await db.ExecuteScalarAsync<int>(sqlCheck, new { IdCliente = visitaResult.IDCliente, DataInizio = visitaResult.DataProssimoContatto });
+						if (exists == 0)
+						{
+							string sqlAgenda = @"INSERT INTO Agenda (IdCliente, DataInizio, DataFine, Titolo, Tipo, Dettaglio, IsChiuso, Priorita) VALUES (@IdCliente, @DataInizio, @DataFine, @Titolo, 'VISITA', @Dettaglio, 0, 1)";
+							await db.ExecuteAsync(sqlAgenda, new { IdCliente = visitaResult.IDCliente, DataInizio = visitaResult.DataProssimoContatto, DataFine = visitaResult.DataProssimoContatto.Value.AddMinutes(visitaResult.DurataProssimaVisita), Titolo = "Visita: " + (listaClienti.FirstOrDefault(c => ((dynamic)c).IdCliente == visitaResult.IDCliente)?.RagSociale ?? "Visita"), Dettaglio = visitaResult.Motivazione });
+						}
+					}
+				}
+				catch { }
+
+				await LoadAll();
+				NotificationService.Notify(new Radzen.NotificationMessage { Severity = NotificationSeverity.Success, Summary = "Visita programmata", Detail = "La visita è stata aggiunta in agenda.", Duration = 4000 });
+			}
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError(ex, "Errore programmazione visita dal promemoria");
+		}
+	}
+}

@@ -4,7 +4,7 @@
 @namespace GestioneCommerciale.Components
 
 <div class="autocomplete-dropdown" style="position:relative; width:100%;">
-	<input id="autocomplete-@((IsAccessorio) ? "acc" : "prof")" aria-label="@Placeholder" value="@SearchTextBacking" @oninput="OnInput" @onkeydown="OnKeyDown" placeholder="@Placeholder" class="form-control" style="display:block; width:100%; min-width:80px; height:32px; padding:6px; background:@(IsAccessorio ? "#f0fff0" : "#fffde7"); box-sizing: border-box;" />
+	<input id="autocomplete-@((IsAccessorio) ? "acc" : "prof")" aria-label="@Placeholder" value="@SearchTextBacking" @oninput="OnInput" @onkeydown="OnKeyDown" placeholder="@Placeholder" class="form-control" style="display:block; width:100%; min-width:80px; height:28px; padding:4px 6px; background:@(IsAccessorio ? "#f0fff0" : "#fffde7"); box-sizing: border-box;" />
 	@if (ShowDropdown && Results?.Any() == true)
 	{
 		<div class="dropdown-panel" style="position:absolute; left:0; right:0; z-index:9999; background:white; border:1px solid #ddd; width:100%; max-height:240px; overflow:auto; box-shadow:0 6px 18px rgba(0,0,0,0.08);">
@@ -36,6 +36,7 @@
 	[Parameter] public EventCallback<Prodotti> OnSelected { get; set; }
 	[Parameter] public string Placeholder { get; set; } = "Cerca...";
 	[Parameter] public int MaxResults { get; set; } = 20;
+	[Parameter] public EventCallback<bool> OnNoResults { get; set; }
 
 	private string SearchText { get; set; } = string.Empty;
 	private List<Prodotti> Results { get; set; } = new();
@@ -106,6 +107,9 @@
 				var term = SearchText.Trim();
 				Results = await ProdottiService.SearchProdottiAsync(term, IsAccessorio, MaxResults);
 				ShowDropdown = Results.Any();
+				// Notifica al parent se non ci sono risultati e la ricerca ha almeno 2 caratteri
+				bool noResults = term.Length >= 2 && !Results.Any();
+				try { await OnNoResults.InvokeAsync(noResults); } catch { }
 			}
 		}
 		catch (Exception ex)
@@ -137,8 +141,13 @@
 	{
 		SearchTextBacking = e?.Value?.ToString() ?? string.Empty;
 		StartDebounce();
+		// Notifica il parent del testo corrente (per permettere precompilazione o apertura popup)
+		try { await OnTextChanged.InvokeAsync(SearchTextBacking); } catch { }
 		await Task.CompletedTask;
 	}
+
+	[Parameter]
+	public EventCallback<string> OnTextChanged { get; set; }
 
 	private string _searchTextBacking;
 	private string SearchTextBacking

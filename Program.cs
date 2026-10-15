@@ -25,6 +25,15 @@ builder.Services.AddRadzenComponents();
 builder.Services.AddScoped<PianificatoreService>();
 builder.Services.AddScoped<VisitaService>();
 builder.Services.AddScoped<ProdottiService>();
+// Telegram notifications (leggi appsettings: Telegram:BotToken e Telegram:ChatId)
+builder.Services.AddSingleton<GestioneCommerciale.Services.TelegramService>();
+// Impostazioni globali per i promemoria (valore semplice in memoria, persistete in seguito)
+builder.Services.AddSingleton(new GestioneCommerciale.Models.ReminderSettings());
+
+// Servizio che esegue il controllo giornaliero dei promemoria alle 09:00
+builder.Services.AddHostedService<GestioneCommerciale.Services.DailyReminderService>();
+builder.Services.AddSingleton<GestioneCommerciale.Services.SettingsService>();
+builder.Services.AddScoped<GestioneCommerciale.Services.ReminderService>();
 
 
 var app = builder.Build();

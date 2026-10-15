@@ -1,0 +1,76 @@
+@using GestioneCommerciale.Models
+@inject GestioneCommerciale.Models.ReminderSettings Settings
+@inject Radzen.DialogService DialogService
+@inject GestioneCommerciale.Services.SettingsService SettingsService
+
+<div style="min-width:420px; padding:18px;">
+	<h5 style="margin-bottom:12px;">Impostazioni promemoria globali</h5>
+
+	<div class="mb-3">
+		<label class="form-label">Unità</label>
+		<div style="display:flex; gap:8px; margin-top:6px;">
+			<button class="btn @(unit=="Days"?"btn-primary":"btn-outline-secondary")" @onclick="SetUnitDays">Giorni</button>
+			<button class="btn @(unit=="Hours"?"btn-primary":"btn-outline-secondary")" @onclick="SetUnitHours">Ore</button>
+		</div>
+	</div>
+
+	<div class="mb-3">
+		<label class="form-label">Anticipo</label>
+		<select class="form-select" @bind="value" style="margin-top:6px;">
+			@foreach(var v in values)
+			{
+				<option value="@v">@v</option>
+			}
+		</select>
+		<small class="text-muted">Scegli quanto in anticipo mostrare i promemoria.</small>
+	</div>
+
+	<div class="mb-3">
+		<label class="form-label">Orario giornaliero</label>
+		<input type="time" class="form-control" value="@timeString" @onchange="OnTimeChanged" style="margin-top:6px;" />
+		<small class="text-muted">Promemoria eseguiti ogni giorno a questa ora (formato 24h).</small>
+	</div>
+
+	<div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+		<button class="btn btn-outline-secondary" @onclick="Cancel">Annulla</button>
+		<button class="btn btn-success" @onclick="Save">Salva</button>
+	</div>
+</div>
+
+@code {
+	private string unit = "Days";
+	private int value = 1;
+	private string timeString = "09:00";
+
+	private int[] dayOptions = new[] { 0, 1, 2, 3, 7 };
+	private int[] hourOptions = new[] { 1, 3, 6, 12, 24 };
+
+	private IEnumerable<int> values => unit == "Hours" ? hourOptions : dayOptions;
+
+	protected override void OnInitialized()
+	{
+		unit = Settings.LeadUnit ?? "Days";
+		value = Settings.LeadValue;
+		timeString = Settings.ReminderTime ?? "09:00";
+	}
+
+	private void SetUnitDays() => unit = "Days";
+	private void SetUnitHours() => unit = "Hours";
+
+	private void OnTimeChanged(ChangeEventArgs e)
+	{
+		timeString = e?.Value?.ToString() ?? "09:00";
+	}
+
+	private void Cancel() => DialogService.Close(false);
+
+	private void Save()
+	{
+		Settings.LeadUnit = unit;
+		Settings.LeadValue = value;
+		Settings.ReminderTime = timeString ?? "09:00";
+		// Persist to DB
+		_ = SettingsService.SaveReminderSettingsAsync(Settings);
+		DialogService.Close(true);
+	}
+}

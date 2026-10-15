@@ -60,7 +60,7 @@ public class SchedaClienteUfficiale : IDocument
         {
             col.Item().Row(row =>
             {
-                row.RelativeItem(2).Element(e => CampoAgenteSenzaLinea(e, "AGENTE:", "GUCCI"));
+                row.RelativeItem(1).Element(e => CampoAgenteSenzaLinea(e, "AGENTE:", "Gucci Riccardo"));
                 row.RelativeItem().PaddingLeft(20).Column(c => {
                     c.Item().Text("☐ Show room").FontSize(8);
                     c.Item().Text("☐ Serramentista").FontSize(8);
@@ -80,11 +80,15 @@ public class SchedaClienteUfficiale : IDocument
                 row.ConstantItem(100).PaddingLeft(15).Element(e => CampoDato(e, "PROV.", C.Prov_Legale));
             });
 
-            col.Item().PaddingTop(30);
+            // Riduciamo lo spazio verticale prima della riga contatti e riallochiamo le colonne
+            col.Item().PaddingTop(15);
             col.Item().Row(row => {
-                row.RelativeItem().Element(e => CampoDato(e, "TEL", C.Telefono));
-                row.RelativeItem().PaddingLeft(15).Element(e => CampoDato(e, "FAX", C.Fax));
-                row.RelativeItem().PaddingLeft(15).Element(e => CampoDato(e, "E-MAIL", C.Email));
+                // Telefono: larghezza normale
+                row.RelativeItem(1).Element(e => CampoDato(e, "TEL", C.Telefono));
+                // Fax: campo più piccolo per lasciare più spazio alla email
+                row.ConstantItem(120).PaddingLeft(10).Element(e => CampoDato(e, "FAX", C.Fax));
+                // Email: spazio più ampio
+                row.RelativeItem(2).PaddingLeft(15).Element(e => CampoDato(e, "E-MAIL", C.Email));
             });
 
             col.Item().PaddingTop(15).Row(row => {

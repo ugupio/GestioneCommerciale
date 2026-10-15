@@ -75,7 +75,7 @@
     }
 
     .btn-premium.btn-tall {
-    height: 90px !important;           /* Ancora più basso/compatto */
+    height: 78px !important;           /* Ridotto leggermente per fare spazio a un pulsante aggiuntivo */
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
@@ -83,6 +83,8 @@
     gap: 2px !important;               /* Spazio minimo tra icona e testo */
     cursor: pointer !important;        /* Forza la manina al posto del cursore testo */
     text-align: center !important;
+    min-width: 86px !important;       /* Limita la larghezza minima per stringere i pulsanti */
+    padding: 6px 8px !important;      /* Riduce padding orizzontale per compattare */
     border-radius: 12px !important;
     transition: all 0.2s ease-in-out !important;
     background: #ffffff !important;
@@ -116,7 +118,7 @@
 
     <!-- MENU RAPIDO CON PULSANTI ALTI IL DOPPIO -->
     <div class="win-group">
-    <table style="width:100%; table-layout: fixed; border-spacing: 10px; border-collapse: separate;">
+    <table style="width:auto; margin:0 auto; table-layout: auto; border-spacing: 6px; border-collapse: separate;">
         <tr>
             <td>
                 <div class="btn-premium btn-tall" @onclick='() => Nav.NavigateTo("/nuovo-ordine")'>
@@ -160,6 +162,13 @@
                     <span style="font-size: 2.5rem;">✅</span>
                     <span>GESTIONE<br/>TASK</span>
                 </div>
+            </td>
+            <td>
+                <a class="btn-premium btn-tall" href="https://www.twinsystems.it/professionisti/cataloghi/" target="_blank" rel="noopener noreferrer">
+                    <!-- Logo ufficiale Twin System (file in wwwroot) -->
+                    <img src="/logo-twin.png" alt="Twin System" style="height:48px; width:auto; display:block; margin-bottom:6px;" />
+                    <span style="font-size:0.78rem; line-height:1rem;"><br/>CATALOGHI</span>
+                </a>
             </td>
         </tr>
     </table>
@@ -206,6 +215,25 @@
                     <td><span class="val-main text-return">@datiSettimana.Resi.ToString()</span><span class="val-sub">pratiche</span></td>
                     <td><span class="val-main text-return">@datiMese.Resi.ToString()</span><span class="val-sub">pratiche</span></td>
                     <td><span class="val-main text-return">@datiAnno.Resi.ToString()</span><span class="val-sub">pratiche</span></td>
+                </tr>
+                <tr>
+                    <td class="row-label">🧾 PREVENTIVI</td>
+                    <td>
+                        <span class="val-main text-money">@datiOggi.PreventiviImporto.ToString("N2") €</span>
+                        <span class="val-sub">@datiOggi.PreventiviCount.ToString() doc.</span>
+                    </td>
+                    <td>
+                        <span class="val-main text-money">@datiSettimana.PreventiviImporto.ToString("N2") €</span>
+                        <span class="val-sub">@datiSettimana.PreventiviCount.ToString() doc.</span>
+                    </td>
+                    <td>
+                        <span class="val-main text-money">@datiMese.PreventiviImporto.ToString("N2") €</span>
+                        <span class="val-sub">@datiMese.PreventiviCount.ToString() doc.</span>
+                    </td>
+                    <td>
+                        <span class="val-main text-money">@datiAnno.PreventiviImporto.ToString("N2") €</span>
+                        <span class="val-sub">@datiAnno.PreventiviCount.ToString() doc.</span>
+                    </td>
                 </tr>
             </tbody>
         </table>
@@ -464,6 +492,7 @@
     FROM Ordini o 
     JOIN Clienti c ON o.IDCliente = c.IdCliente
     WHERE o.DataConsegnaPrevista < GETDATE() AND o.DataConsegnaEffettiva IS NULL
+      AND o.StatoOrdine = 'Ordine' -- Escludi i preventivi (StatoOrdine = 'Preventivo')
     ORDER BY o.DataConsegnaPrevista ASC";
 
         
@@ -677,6 +706,16 @@ private void ChiudiPopup()
         p.Ordini = statsOrdini?.Conteggio ?? 0;
         p.Fatturato = statsOrdini?.Totale ?? 0;
 
+        // Conteggio Preventivi e importo totale preventivi
+        var statsPreventivi = await db.QueryFirstOrDefaultAsync(@"
+            SELECT COUNT(IDOrdine) as Conteggio, SUM(TotaleImponibile) as Totale 
+            FROM Ordini 
+            WHERE DataOrdine >= @dataInizio 
+            AND StatoOrdine = 'Preventivo'", new { dataInizio });
+
+        p.PreventiviCount = statsPreventivi?.Conteggio ?? 0;
+        p.PreventiviImporto = statsPreventivi?.Totale ?? 0;
+
         // Conteggio Visite
         p.Visite = await db.ExecuteScalarAsync<int>(@"
             SELECT COUNT(IDVisita) FROM Visite WHERE DataVisita >= @dataInizio", new { dataInizio });
@@ -694,6 +733,9 @@ private void ChiudiPopup()
         public int Ordini { get; set; } = 0;
         public int Visite { get; set; } = 0;
         public int Resi { get; set; } = 0;
+        // Nuovi campi per i preventivi
+        public int PreventiviCount { get; set; } = 0;
+        public decimal PreventiviImporto { get; set; } = 0;
     }
 
     public class ClienteDormiente
